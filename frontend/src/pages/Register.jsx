@@ -12,6 +12,9 @@ const validate = (values) => {
     errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
   }
   if (!values.role) errors.role = 'Vui lòng chọn vai trò';
+  if (values.role === 'teacher' && !values.teacher_secret.trim()) {
+    errors.teacher_secret = 'Vui lòng nhập mã giáo viên';
+  }
   return errors;
 };
 
@@ -128,6 +131,23 @@ const Register = () => {
             </div>
             {errors.role && <p className="mt-1 text-sm text-red-500">{errors.role}</p>}
           </div>
+
+          {form.role === 'teacher' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mã giáo viên</label>
+              <input
+                type="password"
+                name="teacher_secret"
+                value={form.teacher_secret || ''}
+                onChange={handleChange}
+                className={`w-full px-4 py-2.5 border rounded-lg outline-none transition-colors focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] ${
+                  errors.teacher_secret ? 'border-red-400' : 'border-gray-300'
+                }`}
+                placeholder="nhập mã bí mật"
+              />
+              {errors.teacher_secret && <p className="mt-1 text-sm text-red-500">{errors.teacher_secret}</p>}
+            </div>
+          )}
 
           <button
             type="submit"

@@ -36,11 +36,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async ({ username, password, full_name, role }) => {
+  const register = async ({ username, password, full_name, role, teacher_secret }) => {
     setLoading(true);
     try {
       const { data } = await api.post('/api/register', {
-        username, password, full_name, role: role || 'student',
+        username, password, full_name, role: role || 'student', teacher_secret,
       });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));

@@ -15,7 +15,15 @@ const generateToken = (user) => {
 };
 
 // Đăng ký người dùng mới
-export const register = async ({ username, email, password, full_name, role }) => {
+export const register = async ({ username, email, password, full_name, role, teacher_secret }) => {
+  // Kiểm tra teacher_secret nếu đăng ký giáo viên
+  if (role === 'teacher') {
+    const expected = process.env.TEACHER_SECRET;
+    if (!expected || teacher_secret !== expected) {
+      throw new Error('Mã giáo viên không đúng');
+    }
+  }
+
   // Kiểm tra username đã tồn tại
   const { data: existingUsername } = await supabase
     .from('users')
