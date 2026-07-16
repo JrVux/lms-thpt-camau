@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import api from '../services/api';
 
 const teacherMenu = [
@@ -38,13 +38,25 @@ const Layout = () => {
   const [stats, setStats] = useState(null);
   const [topRank, setTopRank] = useState(null);
 
-  useEffect(() => {
+  const fetchStats = useCallback(() => {
     if (!user) return;
     api.get('/api/stats').then(({ data }) => setStats(data)).catch(() => {});
-    if (user.role === 'teacher') {
-      api.get('/api/stats/top-rank').then(({ data }) => setTopRank(data)).catch(() => {});
-    }
   }, [user]);
+
+  const fetchTopRank = useCallback(() => {
+    if (!user || user.role !== 'teacher') return;
+    api.get('/api/stats/top-rank').then(({ data }) => setTopRank(data)).catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    fetchStats();
+    fetchTopRank();
+    const interval = setInterval(() => {
+      fetchStats();
+      fetchTopRank();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStats, fetchTopRank]);
 
   const menu = user?.role === 'teacher' ? teacherMenu : studentMenu;
 
@@ -117,6 +129,9 @@ const Layout = () => {
             <div className="px-4 mt-3 space-y-2">
               <p className="text-xs text-yellow-300 uppercase tracking-wide font-medium px-1 flex items-center gap-1">
                 <span>🏆</span> Top Rank
+                <button onClick={fetchTopRank} className="ml-auto p-0.5 rounded hover:bg-blue-400 transition-colors" title="Làm mới">
+                  <ArrowPathIcon className="w-3 h-3" />
+                </button>
               </p>
               {['10', '11', '12'].map((g) => {
                 const students = topRank[g] || [];
