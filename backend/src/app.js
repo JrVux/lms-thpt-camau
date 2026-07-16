@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import https from 'https';
 import routes from './routes/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,17 +43,17 @@ app.use(cors({
 // Parse JSON body
 app.use(express.json({ limit: '10mb' }));
 
-// General rate limit
+// General rate limit (3000 req/15 ph = ~3.3 req/s, đủ cho 225+ HS)
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 3000,
   message: { success: false, message: 'Quá nhiều yêu cầu, vui lòng thử lại sau', code: 'RATE_LIMIT' },
 }));
 
-// Login rate limit (10 req/min/IP)
+// Login rate limit (60 req/min/IP)
 app.use('/api/login', rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 60,
   message: { success: false, message: 'Quá nhiều lần đăng nhập, vui lòng thử lại sau 1 phút', code: 'LOGIN_RATE_LIMIT' },
 }));
 
@@ -103,6 +104,16 @@ app.use((err, req, res, next) => {
     code: err.code || 'INTERNAL_ERROR',
   });
 });
+
+// Keep-alive: tự ping mỗi 5 ph để Render Free không ngủ
+if (process.env.NODE_ENV === 'production') {
+  const host = process.env.RENDER_EXTERNAL_URL;
+  if (host) {
+    const ping = () => https.get(`${host}/health`, (res) => logger.info(`Keep-alive ping: ${res.statusCode}`));
+    setInterval(ping, 5 * 60 * 1000);
+    ping();
+  }
+}
 
 app.listen(PORT, () => {
   logger.info(`Server đang chạy tại port ${PORT}`);
