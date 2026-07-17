@@ -74,15 +74,14 @@ const Layout = () => {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="relative flex flex-col items-center justify-center h-20 px-6 border-b border-blue-400 flex-shrink-0">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-blue-400 flex-shrink-0">
+          <span className="text-xl font-bold">LMS THPT CÀ MAU</span>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="absolute right-3 top-3 lg:hidden p-1 rounded hover:bg-blue-400"
+            className="lg:hidden p-1 rounded hover:bg-blue-400"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto mb-0.5" />
-          <span className="text-base font-bold">LMS THPT CÀ MAU</span>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -160,12 +159,15 @@ const Layout = () => {
 
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="h-16 bg-white border-b flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded hover:bg-gray-100"
-          >
-            <Bars3Icon className="w-6 h-6 text-gray-600" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded hover:bg-gray-100"
+            >
+              <Bars3Icon className="w-6 h-6 text-gray-600" />
+            </button>
+            <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
+          </div>
 
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm text-gray-600">
