@@ -70,24 +70,67 @@ Chạy file `backend/src/database/schema.sql` trong Supabase SQL Editor.
 
 ## Deploy
 
-### Backend lên Railway
+### Backend — Cách 1 (khuyên dùng): Fly.io (miễn phí, không ngủ)
+
+Fly.io free tier: **3 VM luôn chạy 24/7**, 256MB RAM mỗi VM, 160GB egress/tháng.
+
+```bash
+# Đăng ký Fly.io
+fly auth signup
+
+# Deploy
+fly launch --copy-config --no-deploy
+fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=... JWT_SECRET=... CORS_ORIGIN=https://your-app.vercel.app
+fly deploy
+
+# Scale xuống free tier (1 shared VM)
+fly scale vm shared-cpu-1x --memory 256
+fly scale count 1
+```
+
+Sau deploy xong, chạy:
+```bash
+fly open   # copy domain để dùng cho frontend
+```
+
+### Backend — Cách 2: Render (free, có ngủ sau 15 phút)
 
 1. Push code lên GitHub
-2. Vào [Railway](https://railway.app) → New Project → Deploy from GitHub
-3. Add các biến môi trường (xem `.env.example`)
-4. Deploy tự động, Railway tự detect `Procfile`
-5. Copy domain `.railway.app` để dùng cho frontend
+2. Vào [Render](https://render.com) → New Web Service → Connect repo
+3. Render tự detect `render.yaml` → Blueprint → Deploy
+4. Vào Dashboard → set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `JWT_SECRET`
+5. Copy domain `.onrender.com` để dùng cho frontend
+
+> ⚠ Render free: 750h/tháng (~31 ngày). Dùng cron-job.org ping mỗi 10 ph để tránh sleep.
 
 ### Frontend lên Vercel
 
 1. Push code lên GitHub
 2. Vào [Vercel](https://vercel.com) → Add New Project
-3. Import GitHub repo, chọn folder frontend
+3. Import GitHub repo, chọn folder `frontend`
 4. **Framework Preset:** Vite
 5. **Build Command:** `npm run build`
 6. **Output Directory:** `dist`
-7. Thêm environment variable: `VITE_API_URL` = backend URL (Railway domain)
+7. Thêm environment variable: `VITE_API_URL` = backend URL (Fly.io hoặc Render domain)
 8. Deploy
+
+### Giữ Supabase free project không bị pause
+
+Supabase free project bị pause sau **7 ngày không hoạt động**. Để tránh:
+
+**Cách A — Dùng cron-job.org (miễn phí):**
+1. Vào [cron-job.org](https://cron-job.org) → Đăng ký
+2. Tạo job:
+   - **URL:** `https://sfanqrirgbxpgrhcamit.supabase.co/rest/v1/`
+   - **Interval:** Every 5 days
+   - **Method:** GET
+3. Thêm job thứ 2:
+   - **URL:** `https://lms-thpt-camau.onrender.com/health` (backen‌d URL của bạn)
+   - **Interval:** Every 10 minutes
+   - **Method:** GET
+
+**Cách B — Dùng GitHub Actions (có sẵn trong repo):**
+Chạy script `node backend/scripts/keep-alive.mjs` trên GitHub Actions mỗi 5 ngày.
 
 ## Checklist kiểm tra trước khi dùng
 

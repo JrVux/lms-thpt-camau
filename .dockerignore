@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+.vite
+README.md
+render.yaml
+fly.toml
+backend/logs
+backend/.env
+frontend/.env
+frontend/node_modules
+package-lock.json
+backend/package-lock.json
+frontend/package-lock.json

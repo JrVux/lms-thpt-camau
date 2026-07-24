@@ -6,6 +6,7 @@ services:
     plan: free
     buildCommand: npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -17,3 +18,5 @@ services:
         sync: false
       - key: TEACHER_SECRET
         sync: false
+      - key: CORS_ORIGIN
+        value: https://lms-thpt-camau.vercel.app

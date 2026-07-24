@@ -7,6 +7,7 @@ import winston from 'winston';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
+import http from 'http';
 import routes from './routes/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +25,7 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' || !process.env.DISABLE_CONSOLE_LOG) {
   logger.add(new winston.transports.Console({ format: winston.format.simple() }));
 }
 
@@ -43,10 +44,10 @@ app.use(cors({
 // Parse JSON body
 app.use(express.json({ limit: '10mb' }));
 
-// General rate limit (3000 req/15 ph = ~3.3 req/s, đủ cho 225+ HS)
+// General rate limit (5000 req/15 ph = ~5.5 req/s, đủ cho 250+ HS)
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3000,
+  max: 5000,
   message: { success: false, message: 'Quá nhiều yêu cầu, vui lòng thử lại sau', code: 'RATE_LIMIT' },
 }));
 
@@ -107,12 +108,24 @@ app.use((err, req, res, next) => {
 
 // Keep-alive: tự ping mỗi 5 ph để Render Free không ngủ
 if (process.env.NODE_ENV === 'production') {
-  const host = process.env.RENDER_EXTERNAL_URL;
-  if (host) {
-    const ping = () => https.get(`${host}/health`, (res) => logger.info(`Keep-alive ping: ${res.statusCode}`));
-    setInterval(ping, 5 * 60 * 1000);
-    ping();
-  }
+  const host = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  const agent = host.startsWith('https') ? https : http;
+  const ping = () => {
+    const req = agent.get(`${host}/health`, (res) => {
+      logger.info(`Keep-alive ping: ${res.statusCode}`);
+      res.resume();
+    });
+    req.on('error', (err) => logger.warn(`Keep-alive failed: ${err.message}`));
+    req.setTimeout(10000, () => { req.destroy(); logger.warn('Keep-alive timeout'); });
+  };
+  setInterval(ping, 5 * 60 * 1000);
+  ping();
+}
+
+// Cấu hình Supabase project ID để cron-job.org ping giữ project không bị pause
+const SUPABASE_PROJECT_ID = process.env.SUPABASE_URL?.match(/https:\/\/(.+)\.supabase\.co/)?.[1];
+if (SUPABASE_PROJECT_ID) {
+  logger.info(`Supabase project ID: ${SUPABASE_PROJECT_ID} — dùng cron-job.org ping /rest/v1/ để giữ active`);
 }
 
 app.listen(PORT, () => {

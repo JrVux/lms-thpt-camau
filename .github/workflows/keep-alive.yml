@@ -1,0 +1,19 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node backend/scripts/keep-alive.mjs
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL || 'https://lms-thpt-camau.onrender.com' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://sfanqrirgbxpgrhcamit.supabase.co' }}
