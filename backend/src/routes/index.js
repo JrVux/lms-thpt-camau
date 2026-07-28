@@ -36,6 +36,7 @@ router.post('/api/classes', authenticate, requireRole('teacher'), [
 ], classController.create);
 
 router.get('/api/classes', authenticate, classController.list);
+router.delete('/api/classes/:id', authenticate, requireRole('teacher'), classController.deleteClass);
 
 router.post('/api/classes/join', authenticate, requireRole('student'), [
   body('class_code').trim().isLength({ min: 6, max: 6 }).withMessage('Mã lớp phải 6 ký tự'),

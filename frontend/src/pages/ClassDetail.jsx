@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { getEligibleTargetClasses } from '../utils/assignmentSharing';
+import { canConfirmClassDeletion } from '../utils/classDeletion';
 
 const TeacherTabs = ({ classId }) => {
   const [tab, setTab] = useState('students');
@@ -1005,8 +1006,13 @@ const StudentAssignments = ({ classId }) => {
 
 const ClassDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [classInfo, setClassInfo] = useState(null);
+  const [showDeleteClass, setShowDeleteClass] = useState(false);
+  const [deleteName, setDeleteName] = useState('');
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     api.get('/api/classes').then(({ data }) => {
@@ -1015,19 +1021,102 @@ const ClassDetail = () => {
     });
   }, [id]);
 
+  const closeDeleteDialog = () => {
+    if (deletePending) return;
+    setShowDeleteClass(false);
+    setDeleteName('');
+    setDeleteError('');
+  };
+
+  const deleteClass = async () => {
+    if (!canConfirmClassDeletion(deleteName, classInfo?.name) || deletePending) return;
+    setDeletePending(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/api/classes/${id}`);
+      navigate('/classes', { replace: true });
+    } catch (error) {
+      setDeleteError(error.response?.data?.message || 'Xóa lớp thất bại');
+      setDeletePending(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6">
         {classInfo && (
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-gray-800">{classInfo.name}</h1>
-            <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Khối {classInfo.grade}</span>
-            <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium uppercase">{classInfo.subject}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-800">{classInfo.name}</h1>
+              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Khối {classInfo.grade}</span>
+              <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium uppercase">{classInfo.subject}</span>
+            </div>
+            {user?.role === 'teacher' && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteClass(true)}
+                className="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-sm font-medium"
+              >
+                Xóa lớp
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {user?.role === 'teacher' ? <TeacherTabs classId={id} /> : <StudentAssignments classId={id} />}
+
+      {showDeleteClass && classInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeDeleteDialog}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-red-700">Xóa lớp vĩnh viễn?</h2>
+            <p className="text-sm text-gray-600 mt-3">
+              Lớp <strong>{classInfo.name}</strong>, danh sách học sinh trong lớp,
+              bài đã giao, bài nộp và điểm sẽ bị xóa vĩnh viễn.
+            </p>
+            <p className="text-sm text-gray-600 mt-2">
+              Tài khoản học sinh và bài gốc trong Kho bài tập vẫn được giữ lại.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mt-5 mb-1">
+              Nhập chính xác <strong>{classInfo.name}</strong> để xác nhận
+            </label>
+            <input
+              type="text"
+              value={deleteName}
+              onChange={(event) => setDeleteName(event.target.value)}
+              disabled={deletePending}
+              autoFocus
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-red-200 focus:border-red-500 disabled:bg-gray-100"
+              placeholder={classInfo.name}
+            />
+            {deleteError && <p className="text-sm text-red-600 mt-3">{deleteError}</p>}
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={deletePending}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 font-medium text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={deleteClass}
+                disabled={!canConfirmClassDeletion(deleteName, classInfo.name) || deletePending}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed font-medium text-sm"
+              >
+                {deletePending ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
