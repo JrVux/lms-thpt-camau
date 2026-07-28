@@ -24,7 +24,8 @@ const runHTMLTests = (htmlCode, testCases) => {
 };
 
 const HTMLPractice = () => {
-  const { id: assignmentId } = useParams();
+  const { id: assignmentId, deliveryId } = useParams();
+  const storageId = deliveryId || assignmentId;
   const navigate = useNavigate();
   const debounceRef = useRef(null);
   const [assignment, setAssignment] = useState(null);
@@ -39,16 +40,33 @@ const HTMLPractice = () => {
   const [draftCode, setDraftCode] = useState('');
   const [submissionInfo, setSubmissionInfo] = useState(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [pendingRegrade, setPendingRegrade] = useState(null);
+  const [regradeMessage, setRegradeMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [assignRes, subRes] = await Promise.all([
-          api.get(`/api/assignments/${assignmentId}`),
-          api.get(`/api/submissions/my/${assignmentId}`),
-        ]);
-        const assignData = assignRes.data;
+        const [assignRes, subRes] = deliveryId
+          ? [await api.get(`/api/assignment-deliveries/${deliveryId}`), { data: null }]
+          : await Promise.all([
+            api.get(`/api/assignments/${assignmentId}`),
+            api.get(`/api/submissions/my/${assignmentId}`),
+          ]);
+        let assignData = deliveryId ? assignRes.data.assignments : assignRes.data;
+        let regradeCode = null;
+        if (deliveryId) {
+          const pending = assignRes.data.submissions?.find((item) => ['required', 'failed'].includes(item.regrade_status));
+          if (pending) {
+            const { data: regrade } = await api.get(`/api/submissions/${pending.id}/regrade`);
+            assignData = regrade.assignment;
+            regradeCode = regrade.code;
+            setCode(regrade.code);
+            setPreviewHtml(regrade.code);
+            setPendingRegrade(pending);
+          }
+        }
         setAssignment(assignData);
+        if (regradeCode !== null) return;
         if (subRes.data) {
           setSubmissionInfo(subRes.data);
           if (subRes.data.remaining_attempts === 0 && subRes.data.data) {
@@ -67,7 +85,7 @@ const HTMLPractice = () => {
           }
         }
 
-        const saved = localStorage.getItem(STORAGE_KEY(assignmentId));
+        const saved = localStorage.getItem(STORAGE_KEY(storageId));
         const starter = assignData.starter_code || '<!DOCTYPE html>\n<html>\n<head><title>Trang của tôi</title></head>\n<body>\n  \n</body>\n</html>';
 
         if (saved && saved !== starter) {
@@ -85,18 +103,34 @@ const HTMLPractice = () => {
       }
     };
     load();
-  }, [assignmentId]);
+  }, [assignmentId, deliveryId, storageId]);
+
+  useEffect(() => {
+    if (!pendingRegrade || !assignment) return;
+    const execute = async () => {
+      setRegradeMessage('Đang tự động chấm lại...');
+      const regradeResults = runHTMLTests(code, assignment.test_cases ?? []);
+      try {
+        await api.post(`/api/submissions/${pendingRegrade.id}/regrade`, { results: regradeResults });
+        setRegradeMessage('Đã chấm lại theo phiên bản mới.');
+        setPendingRegrade(null);
+      } catch (requestError) {
+        setRegradeMessage(requestError.response?.data?.message || 'Chấm lại chưa thành công, điểm cũ vẫn được giữ.');
+      }
+    };
+    execute();
+  }, [pendingRegrade, assignment, code]);
 
   const handleCodeChange = useCallback((value) => {
     const v = value || '';
     setCode(v);
-    localStorage.setItem(STORAGE_KEY(assignmentId), v);
+    localStorage.setItem(STORAGE_KEY(storageId), v);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setPreviewHtml(v);
     }, 500);
-  }, [assignmentId]);
+  }, [storageId]);
 
   const continueDraft = () => {
     setCode(draftCode);
@@ -105,7 +139,7 @@ const HTMLPractice = () => {
   };
 
   const discardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY(assignmentId));
+    localStorage.removeItem(STORAGE_KEY(storageId));
     setShowDraftPrompt(false);
   };
 
@@ -132,14 +166,13 @@ const HTMLPractice = () => {
     }
     setSubmitting(true);
     try {
-      await api.post('/api/submit', {
-        assignment_id: assignmentId,
-        code,
-        results,
-      });
-      localStorage.removeItem(STORAGE_KEY(assignmentId));
-      if (!assignment?.class_id) throw new Error('Không tìm thấy class_id');
-      navigate(`/classes/${assignment.class_id}`);
+      if (deliveryId) {
+        await api.post(`/api/assignment-deliveries/${deliveryId}/submit`, { code, results });
+      } else {
+        await api.post('/api/submit', { assignment_id: assignmentId, code, results });
+      }
+      localStorage.removeItem(STORAGE_KEY(storageId));
+      navigate(deliveryId ? '/assignments' : `/classes/${assignment.class_id}`);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Nộp bài thất bại');
     } finally {
@@ -156,6 +189,7 @@ const HTMLPractice = () => {
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col">
+      {regradeMessage && <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{regradeMessage}</div>}
       {showDraftPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">

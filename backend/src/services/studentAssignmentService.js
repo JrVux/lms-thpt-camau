@@ -77,7 +77,18 @@ export const createStudentAssignmentService = (db) => {
     if (!enrollment || !canReceive(delivery, userId)) {
       throw new Error('Bạn không được chỉ định làm bài tập này.');
     }
-    return { ...delivery, assignments: withoutSolution(delivery.assignments) };
+    const { data: submissions, error: submissionError } = await db
+      .from('submissions')
+      .select('id,code,score,max_score,regrade_status,submitted_at')
+      .eq('delivery_id', deliveryId)
+      .eq('user_id', userId)
+      .order('submitted_at', { ascending: false });
+    throwDbError(submissionError);
+    return {
+      ...delivery,
+      assignments: withoutSolution(delivery.assignments),
+      submissions: submissions ?? [],
+    };
   };
 
   return {
