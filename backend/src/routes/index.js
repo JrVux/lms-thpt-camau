@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.js';
 import * as authController from '../controllers/authController.js';
 import * as classController from '../controllers/classController.js';
 import * as assignmentController from '../controllers/assignmentController.js';
+import * as assignmentLibraryController from '../controllers/assignmentLibraryController.js';
 import * as submissionController from '../controllers/submissionController.js';
 import * as statsController from '../controllers/statsController.js';
 
@@ -49,6 +50,13 @@ router.get('/api/students/search', authenticate, requireRole('teacher'), classCo
 router.get('/api/students/unassigned', authenticate, requireRole('teacher'), classController.getUnassignedStudents);
 router.delete('/api/students/:userId', authenticate, requireRole('teacher'), classController.deleteStudentAccount);
 router.post('/api/classes/:id/students/enroll', authenticate, requireRole('teacher'), classController.enrollExistingStudent);
+
+// Assignment library routes (must stay before /api/assignments/:id)
+router.get('/api/assignment-library', authenticate, requireRole('teacher'), assignmentLibraryController.list);
+router.post('/api/assignment-library', authenticate, requireRole('teacher'), assignmentLibraryController.create);
+router.get('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.get);
+router.patch('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.update);
+router.post('/api/assignment-library/:id/test-cases', authenticate, requireRole('teacher'), assignmentLibraryController.replaceTestCases);
 
 // Assignment routes
 router.post('/api/assignments', authenticate, requireRole('teacher'), [
