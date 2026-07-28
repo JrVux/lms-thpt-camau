@@ -21,4 +21,4 @@ services:
       - key: TEACHER_SECRET
         sync: false
       - key: CORS_ORIGIN
-        value: https://lms-thpt-camau.vercel.app
+        value: https://frontend-alpha-henna-71.vercel.app
