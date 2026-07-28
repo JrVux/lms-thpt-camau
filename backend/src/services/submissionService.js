@@ -1,11 +1,39 @@
 import { supabase } from './supabaseClient.js';
+import { scoreResults } from './studentAssignmentService.js';
+export { scoreResults };
+
+const resolveAuthorizedDelivery = async (assignmentId, userId) => {
+  const { data: deliveries, error } = await supabase
+    .from('assignment_deliveries')
+    .select('id,class_id,due_date,max_submissions,is_published,recipient_mode,assignment_recipients(user_id)')
+    .eq('assignment_id', assignmentId)
+    .eq('is_published', true);
+  if (error) throw new Error('Không thể kiểm tra quyền nhận bài.');
+  const classIds = (deliveries ?? []).map((delivery) => delivery.class_id);
+  if (classIds.length === 0) throw new Error('Bạn không được chỉ định làm bài tập này.');
+  const { data: enrollments, error: enrollmentError } = await supabase
+    .from('enrollments')
+    .select('class_id')
+    .eq('user_id', userId)
+    .in('class_id', classIds);
+  if (enrollmentError) throw new Error('Không thể kiểm tra lớp của học sinh.');
+  const enrolledClassIds = new Set((enrollments ?? []).map((row) => row.class_id));
+  const delivery = deliveries.find((item) => enrolledClassIds.has(item.class_id)
+    && (item.recipient_mode === 'all'
+      || item.assignment_recipients?.some((row) => row.user_id === userId)));
+  if (!delivery) throw new Error('Bạn không được chỉ định làm bài tập này.');
+  if (delivery.due_date && new Date(delivery.due_date) < new Date()) {
+    throw new Error('Bài tập đã quá hạn nộp.');
+  }
+  return delivery;
+};
 
 // Nộp bài (tạo mới hoặc cập nhật nếu đã nộp)
 export const submit = async ({ assignment_id, code, results }, userId) => {
   // Lấy thông tin assignment và test cases để tính điểm
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, max_score, is_published, test_cases(*)')
+    .select('id, max_score, content_version, test_cases(*)')
     .eq('id', assignment_id)
     .single();
 
@@ -13,27 +41,15 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
     throw new Error('Không tìm thấy bài tập');
   }
 
-  if (!assignment.is_published) {
-    throw new Error('Bài tập chưa được publish');
-  }
-
-  // Lấy max_submissions (có thể chưa có column trong DB)
-  let maxSubmissions = null;
-  try {
-    const { data: colData } = await supabase
-      .from('assignments')
-      .select('max_submissions')
-      .eq('id', assignment_id)
-      .single();
-    if (colData) maxSubmissions = colData.max_submissions;
-  } catch {}
+  const delivery = await resolveAuthorizedDelivery(assignment_id, userId);
+  const maxSubmissions = delivery.max_submissions;
 
   // Kiểm tra số lần nộp bài
   const { count, error: countError } = await supabase
     .from('submissions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('assignment_id', assignment_id);
+    .eq('delivery_id', delivery.id);
 
   if (countError) throw new Error('Lỗi kiểm tra số lần nộp bài');
 
@@ -44,77 +60,24 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
   }
 
   // Tính score
-  let score = 0;
-  let max_score = assignment.max_score || 0;
-
-  if (assignment.test_cases && assignment.test_cases.length > 0) {
-    // SQL/HTML: test cases có trong DB, dùng pointsMap
-    const pointsMap = {};
-    for (const tc of assignment.test_cases) {
-      pointsMap[tc.id] = tc.points;
-    }
-    for (const r of results) {
-      if (r.passed && pointsMap[r.test_case_id]) {
-        score += pointsMap[r.test_case_id];
-      }
-    }
-  } else {
-    // Python: test suites từ test_code, tính từ results
-    const totalTestPoints = results.reduce((sum, r) => sum + (r.points || 1), 0);
-    const earned = results.reduce((sum, r) => sum + (r.passed ? (r.points || 1) : 0), 0);
-    if (max_score && totalTestPoints > 0) {
-      // Nếu teacher set max_score, tính score theo tỉ lệ
-      score = Math.round((earned / totalTestPoints) * max_score);
-    } else {
-      score = earned;
-      max_score = totalTestPoints;
-    }
-  }
+  const scored = scoreResults(assignment.test_cases, results, assignment.max_score);
+  const score = scored.score;
+  const max_score = scored.maxScore;
 
   // Luôn INSERT (cho phép nhiều lần nộp)
-  const { data: created, error: createError } = await supabase
-    .from('submissions')
-    .insert([{ user_id: userId, assignment_id, code, score, max_score }])
-    .select('*')
-    .single();
+  const { data: created, error: createError } = await supabase.rpc('create_submission_with_results', {
+    p_user_id: userId,
+    p_assignment_id: assignment_id,
+    p_delivery_id: delivery.id,
+    p_code: code,
+    p_score: score,
+    p_max_score: max_score,
+    p_content_version: assignment.content_version,
+    p_results: scored.rows,
+  });
 
   if (createError) throw new Error('Nộp bài thất bại');
   const submissionId = created.id;
-
-  // Thêm submission_results mới
-  if (results.length > 0) {
-    const resultRows = results.map((r) => {
-      const row = {
-        submission_id: submissionId,
-        test_case_id: r.test_case_id || null,
-        passed: r.passed,
-        actual_output: r.actual_output || '',
-        error_message: r.error_message || '',
-      };
-      if (r.test_name !== undefined) row.test_name = r.test_name;
-      if (r.points !== undefined) row.points = r.points;
-      return row;
-    });
-
-    const { error: resultError } = await supabase
-      .from('submission_results')
-      .insert(resultRows);
-
-    if (resultError) {
-      // Thử lại không có test_name / points (cột chưa tồn tại trong DB)
-      const fallbackRows = resultRows.map((r) => ({
-        submission_id: r.submission_id,
-        test_case_id: r.test_case_id,
-        passed: r.passed,
-        actual_output: r.actual_output,
-        error_message: r.error_message,
-      }));
-      const { error: fallbackError } = await supabase
-        .from('submission_results')
-        .insert(fallbackRows);
-      if (fallbackError) throw new Error('Lưu kết quả test thất bại');
-    }
-  }
 
   const remaining = maxSubmissions !== null ? maxSubmissions - attempted - 1 : null;
 
@@ -148,11 +111,17 @@ export const getGradebook = async (classId, teacherId) => {
   }));
 
   // Lấy danh sách bài tập
-  const { data: assignments } = await supabase
-    .from('assignments')
-    .select('id, title, type, max_score')
+  const { data: deliveries } = await supabase
+    .from('assignment_deliveries')
+    .select('id, assignment_id, assignments:assignment_id(title,type,max_score)')
     .eq('class_id', classId)
     .order('created_at', { ascending: true });
+  const assignments = (deliveries ?? []).map((delivery) => ({
+    id: delivery.id,
+    delivery_id: delivery.id,
+    assignment_id: delivery.assignment_id,
+    ...delivery.assignments,
+  }));
 
   // Lấy tất cả submissions của lớp này
   const assignmentIds = assignments.map((a) => a.id);
@@ -162,8 +131,8 @@ export const getGradebook = async (classId, teacherId) => {
   if (assignmentIds.length > 0 && studentIds.length > 0) {
     const { data } = await supabase
       .from('submissions')
-      .select('user_id, assignment_id, score, max_score, submitted_at')
-      .in('assignment_id', assignmentIds)
+      .select('user_id, delivery_id, score, max_score, submitted_at')
+      .in('delivery_id', assignmentIds)
       .in('user_id', studentIds)
       .order('submitted_at', { ascending: false });
     submissions = data || [];
@@ -173,7 +142,7 @@ export const getGradebook = async (classId, teacherId) => {
   const submissionMap = {};
   const seen = new Set();
   for (const sub of submissions) {
-    const key = `${sub.user_id}_${sub.assignment_id}`;
+    const key = `${sub.user_id}_${sub.delivery_id}`;
     if (seen.has(key)) continue; // bỏ qua các bản ghi cũ hơn
     seen.add(key);
     submissionMap[key] = {

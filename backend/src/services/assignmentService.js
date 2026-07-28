@@ -46,7 +46,7 @@ export const createAssignment = async (data, teacherId) => {
 export const updateAssignment = async (assignmentId, data, teacherId) => {
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, class_id, classes!inner(teacher_id)')
+    .select('id, class_id, content_version, max_score, classes!inner(teacher_id)')
     .eq('id', assignmentId)
     .single();
 
@@ -68,6 +68,18 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
   if (data.due_date !== undefined) updates.due_date = data.due_date;
   if (data.max_submissions !== undefined) updates.max_submissions = data.max_submissions === null ? null : parseInt(data.max_submissions);
   if (data.max_score !== undefined) updates.max_score = parseInt(data.max_score) || 0;
+  const scoringChanged = ['starter_code', 'solution_code', 'test_code', 'setup_sql', 'max_score']
+    .some((field) => data[field] !== undefined);
+  if (scoringChanged) {
+    const { data: updated, error } = await supabase.rpc('update_assignment_content', {
+      p_assignment_id: assignmentId,
+      p_teacher_id: teacherId,
+      p_updates: updates,
+      p_library_only: false,
+    });
+    if (error) throw new Error('Cập nhật bài tập thất bại: ' + error.message);
+    return updated;
+  }
 
   const { data: updated, error } = await supabase
     .from('assignments')
@@ -82,27 +94,7 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
 
 // Thêm / cập nhật test cases cho bài tập
 export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
-  // Kiểm tra quyền sở hữu
-  const { data: assignment, error: assignError } = await supabase
-    .from('assignments')
-    .select('id, class_id, classes!inner(teacher_id)')
-    .eq('id', assignmentId)
-    .single();
-
-  if (assignError || !assignment) {
-    throw new Error('Không tìm thấy bài tập');
-  }
-
-  if (assignment.classes.teacher_id !== teacherId) {
-    throw new Error('Bạn không phải giáo viên của lớp này');
-  }
-
-  // Xóa test cases cũ
-  await supabase.from('test_cases').delete().eq('assignment_id', assignmentId);
-
-  // Thêm test cases mới với order_index
   const newTestCases = testCases.map((tc, index) => ({
-    assignment_id: assignmentId,
     input_data: tc.input_data || '',
     expected_output: tc.expected_output,
     test_name: tc.test_name || `Test ${index + 1}`,
@@ -110,25 +102,13 @@ export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
     order_index: index,
   }));
 
-  const { data: inserted, error } = await supabase
-    .from('test_cases')
-    .insert(newTestCases)
-    .select('*');
-
-  if (error) {
-    throw new Error('Lưu test cases thất bại: ' + error.message);
-  }
-
-  // Tính max_score = tổng points
-  const max_score = newTestCases.reduce((sum, tc) => sum + tc.points, 0);
-
-  // Cập nhật max_score vào assignment
-  await supabase
-    .from('assignments')
-    .update({ max_score })
-    .eq('id', assignmentId);
-
-  return { test_cases: inserted, max_score };
+  const { data, error } = await supabase.rpc('replace_assignment_tests', {
+    p_assignment_id: assignmentId,
+    p_teacher_id: teacherId,
+    p_test_cases: newTestCases,
+  });
+  if (error) throw new Error('Lưu test cases thất bại: ' + error.message);
+  return data;
 };
 
 // Lấy chi tiết bài tập kèm test cases
@@ -142,11 +122,6 @@ export const getAssignment = async (assignmentId, userId, role) => {
     `)
     .eq('id', assignmentId);
 
-  // Student chỉ thấy bài đã publish
-  if (role === 'student') {
-    query.eq('is_published', true);
-  }
-
   const { data: assignment, error } = await query.single();
 
   if (error || !assignment) {
@@ -155,7 +130,27 @@ export const getAssignment = async (assignmentId, userId, role) => {
 
   // Ẩn solution_code với student
   if (role === 'student') {
+    const { data: deliveries } = await supabase
+      .from('assignment_deliveries')
+      .select('id,class_id,is_published,recipient_mode,assignment_recipients(user_id)')
+      .eq('assignment_id', assignmentId)
+      .eq('is_published', true);
+    const classIds = (deliveries ?? []).map((delivery) => delivery.class_id);
+    const { data: enrollments } = classIds.length > 0
+      ? await supabase
+        .from('enrollments')
+        .select('class_id')
+        .eq('user_id', userId)
+        .in('class_id', classIds)
+      : { data: [] };
+    const enrolledClassIds = new Set((enrollments ?? []).map((row) => row.class_id));
+    const authorized = (deliveries ?? []).some((delivery) => enrolledClassIds.has(delivery.class_id)
+      && (delivery.recipient_mode === 'all'
+        || delivery.assignment_recipients?.some((row) => row.user_id === userId)));
+    if (!authorized) throw new Error('Bạn không được chỉ định làm bài tập này.');
     delete assignment.solution_code;
+  } else if ((assignment.teacher_id || assignment.classes?.teacher_id) !== userId) {
+    throw new Error('Bạn không có quyền xem bài tập này.');
   }
 
   return assignment;
@@ -288,6 +283,25 @@ export const createShareAssignmentsService = (supabaseClient) => async (
 
 export const shareAssignments = createShareAssignmentsService(supabase);
 
+export const canStudentSeeDelivery = (delivery, userId) =>
+  Boolean(delivery.is_published)
+  && (delivery.recipient_mode === 'all'
+    || (delivery.assignment_recipients ?? []).some((row) => row.user_id === userId));
+
+export const flattenDeliveryAssignment = (delivery) => ({
+  ...delivery.assignments,
+  id: delivery.assignment_id,
+  assignment_id: delivery.assignment_id,
+  library_assignment_id: delivery.library_assignment_id,
+  delivery_id: delivery.id,
+  class_id: delivery.class_id,
+  due_date: delivery.due_date,
+  is_published: delivery.is_published,
+  max_submissions: delivery.max_submissions,
+  sync_mode: delivery.sync_mode,
+  recipient_mode: delivery.recipient_mode,
+});
+
 export const getClassAssignments = async (classId, userId, role) => {
   // Kiểm tra quyền truy cập lớp
   if (role === 'teacher') {
@@ -315,22 +329,19 @@ export const getClassAssignments = async (classId, userId, role) => {
     }
   }
 
-  let query = supabase
-    .from('assignments')
-    .select('*')
+  const query = supabase
+    .from('assignment_deliveries')
+    .select('*, assignments:assignment_id(*), assignment_recipients(user_id)')
     .eq('class_id', classId)
     .order('created_at', { ascending: false });
 
-  // Student chỉ thấy bài đã publish
-  if (role === 'student') {
-    query = query.eq('is_published', true);
-  }
-
-  const { data: assignments, error } = await query;
+  const { data: deliveries, error } = await query;
 
   if (error) {
     throw new Error('Lấy danh sách bài tập thất bại');
   }
 
-  return assignments;
+  return (deliveries ?? [])
+    .filter((delivery) => role === 'teacher' || canStudentSeeDelivery(delivery, userId))
+    .map(flattenDeliveryAssignment);
 };

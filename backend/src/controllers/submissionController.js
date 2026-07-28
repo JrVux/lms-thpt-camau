@@ -1,4 +1,5 @@
 import * as submissionService from '../services/submissionService.js';
+// Delivery-aware submit/regrade endpoints live in studentAssignmentController.
 
 // POST /api/submit - Nộp bài
 export const submit = async (req, res) => {

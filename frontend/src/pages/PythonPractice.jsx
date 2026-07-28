@@ -6,7 +6,8 @@ import api from '../services/api';
 const STORAGE_KEY = (id) => `python_draft_${id}`;
 
 const PythonPractice = () => {
-  const { id: assignmentId } = useParams();
+  const { id: assignmentId, deliveryId } = useParams();
+  const storageId = deliveryId || assignmentId;
   const navigate = useNavigate();
   const workerRef = useRef(null);
   const [assignment, setAssignment] = useState(null);
@@ -25,16 +26,32 @@ const PythonPractice = () => {
   const [draftCode, setDraftCode] = useState('');
   const [submissionInfo, setSubmissionInfo] = useState(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [pendingRegrade, setPendingRegrade] = useState(null);
+  const [regradeMessage, setRegradeMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [assignRes, subRes] = await Promise.all([
-          api.get(`/api/assignments/${assignmentId}`),
-          api.get(`/api/submissions/my/${assignmentId}`),
-        ]);
-        const assignData = assignRes.data;
+        const [assignRes, subRes] = deliveryId
+          ? [await api.get(`/api/assignment-deliveries/${deliveryId}`), { data: null }]
+          : await Promise.all([
+            api.get(`/api/assignments/${assignmentId}`),
+            api.get(`/api/submissions/my/${assignmentId}`),
+          ]);
+        let assignData = deliveryId ? assignRes.data.assignments : assignRes.data;
+        let regradeCode = null;
+        if (deliveryId) {
+          const pending = assignRes.data.submissions?.find((item) => ['required', 'failed'].includes(item.regrade_status));
+          if (pending) {
+            const { data: regrade } = await api.get(`/api/submissions/${pending.id}/regrade`);
+            assignData = regrade.assignment;
+            regradeCode = regrade.code;
+            setCode(regrade.code);
+            setPendingRegrade({ ...pending, code: regrade.code });
+          }
+        }
         setAssignment(assignData);
+        if (regradeCode !== null) return;
         if (subRes.data) {
           setSubmissionInfo(subRes.data);
           // Nếu đã nộp đủ lượt → chế độ xem lại
@@ -53,7 +70,7 @@ const PythonPractice = () => {
             return;
           }
         }
-        const saved = localStorage.getItem(STORAGE_KEY(assignmentId));
+        const saved = localStorage.getItem(STORAGE_KEY(storageId));
         const starter = assignData.starter_code || '# Viết code Python của bạn tại đây';
         if (saved && saved !== starter) {
           setDraftCode(saved);
@@ -69,7 +86,7 @@ const PythonPractice = () => {
       }
     };
     load();
-  }, [assignmentId]);
+  }, [assignmentId, deliveryId, storageId]);
 
   useEffect(() => {
     const worker = new Worker(new URL('../workers/pythonWorker.js', import.meta.url), { type: 'classic' });
@@ -84,14 +101,41 @@ const PythonPractice = () => {
     return () => { clearTimeout(readyTimer); worker.terminate(); };
   }, []);
 
+  useEffect(() => {
+    if (!workerReady || !pendingRegrade || !assignment?.test_code) return;
+    setRegradeMessage('Đang tự động chấm lại...');
+    const handler = async (event) => {
+      if (event.data.type !== 'suite_result') return;
+      workerRef.current.removeEventListener('message', handler);
+      const regradeResults = (event.data.results ?? []).map((result) => ({
+        test_case_id: null,
+        test_name: result.test_name,
+        points: result.points || 1,
+        passed: result.passed,
+        actual_output: result.actual,
+        error_message: result.error || null,
+      }));
+      try {
+        await api.post(`/api/submissions/${pendingRegrade.id}/regrade`, { results: regradeResults });
+        setRegradeMessage('Đã chấm lại theo phiên bản mới.');
+        setPendingRegrade(null);
+      } catch (requestError) {
+        setRegradeMessage(requestError.response?.data?.message || 'Chấm lại chưa thành công, điểm cũ vẫn được giữ.');
+      }
+    };
+    workerRef.current.addEventListener('message', handler);
+    workerRef.current.postMessage({ type: 'run_suite', code: pendingRegrade.code, testCode: assignment.test_code });
+    return () => workerRef.current?.removeEventListener('message', handler);
+  }, [workerReady, pendingRegrade, assignment]);
+
   const handleCodeChange = useCallback((value) => {
     const v = value || '';
     setCode(v);
-    localStorage.setItem(STORAGE_KEY(assignmentId), v);
-  }, [assignmentId]);
+    localStorage.setItem(STORAGE_KEY(storageId), v);
+  }, [storageId]);
 
   const continueDraft = () => { setCode(draftCode); setShowDraftPrompt(false); };
-  const discardDraft = () => { localStorage.removeItem(STORAGE_KEY(assignmentId)); setShowDraftPrompt(false); };
+  const discardDraft = () => { localStorage.removeItem(STORAGE_KEY(storageId)); setShowDraftPrompt(false); };
 
   const runCode = () => {
     if (!workerRef.current) { setError('Worker chưa sẵn sàng'); return; }
@@ -145,10 +189,13 @@ const PythonPractice = () => {
     }));
     setSubmitting(true);
     try {
-      await api.post('/api/submit', { assignment_id: assignmentId, code, results: submitResults });
-      localStorage.removeItem(STORAGE_KEY(assignmentId));
-      if (!assignment?.class_id) throw new Error('Không tìm thấy class_id');
-      navigate(`/classes/${assignment.class_id}`);
+      if (deliveryId) {
+        await api.post(`/api/assignment-deliveries/${deliveryId}/submit`, { code, results: submitResults });
+      } else {
+        await api.post('/api/submit', { assignment_id: assignmentId, code, results: submitResults });
+      }
+      localStorage.removeItem(STORAGE_KEY(storageId));
+      navigate(deliveryId ? '/assignments' : `/classes/${assignment.class_id}`);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Nộp bài thất bại');
     } finally { setSubmitting(false); }
@@ -163,6 +210,7 @@ const PythonPractice = () => {
 
   return (
     <div className="flex flex-col pb-6">
+      {regradeMessage && <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{regradeMessage}</div>}
       {showDraftPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">

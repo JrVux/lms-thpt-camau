@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ClassDetail from './pages/ClassDetail';
 import CreateAssignment from './pages/CreateAssignment';
+import AssignmentLibrary from './pages/AssignmentLibrary';
+import MyAssignments from './pages/MyAssignments';
 import CodingEditor from './pages/CodingEditor';
 import SqlEditor from './pages/SqlEditor';
 import HtmlEditor from './pages/HtmlEditor';
@@ -19,6 +21,11 @@ const HomeRedirect = () => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   return <Navigate to="/classes" replace />;
+};
+
+const AssignmentHome = () => {
+  const { user } = useAuth();
+  return user?.role === 'teacher' ? <AssignmentLibrary /> : <MyAssignments />;
 };
 
 const App = () => {
@@ -34,12 +41,18 @@ const App = () => {
         <Route path="/classes/:id" element={<ClassDetail />} />
         <Route path="/classes/:id/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
         <Route path="/classes/:classId/assignments/:assignmentId/edit" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
+        <Route path="/assignments" element={<AssignmentHome />} />
+        <Route path="/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
+        <Route path="/assignments/:assignmentId/edit" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
         <Route path="/coding/:id" element={<PrivateRoute><CodingEditor /></PrivateRoute>} />
         <Route path="/python-practice/:id" element={<PrivateRoute><PythonPractice /></PrivateRoute>} />
         <Route path="/sql-editor/:id" element={<PrivateRoute><SqlEditor /></PrivateRoute>} />
         <Route path="/sql-practice/:id" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
         <Route path="/html-editor/:id" element={<PrivateRoute><HtmlEditor /></PrivateRoute>} />
         <Route path="/html-practice/:id" element={<PrivateRoute><HTMLPractice /></PrivateRoute>} />
+        <Route path="/deliveries/:deliveryId/python-practice" element={<PrivateRoute role="student"><PythonPractice /></PrivateRoute>} />
+        <Route path="/deliveries/:deliveryId/sql-practice" element={<PrivateRoute role="student"><SQLPractice /></PrivateRoute>} />
+        <Route path="/deliveries/:deliveryId/html-practice" element={<PrivateRoute role="student"><HTMLPractice /></PrivateRoute>} />
       </Route>
 
       <Route path="*" element={<HomeRedirect />} />

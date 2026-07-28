@@ -140,22 +140,18 @@ const StudentDashboard = () => {
 
   const fetchClasses = useCallback(async () => {
     try {
-      const { data } = await api.get('/api/classes');
-      const enriched = await Promise.all(
-        data.map(async (c) => {
-          try {
-            const { data: assignments } = await api.get(`/api/classes/${c.id}/assignments`);
-            let done = 0;
-            for (const a of assignments) {
-              const { data: sub } = await api.get(`/api/submissions/my/${a.id}`);
-              if (sub.data) done++;
-            }
-            return { ...c, total: assignments.length, done };
-          } catch {
-            return { ...c, total: 0, done: 0 };
-          }
-        })
-      );
+      const [{ data }, { data: deliveries }] = await Promise.all([
+        api.get('/api/classes'),
+        api.get('/api/my-assignments'),
+      ]);
+      const enriched = data.map((classItem) => {
+        const classDeliveries = deliveries.filter((delivery) => delivery.class_id === classItem.id);
+        return {
+          ...classItem,
+          total: classDeliveries.length,
+          done: classDeliveries.filter((delivery) => (delivery.submissions ?? []).length > 0).length,
+        };
+      });
       setClasses(enriched);
     } catch (err) {
       setError(err.response?.data?.message || 'Lấy danh sách lớp thất bại');

@@ -38,7 +38,8 @@ const runSQLTests = (db, studentQuery, testCases) => {
 };
 
 const SQLPractice = () => {
-  const { id: assignmentId } = useParams();
+  const { id: assignmentId, deliveryId } = useParams();
+  const storageId = deliveryId || assignmentId;
   const navigate = useNavigate();
   const dbRef = useRef(null);
   const sqlReadyRef = useRef(false);
@@ -56,16 +57,33 @@ const SQLPractice = () => {
   const [draftCode, setDraftCode] = useState('');
   const [submissionInfo, setSubmissionInfo] = useState(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [sqlReady, setSqlReady] = useState(false);
+  const [pendingRegrade, setPendingRegrade] = useState(null);
+  const [regradeMessage, setRegradeMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [assignRes, subRes] = await Promise.all([
-          api.get(`/api/assignments/${assignmentId}`),
-          api.get(`/api/submissions/my/${assignmentId}`),
-        ]);
-        const assignData = assignRes.data;
+        const [assignRes, subRes] = deliveryId
+          ? [await api.get(`/api/assignment-deliveries/${deliveryId}`), { data: null }]
+          : await Promise.all([
+            api.get(`/api/assignments/${assignmentId}`),
+            api.get(`/api/submissions/my/${assignmentId}`),
+          ]);
+        let assignData = deliveryId ? assignRes.data.assignments : assignRes.data;
+        let regradeCode = null;
+        if (deliveryId) {
+          const pending = assignRes.data.submissions?.find((item) => ['required', 'failed'].includes(item.regrade_status));
+          if (pending) {
+            const { data: regrade } = await api.get(`/api/submissions/${pending.id}/regrade`);
+            assignData = regrade.assignment;
+            regradeCode = regrade.code;
+            setCode(regrade.code);
+            setPendingRegrade(pending);
+          }
+        }
         setAssignment(assignData);
+        if (regradeCode !== null) return;
         if (subRes.data) {
           setSubmissionInfo(subRes.data);
           if (subRes.data.remaining_attempts === 0 && subRes.data.data) {
@@ -83,7 +101,7 @@ const SQLPractice = () => {
           }
         }
 
-        const saved = localStorage.getItem(STORAGE_KEY(assignmentId));
+        const saved = localStorage.getItem(STORAGE_KEY(storageId));
         const starter = assignData.starter_code || '-- Viết câu lệnh SQL của bạn tại đây';
 
         if (saved && saved !== starter) {
@@ -100,7 +118,7 @@ const SQLPractice = () => {
       }
     };
     load();
-  }, [assignmentId]);
+  }, [assignmentId, deliveryId, storageId]);
 
   useEffect(() => {
     let mounted = true;
@@ -112,6 +130,7 @@ const SQLPractice = () => {
           const db = new SQL.Database();
           dbRef.current = db;
           sqlReadyRef.current = true;
+          setSqlReady(true);
         }
       } catch {
         if (mounted) setError('Không thể tải sql.js');
@@ -124,13 +143,30 @@ const SQLPractice = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!sqlReady || !pendingRegrade || !assignment || !dbRef.current) return;
+    const execute = async () => {
+      setRegradeMessage('Đang tự động chấm lại...');
+      try {
+        if (assignment.setup_sql) dbRef.current.run(assignment.setup_sql);
+        const regradeResults = runSQLTests(dbRef.current, pendingRegrade.code, assignment.test_cases ?? []);
+        await api.post(`/api/submissions/${pendingRegrade.id}/regrade`, { results: regradeResults });
+        setRegradeMessage('Đã chấm lại theo phiên bản mới.');
+        setPendingRegrade(null);
+      } catch (requestError) {
+        setRegradeMessage(requestError.response?.data?.message || 'Chấm lại chưa thành công, điểm cũ vẫn được giữ.');
+      }
+    };
+    execute();
+  }, [sqlReady, pendingRegrade, assignment]);
+
   const handleCodeChange = useCallback(
     (value) => {
       const v = value || '';
       setCode(v);
-      localStorage.setItem(STORAGE_KEY(assignmentId), v);
+      localStorage.setItem(STORAGE_KEY(storageId), v);
     },
-    [assignmentId]
+    [storageId]
   );
 
   const continueDraft = () => {
@@ -139,7 +175,7 @@ const SQLPractice = () => {
   };
 
   const discardDraft = () => {
-    localStorage.removeItem(STORAGE_KEY(assignmentId));
+    localStorage.removeItem(STORAGE_KEY(storageId));
     setShowDraftPrompt(false);
   };
 
@@ -226,14 +262,13 @@ const SQLPractice = () => {
     }
     setSubmitting(true);
     try {
-      await api.post('/api/submit', {
-        assignment_id: assignmentId,
-        code,
-        results,
-      });
-      localStorage.removeItem(STORAGE_KEY(assignmentId));
-      if (!assignment?.class_id) throw new Error('Không tìm thấy class_id');
-      navigate(`/classes/${assignment.class_id}`);
+      if (deliveryId) {
+        await api.post(`/api/assignment-deliveries/${deliveryId}/submit`, { code, results });
+      } else {
+        await api.post('/api/submit', { assignment_id: assignmentId, code, results });
+      }
+      localStorage.removeItem(STORAGE_KEY(storageId));
+      navigate(deliveryId ? '/assignments' : `/classes/${assignment.class_id}`);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Nộp bài thất bại');
     } finally {
@@ -250,6 +285,7 @@ const SQLPractice = () => {
 
   return (
     <div className="flex flex-col pb-6">
+      {regradeMessage && <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{regradeMessage}</div>}
       {showDraftPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
