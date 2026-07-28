@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { getEligibleTargetClasses } from '../utils/assignmentSharing';
 
 const TeacherTabs = ({ classId }) => {
   const [tab, setTab] = useState('students');
@@ -568,7 +569,7 @@ const AssignmentsTab = ({ classId }) => {
   const openShare = async () => {
     try {
       const { data } = await api.get('/api/classes');
-      setAllClasses(data.filter((c) => c.id !== classId));
+      setAllClasses(getEligibleTargetClasses(data, classId));
       setSelectedTargets([]);
       setShareResult(null);
       setShowShare(true);
@@ -679,6 +680,20 @@ const AssignmentsTab = ({ classId }) => {
                   <div>
                     <p className="text-sm text-green-600 mb-1">✓ Đã sao chép {shareResult.copied} bài tập</p>
                     <p className="text-sm text-gray-500">Sang {shareResult.targetCount} lớp đích</p>
+                    {shareResult.failed > 0 && (
+                      <div className="mt-3 rounded-lg bg-red-50 p-3">
+                        <p className="text-sm font-medium text-red-700">
+                          {shareResult.failed} bản sao thất bại
+                        </p>
+                        <ul className="mt-1 space-y-1 text-xs text-red-600">
+                          {shareResult.failures?.map((failure) => (
+                            <li key={`${failure.assignmentId}-${failure.targetClassId}`}>
+                              {failure.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
                 <button onClick={() => { setShowShare(false); fetch(); }}
@@ -686,9 +701,12 @@ const AssignmentsTab = ({ classId }) => {
               </div>
             ) : (
               <div>
-                <p className="text-sm text-gray-500 mb-3">Chọn lớp muốn sao chép bài tập đến:</p>
+                <p className="text-sm text-gray-500 mb-1">Chọn lớp cùng khối muốn sao chép bài tập đến:</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  Mỗi bản sao là một bài nháp độc lập để bạn chỉnh sửa và publish riêng.
+                </p>
                 {allClasses.length === 0 ? (
-                  <p className="text-sm text-gray-400">Bạn không có lớp nào khác</p>
+                  <p className="text-sm text-gray-400">Bạn chưa có lớp nào khác cùng khối</p>
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
                     {allClasses.map((c) => (

@@ -7,3 +7,4 @@ frontend/dist/
 .vite/
 *.log
 .DS_Store
+.worktrees/
