@@ -43,7 +43,7 @@ export const createAssignmentLibraryService = (db) => ({
   async list({ teacherId, category }) {
     let query = db
       .from('assignments')
-      .select('*, assignment_deliveries(count)')
+      .select('*, assignment_deliveries!assignment_deliveries_library_assignment_id_fkey(count)')
       .eq('teacher_id', teacherId)
       .eq('is_library', true)
       .order('updated_at', { ascending: false });

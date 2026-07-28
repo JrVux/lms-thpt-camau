@@ -37,6 +37,11 @@ test('list filters by owner, library flag, and category', async () => {
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'teacher_id' && call.args[1] === 't1'));
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'is_library' && call.args[1] === true));
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'category' && call.args[1] === 'grade_10'));
+  const select = db.calls.find((call) => call.table === 'assignments' && call.method === 'select');
+  assert.match(
+    select.args[0],
+    /assignment_deliveries!assignment_deliveries_library_assignment_id_fkey\(count\)/
+  );
 });
 
 test('create sets ownership, category, and initial version', async () => {
