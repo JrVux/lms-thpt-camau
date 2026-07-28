@@ -1,174 +1,153 @@
-# LMS THPT - Hệ thống quản lý lớp học
+# LMS THPT Cà Mau
 
-Hệ thống quản lý lớp học cho trường THPT với 3 môn: Python, SQL, HTML. Học sinh code trực tiếp trên trình duyệt, chấm điểm tự động.
+Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT. Giáo viên giao bài Python, SQL, HTML; học sinh làm trực tiếp trên trình duyệt và nhận kết quả tự động.
 
-## Tech Stack
+[Mở hệ thống](https://frontend-alpha-henna-71.vercel.app) · [Cẩm nang trực quan](docs/huong-dan-su-dung.html) · [Tải cẩm nang PDF](output/pdf/cam-nang-su-dung-lms-thpt.pdf)
 
-- **Frontend:** React 18 + Vite + TailwindCSS + Monaco Editor
-- **Backend:** Node.js + Express
-- **Database:** PostgreSQL (Supabase)
-- **Code Runner:** Pyodide (Python), sql.js (SQL), DOMParser (HTML) — chạy trên browser
+## Điểm nổi bật
 
-## Cấu trúc thư mục
+### Dành cho giáo viên
 
-```
-project/
-├── backend/           # Express API server
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── database/
-│   │   └── app.js
-│   ├── package.json
-│   ├── Procfile
-│   └── .env.example
-├── frontend/          # React + Vite client
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── contexts/
-│   │   ├── services/
-│   │   ├── workers/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── vercel.json
-│   └── .env.example
-└── README.md
-```
+- Tạo lớp theo khối 10/Python, 11/SQL và 12/HTML.
+- Quản lý học sinh, nhập danh sách, cấp lại mật khẩu và mã lớp.
+- Kho bài tập chia thành Khối 10, 11, 12 và Nâng cao.
+- Một bài Nâng cao vẫn thuộc một môn Python/SQL/HTML và chỉ giao cho lớp có môn tương ứng.
+- Giao bài cho toàn lớp hoặc một nhóm học sinh cụ thể.
+- Sao chép bài dưới dạng bản nháp độc lập để chỉnh riêng từng lớp, hoặc giữ liên kết đồng bộ.
+- Khi nội dung dùng chung thay đổi, đánh dấu và chấm lại các bài đã nộp theo phiên bản mới.
+- Xem bảng điểm, bấm vào điểm để đọc mã nguồn và kết quả từng test.
+- Xuất bảng điểm CSV/Excel.
+- Xóa lớp vĩnh viễn bằng bước nhập lại chính xác tên lớp; giữ tài khoản học sinh và bài gốc trong Kho bài tập.
 
-## Cài đặt local
+### Dành cho học sinh
 
-### Yêu cầu
-- Node.js 18+
-- Supabase account (free tier)
+- Đăng ký tài khoản và tham gia lớp bằng mã 6 ký tự.
+- Chỉ nhìn thấy bài được giao cho mình.
+- Làm và chạy thử Python, SQL hoặc HTML ngay trên trình duyệt.
+- Xem điểm, kết quả từng test, số lượt còn lại và làm lại khi được phép.
+- Nhận trạng thái yêu cầu chấm lại khi giáo viên cập nhật bài dùng chung.
 
-### Backend
+## Kiến trúc
+
+| Thành phần | Công nghệ | Production |
+|---|---|---|
+| Frontend | React 18, Vite, Tailwind CSS, Monaco Editor | [Vercel](https://frontend-alpha-henna-71.vercel.app) |
+| Backend | Node.js, Express | [Render](https://lms-thpt-camau.onrender.com) |
+| Database | PostgreSQL, Supabase | Server-only access |
+| Chạy mã | Pyodide, sql.js, DOMParser | Trong trình duyệt |
+
+Backend là lớp duy nhất truy cập Supabase bằng `service_role`. Frontend không chứa khóa đặc quyền.
+
+## Chạy local
+
+Yêu cầu Node.js 18+ và một project Supabase.
 
 ```bash
-cd backend
-cp .env.example .env
-# Điền SUPABASE_URL, SUPABASE_ANON_KEY, JWT_SECRET vào .env
+git clone https://github.com/JrVux/lms-thpt-camau.git
+cd lms-thpt-camau
 npm install
-npm run dev
+npm install --prefix backend
+npm install --prefix frontend
 ```
 
-### Frontend
+Tạo `backend/.env`:
+
+```dotenv
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=<publishable-or-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<server-only-key>
+JWT_SECRET=<chuỗi-ngẫu-nhiên-dài>
+TEACHER_SECRET=<mã-do-quản-trị-viên-tạo>
+CORS_ORIGIN=http://localhost:5173
+PORT=3001
+NODE_ENV=development
+```
+
+Tạo `frontend/.env`:
+
+```dotenv
+VITE_API_URL=http://localhost:3001
+```
+
+Khởi động:
 
 ```bash
-cd frontend
-cp .env.example .env
-# Điền VITE_API_URL=http://localhost:3001
-npm install
-npm run dev
+npm run dev:backend
+npm run dev:frontend
 ```
 
-### Database
-Chạy lần lượt các file sau trong Supabase SQL Editor:
+> Không commit `.env`, `TEACHER_SECRET`, JWT hoặc khóa `service_role`. Mã giáo viên production được quản trị viên lấy trong biến môi trường Render.
 
-1. `backend/src/database/schema.sql`
-2. `backend/src/database/migrations/005_assignment_transactions.sql`
-3. `backend/src/database/migrations/006_lock_assignment_rpcs.sql`
-4. `backend/src/database/migrations/007_lock_legacy_tables.sql`
+## Database
 
-File migration thứ hai cài các giao dịch nguyên tử bắt buộc cho thay test,
-cập nhật phiên bản, nộp bài và chấm lại. Backend sẽ không khởi động ở môi
-trường thực tế nếu thiếu `SUPABASE_SERVICE_ROLE_KEY`.
+Với database mới, chạy `backend/src/database/schema.sql`, sau đó chạy lần lượt:
 
-## Deploy
+1. `001_add_max_submissions.sql`
+2. `002_add_submission_results_columns.sql`
+3. `003_add_indexes.sql`
+4. `004_assignment_library_and_deliveries.sql`
+5. `005_assignment_transactions.sql`
+6. `006_lock_assignment_rpcs.sql`
+7. `007_lock_legacy_tables.sql`
+8. `008_delete_class_transaction.sql`
 
-### Backend — Cách 1 (khuyên dùng): Fly.io (miễn phí, không ngủ)
+Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai và xóa lớp an toàn.
 
-Fly.io free tier: **3 VM luôn chạy 24/7**, 256MB RAM mỗi VM, 160GB egress/tháng.
+## Kiểm thử
 
 ```bash
-# Đăng ký Fly.io
-fly auth signup
-
-# Deploy
-fly launch --copy-config --no-deploy
-fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=... JWT_SECRET=... CORS_ORIGIN=https://your-app.vercel.app
-fly deploy
-
-# Scale xuống free tier (1 shared VM)
-fly scale vm shared-cpu-1x --memory 256
-fly scale count 1
+npm run test:docs
+npm test --prefix backend
+npm test --prefix frontend
+npm run build --prefix frontend
 ```
 
-Sau deploy xong, chạy:
-```bash
-fly open   # copy domain để dùng cho frontend
-```
+## Triển khai
 
-### Backend — Cách 2: Render (free, có ngủ sau 15 phút)
+### Backend trên Render
 
-1. Push code lên GitHub
-2. Vào [Render](https://render.com) → New Web Service → Connect repo
-3. Render tự detect `render.yaml` → Blueprint → Deploy
-4. Vào Dashboard → set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `JWT_SECRET`
-5. Copy domain `.onrender.com` để dùng cho frontend
+Repository có `render.yaml`. Cấu hình các biến:
 
-> ⚠ Render free: 750h/tháng (~31 ngày). Dùng cron-job.org ping mỗi 10 ph để tránh sleep.
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `JWT_SECRET`
+- `TEACHER_SECRET`
+- `CORS_ORIGIN=https://frontend-alpha-henna-71.vercel.app`
 
-### Frontend lên Vercel
+Build command: `npm run build`. Start command: `npm start`. Health check: `/health`.
 
-1. Push code lên GitHub
-2. Vào [Vercel](https://vercel.com) → Add New Project
-3. Import GitHub repo, chọn folder `frontend`
-4. **Framework Preset:** Vite
-5. **Build Command:** `npm run build`
-6. **Output Directory:** `dist`
-7. Thêm environment variable: `VITE_API_URL` = backend URL (Fly.io hoặc Render domain)
-8. Deploy
+### Frontend trên Vercel
 
-### Giữ Supabase free project không bị pause
+- Root directory: `frontend`
+- Framework: Vite
+- Build: `npm run build`
+- Output: `dist`
+- `VITE_API_URL=https://lms-thpt-camau.onrender.com`
 
-Supabase free project bị pause sau **7 ngày không hoạt động**. Để tránh:
+## API chính
 
-**Cách A — Dùng cron-job.org (miễn phí):**
-1. Vào [cron-job.org](https://cron-job.org) → Đăng ký
-2. Tạo job:
-   - **URL:** `https://sfanqrirgbxpgrhcamit.supabase.co/rest/v1/`
-   - **Interval:** Every 5 days
-   - **Method:** GET
-3. Thêm job thứ 2:
-   - **URL:** `https://lms-thpt-camau.onrender.com/health` (backen‌d URL của bạn)
-   - **Interval:** Every 10 minutes
-   - **Method:** GET
+| Method | Endpoint | Vai trò |
+|---|---|---|
+| POST | `/api/register`, `/api/login` | Công khai |
+| GET/POST/DELETE | `/api/classes`, `/api/classes/:id` | Giáo viên; danh sách cho cả hai vai trò |
+| POST | `/api/classes/join` | Học sinh |
+| GET/POST/PATCH/DELETE | `/api/classes/:id/students...` | Giáo viên |
+| GET/POST/PATCH | `/api/assignment-library...` | Giáo viên |
+| POST | `/api/assignment-library/:id/deliver` | Giáo viên |
+| PATCH/POST | `/api/assignment-deliveries/:id`, `/detach` | Giáo viên |
+| GET | `/api/my-assignments`, `/api/assignment-deliveries/:id` | Học sinh |
+| POST | `/api/assignment-deliveries/:id/submit` | Học sinh |
+| GET/POST | `/api/submissions/:id/regrade` | Học sinh |
+| GET | `/api/classes/:id/gradebook` | Giáo viên |
+| GET | `/api/classes/:id/submissions/:submissionId` | Giáo viên sở hữu lớp |
 
-**Cách B — Dùng GitHub Actions (có sẵn trong repo):**
-Chạy script `node backend/scripts/keep-alive.mjs` trên GitHub Actions mỗi 5 ngày.
+## Xử lý nhanh
 
-## Checklist kiểm tra trước khi dùng
+- Trang chưa cập nhật: nhấn `Ctrl + F5`, sau đó đăng nhập lại.
+- Không thấy bài: kiểm tra bài đã xuất bản, đúng môn/khối và học sinh nằm trong danh sách nhận.
+- Không thấy bài nộp: vào lớp → **Bảng điểm** → bấm trực tiếp vào ô điểm.
+- Lỗi quyền sau khi đổi khóa: đăng xuất rồi đăng nhập lại.
+- Trước khi xóa lớp: đọc cảnh báo và nhập chính xác tên lớp; thao tác không thể hoàn tác.
 
-- [ ] Đăng ký tài khoản teacher thành công
-- [ ] Tạo lớp 10, 11, 12 với mã lớp
-- [ ] Học sinh đăng ký và join lớp bằng mã
-- [ ] Tạo bài Python với 3 test cases, học sinh làm và nộp có điểm
-- [ ] Tạo bài SQL với setup_sql, học sinh chạy query và nộp
-- [ ] Tạo bài HTML với selector test, học sinh code và nộp
-- [ ] Gradebook hiện đúng điểm tất cả học sinh
-- [ ] Xuất CSV điểm về máy
-- [ ] Test trên điện thoại (responsive)
-
-## API Endpoints
-
-| Method | Endpoint | Auth | Role |
-|--------|----------|------|------|
-| POST | /api/register | - | - |
-| POST | /api/login | - | - |
-| POST | /api/classes | JWT | teacher |
-| GET | /api/classes | JWT | all |
-| POST | /api/classes/join | JWT | student |
-| GET | /api/classes/:id/students | JWT | teacher |
-| POST | /api/assignments | JWT | teacher |
-| GET | /api/assignments/:id | JWT | all |
-| PATCH | /api/assignments/:id/publish | JWT | teacher |
-| POST | /api/assignments/:id/test-cases | JWT | teacher |
-| GET | /api/classes/:id/assignments | JWT | all |
-| POST | /api/submit | JWT | all |
-| GET | /api/submissions/my/:assignment_id | JWT | all |
-| GET | /api/classes/:id/gradebook | JWT | teacher |
-| GET | /api/classes/:id/gradebook/export | JWT | teacher |
+Xem hướng dẫn từng bước tại [cẩm nang HTML](docs/huong-dan-su-dung.html) hoặc gửi [bản PDF](output/pdf/cam-nang-su-dung-lms-thpt.pdf).

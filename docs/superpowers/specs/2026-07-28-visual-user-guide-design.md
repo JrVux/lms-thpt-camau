@@ -17,6 +17,7 @@ Cập nhật tài liệu dự án theo đúng trạng thái production và cung 
 ### Cẩm nang trực quan
 
 - Tạo file độc lập `docs/huong-dan-su-dung.html`.
+- Xuất bản PDF A4 tại `output/pdf/cam-nang-su-dung-lms-thpt.pdf` để gửi trực tiếp.
 - Responsive trên máy tính và điện thoại, không cần build hoặc server.
 - Phông chính `Be Vietnam Pro`; có font dự phòng hệ thống khi không có mạng.
 - Thiết kế sáng, dễ đọc; màu xanh cho giáo viên, tím cho học sinh, đỏ cho cảnh báo.
@@ -66,3 +67,4 @@ Cập nhật tài liệu dự án theo đúng trạng thái production và cung 
 - Kiểm tra HTML không có tài nguyên ảnh từ bên ngoài.
 - Mở bằng trình duyệt ở kích thước desktop/mobile.
 - Xác nhận README khớp migration, endpoint và URL production trong mã nguồn.
+- Kiểm tra PDF bằng trích xuất văn bản, render toàn bộ trang thành PNG và quan sát trực tiếp.

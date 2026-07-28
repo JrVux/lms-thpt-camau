@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Cập nhật README theo trạng thái production và tạo cẩm nang HTML trực quan, responsive cho giáo viên và học sinh.
+**Goal:** Cập nhật README theo trạng thái production và tạo cẩm nang HTML/PDF trực quan cho giáo viên và học sinh.
 
 **Architecture:** README là tài liệu kỹ thuật và điểm vào duy nhất dẫn đến cẩm nang. Cẩm nang là một file HTML độc lập, dùng CSS/JavaScript nội tuyến, semantic HTML và SVG nội tuyến để mở trực tiếp trong trình duyệt mà không cần build.
 
@@ -17,6 +17,7 @@
 - Không dùng ảnh ngoài; icon và minh họa dùng SVG/CSS nội tuyến.
 - Không ghi giá trị production của `TEACHER_SECRET`, JWT hoặc khóa Supabase.
 - README phải khớp URL production, migration `001`–`008` và API hiện tại.
+- PDF cuối cùng đặt tại `output/pdf/cam-nang-su-dung-lms-thpt.pdf`.
 
 ---
 
@@ -51,6 +52,10 @@ test('visual guide covers teacher and student journeys accessibly', async () => 
   assert.match(guide, /skip-link/);
   assert.doesNotMatch(guide, /<img[^>]+src=\"https?:/);
   assert.doesNotMatch(guide, /9ca01d06abd4b2ec/);
+});
+
+test('README links the shareable PDF guide', async () => {
+  assert.match(readme, /output\/pdf\/cam-nang-su-dung-lms-thpt\.pdf/);
 });
 ```
 
@@ -183,13 +188,38 @@ git commit -m "docs: add visual teacher and student guide"
 ### Task 4: Review và xuất bản
 
 **Files:**
+- Create: `scripts/export-user-guide-pdf.mjs`
+- Create: `output/pdf/cam-nang-su-dung-lms-thpt.pdf`
 - Modify only if verification reveals a defect.
 
 **Interfaces:**
 - Consumes: các tài liệu và test đã hoàn thành.
-- Produces: PR đã merge và tài liệu có thể mở từ GitHub.
+- Produces: PDF A4 đã kiểm tra, PR đã merge và tài liệu có thể mở từ GitHub.
 
-- [ ] **Step 1: Xác minh cuối**
+- [ ] **Step 1: Xuất PDF**
+
+Tạo script dùng Chromium/Playwright mở `docs/huong-dan-su-dung.html`, chờ font sẵn sàng và gọi `page.pdf` với:
+
+```js
+await page.pdf({
+  path: outputPath,
+  format: 'A4',
+  printBackground: true,
+  preferCSSPageSize: true,
+  displayHeaderFooter: true,
+  headerTemplate: '<div></div>',
+  footerTemplate: '<div style="font-size:9px;width:100%;text-align:center;color:#64748b"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
+  margin: { top: '12mm', right: '12mm', bottom: '16mm', left: '12mm' },
+});
+```
+
+HTML phải có `@media print`, `@page { size: A4; }`, tránh ngắt card giữa trang và ẩn tương tác chỉ dành cho màn hình.
+
+- [ ] **Step 2: Kiểm tra PDF**
+
+Dùng `pdfinfo` xác nhận khổ A4 và số trang. Dùng `pdftotext` hoặc `pdfplumber` xác nhận có các chuỗi `Dành cho giáo viên`, `Dành cho học sinh`, `Xóa lớp an toàn`. Render toàn bộ trang bằng `pdftoppm -png`, kiểm tra trực quan không có chữ cắt, chồng lấn, trang trắng hoặc ký tự lỗi.
+
+- [ ] **Step 3: Xác minh cuối**
 
 Run:
 
@@ -204,13 +234,13 @@ git status --short
 
 Expected: test/build exit 0, không có lỗi whitespace và worktree chỉ có thay đổi dự kiến.
 
-- [ ] **Step 2: Push và PR**
+- [ ] **Step 4: Push và PR**
 
 ```powershell
 git push -u origin codex/visual-user-guide
 gh pr create --base main --head codex/visual-user-guide --title "Cập nhật README và cẩm nang sử dụng trực quan"
 ```
 
-- [ ] **Step 3: Merge và xác nhận**
+- [ ] **Step 5: Merge và xác nhận**
 
 Merge PR sau review. Mở README và `docs/huong-dan-su-dung.html` từ GitHub, xác nhận liên kết production và mục lục hoạt động.
