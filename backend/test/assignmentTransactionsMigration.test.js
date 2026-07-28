@@ -10,6 +10,10 @@ const securityMigrationUrl = new URL(
   '../src/database/migrations/006_lock_assignment_rpcs.sql',
   import.meta.url
 );
+const tableSecurityMigrationUrl = new URL(
+  '../src/database/migrations/007_lock_legacy_tables.sql',
+  import.meta.url
+);
 
 test('transaction migration is independently deployable and hardened', async () => {
   const sql = await readFile(migrationUrl, 'utf8');
@@ -43,4 +47,11 @@ test('security migration explicitly blocks public API roles', async () => {
     assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${routine}`));
   }
   assert.match(sql, /FROM PUBLIC, anon, authenticated/g);
+});
+
+test('legacy table security migration removes public write access', async () => {
+  const sql = await readFile(tableSecurityMigrationUrl, 'utf8');
+  assert.match(sql, /DROP POLICY IF EXISTS %I ON public\.%I/);
+  assert.match(sql, /FROM anon, authenticated/);
+  assert.match(sql, /TO service_role/);
 });
