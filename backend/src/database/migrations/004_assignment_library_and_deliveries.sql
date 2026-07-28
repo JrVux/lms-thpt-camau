@@ -90,7 +90,26 @@ SELECT
 FROM assignments AS assignment
 WHERE assignment.class_id IS NOT NULL
   AND assignment.teacher_id IS NOT NULL
+  AND assignment.is_library = TRUE
 ON CONFLICT (library_assignment_id, class_id) DO NOTHING;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'assignments_teacher_required_for_new_rows'
+  ) THEN
+    ALTER TABLE assignments
+      ADD CONSTRAINT assignments_teacher_required_for_new_rows
+      CHECK (teacher_id IS NOT NULL) NOT VALID;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'assignments_category_required_for_new_rows'
+  ) THEN
+    ALTER TABLE assignments
+      ADD CONSTRAINT assignments_category_required_for_new_rows
+      CHECK (category IS NOT NULL) NOT VALID;
+  END IF;
+END $$;
 
 UPDATE submissions AS submission
 SET

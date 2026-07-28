@@ -53,6 +53,13 @@ CREATE TABLE assignments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE assignments
+  ADD CONSTRAINT assignments_teacher_required_for_new_rows
+  CHECK (teacher_id IS NOT NULL) NOT VALID;
+ALTER TABLE assignments
+  ADD CONSTRAINT assignments_category_required_for_new_rows
+  CHECK (category IS NOT NULL) NOT VALID;
+
 -- 5. Cấu hình giao bài theo từng lớp
 CREATE TABLE assignment_deliveries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

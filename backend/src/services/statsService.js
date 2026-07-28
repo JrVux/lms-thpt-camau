@@ -66,13 +66,13 @@ export const getStudentStats = async (userId) => {
     totalAssignments = assignmentIds.length;
 
     if (assignmentIds.length > 0) {
-      const { count } = await supabase
+      const { data: submissions } = await supabase
         .from('submissions')
-        .select('id', { count: 'exact', head: true })
+        .select('delivery_id')
         .eq('user_id', userId)
         .in('delivery_id', assignmentIds);
 
-      completedAssignments = count || 0;
+      completedAssignments = new Set((submissions ?? []).map((submission) => submission.delivery_id)).size;
     }
   }
 

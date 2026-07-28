@@ -3,7 +3,8 @@ export const canReceive = (delivery, userId) =>
   || (delivery.assignment_recipients ?? []).some((row) => row.user_id === userId);
 
 export const assignmentStatus = (delivery, now = new Date()) => {
-  const latest = delivery.submissions?.[0];
+  const latest = [...(delivery.submissions ?? [])]
+    .sort((left, right) => new Date(right.submitted_at) - new Date(left.submitted_at))[0];
   if (latest?.regrade_status === 'required' || latest?.regrade_status === 'failed') return 'regrade';
   if (latest) return 'submitted';
   if (delivery.due_date && new Date(delivery.due_date) < now) return 'overdue';
@@ -19,17 +20,31 @@ export const scoreResults = (testCases, results, configuredMaxScore = 0) => {
   let maxScore;
 
   if (pointsById.size > 0) {
+    const resultIds = results.map((result) => result.test_case_id);
+    const uniqueResultIds = new Set(resultIds);
+    const exactCurrentTests = results.length === pointsById.size
+      && uniqueResultIds.size === pointsById.size
+      && resultIds.every((id) => pointsById.has(id));
+    if (!exactCurrentTests) {
+      throw new Error('Kết quả chấm không đầy đủ hoặc bị trùng so với test hiện tại.');
+    }
     maxScore = [...pointsById.values()].reduce((sum, points) => sum + points, 0);
     score = results.reduce((sum, result) =>
       sum + (result.passed ? pointsById.get(result.test_case_id) ?? 0 : 0), 0);
   } else {
-    const possible = results.reduce((sum, result) => sum + Number(result.points ?? 1), 0);
+    const browserTestNames = results.map((result, index) => result.test_name || `test-${index}`);
+    if (new Set(browserTestNames).size !== browserTestNames.length) {
+      throw new Error('Kết quả chấm trình duyệt bị trùng.');
+    }
+    const possible = results.reduce((sum, result) =>
+      sum + Math.max(0, Number(result.points ?? 1)), 0);
     const earned = results.reduce((sum, result) =>
-      sum + (result.passed ? Number(result.points ?? 1) : 0), 0);
+      sum + (result.passed ? Math.max(0, Number(result.points ?? 1)) : 0), 0);
     maxScore = Number(configuredMaxScore) || possible;
     score = configuredMaxScore && possible > 0
       ? Math.round((earned / possible) * Number(configuredMaxScore))
       : earned;
+    score = Math.min(score, maxScore);
   }
 
   return {
@@ -57,6 +72,14 @@ const withoutSolution = (assignment) => {
 };
 
 export const createStudentAssignmentService = (db) => {
+  const markRegradeFailed = async (userId, submissionId, message) => {
+    await db
+      .from('submissions')
+      .update({ regrade_status: 'failed', regrade_error: message })
+      .eq('id', submissionId)
+      .eq('user_id', userId);
+  };
+
   const getAuthorizedDelivery = async (userId, deliveryId) => {
     const { data: delivery, error } = await db
       .from('assignment_deliveries')
@@ -122,6 +145,9 @@ export const createStudentAssignmentService = (db) => {
 
     async submit({ userId, deliveryId, code, results }) {
       const delivery = await getAuthorizedDelivery(userId, deliveryId);
+      if (delivery.due_date && new Date(delivery.due_date) < new Date()) {
+        throw new Error('Bài tập đã quá hạn nộp.');
+      }
       const { count, error: countError } = await db
         .from('submissions')
         .select('id', { count: 'exact', head: true })
@@ -164,7 +190,7 @@ export const createStudentAssignmentService = (db) => {
     async prepareRegrade({ userId, submissionId }) {
       const { data, error } = await db
         .from('submissions')
-        .select('id,code,regrade_status,delivery_id, assignment_deliveries!inner(id,is_published,assignments:assignment_id(id,title,type,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)))')
+        .select('id,code,regrade_status,delivery_id')
         .eq('id', submissionId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -172,10 +198,11 @@ export const createStudentAssignmentService = (db) => {
       if (!data || !['required', 'failed'].includes(data.regrade_status)) {
         throw new Error('Bài nộp này không cần chấm lại.');
       }
+      const delivery = await getAuthorizedDelivery(userId, data.delivery_id);
       return {
         submission_id: data.id,
         code: data.code,
-        assignment: withoutSolution(data.assignment_deliveries.assignments),
+        assignment: delivery.assignments,
       };
     },
 
@@ -184,19 +211,30 @@ export const createStudentAssignmentService = (db) => {
       const assignment = prepared.assignment;
       const expected = assignment.test_cases ?? [];
       if ((expected.length > 0 && results.length < expected.length) || results.length === 0) {
+        await markRegradeFailed(userId, submissionId, 'Kết quả chấm lại chưa đầy đủ.');
         throw new Error('Kết quả chấm lại chưa đầy đủ; điểm cũ được giữ nguyên.');
       }
-      const scored = scoreResults(expected, results, assignment.max_score);
+      let scored;
+      try {
+        scored = scoreResults(expected, results, assignment.max_score);
+      } catch (error) {
+        await markRegradeFailed(userId, submissionId, error.message);
+        throw error;
+      }
 
-      const { error: deleteError } = await db
+      const { data: oldResults, error: oldResultError } = await db
         .from('submission_results')
-        .delete()
+        .select('id')
         .eq('submission_id', submissionId);
-      throwDbError(deleteError);
-      const { error: resultError } = await db
+      throwDbError(oldResultError);
+      const { data: newResults, error: resultError } = await db
         .from('submission_results')
-        .insert(scored.rows.map((row) => ({ ...row, submission_id: submissionId })));
-      throwDbError(resultError);
+        .insert(scored.rows.map((row) => ({ ...row, submission_id: submissionId })))
+        .select('id');
+      if (resultError) {
+        await markRegradeFailed(userId, submissionId, resultError.message);
+        throwDbError(resultError);
+      }
       const { data, error } = await db
         .from('submissions')
         .update({
@@ -210,7 +248,17 @@ export const createStudentAssignmentService = (db) => {
         .eq('user_id', userId)
         .select()
         .single();
-      throwDbError(error);
+      if (error) {
+        const newIds = (newResults ?? []).map((result) => result.id);
+        if (newIds.length > 0) await db.from('submission_results').delete().in('id', newIds);
+        await markRegradeFailed(userId, submissionId, error.message);
+        throwDbError(error);
+      }
+      const oldIds = (oldResults ?? []).map((result) => result.id);
+      if (oldIds.length > 0) {
+        const { error: deleteError } = await db.from('submission_results').delete().in('id', oldIds);
+        throwDbError(deleteError);
+      }
       return data;
     },
   };

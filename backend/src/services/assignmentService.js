@@ -142,11 +142,6 @@ export const getAssignment = async (assignmentId, userId, role) => {
     `)
     .eq('id', assignmentId);
 
-  // Student chỉ thấy bài đã publish
-  if (role === 'student') {
-    query.eq('is_published', true);
-  }
-
   const { data: assignment, error } = await query.single();
 
   if (error || !assignment) {
@@ -155,7 +150,27 @@ export const getAssignment = async (assignmentId, userId, role) => {
 
   // Ẩn solution_code với student
   if (role === 'student') {
+    const { data: deliveries } = await supabase
+      .from('assignment_deliveries')
+      .select('id,class_id,is_published,recipient_mode,assignment_recipients(user_id)')
+      .eq('assignment_id', assignmentId)
+      .eq('is_published', true);
+    const classIds = (deliveries ?? []).map((delivery) => delivery.class_id);
+    const { data: enrollments } = classIds.length > 0
+      ? await supabase
+        .from('enrollments')
+        .select('class_id')
+        .eq('user_id', userId)
+        .in('class_id', classIds)
+      : { data: [] };
+    const enrolledClassIds = new Set((enrollments ?? []).map((row) => row.class_id));
+    const authorized = (deliveries ?? []).some((delivery) => enrolledClassIds.has(delivery.class_id)
+      && (delivery.recipient_mode === 'all'
+        || delivery.assignment_recipients?.some((row) => row.user_id === userId)));
+    if (!authorized) throw new Error('Bạn không được chỉ định làm bài tập này.');
     delete assignment.solution_code;
+  } else if ((assignment.teacher_id || assignment.classes?.teacher_id) !== userId) {
+    throw new Error('Bạn không có quyền xem bài tập này.');
   }
 
   return assignment;
@@ -297,6 +312,7 @@ export const flattenDeliveryAssignment = (delivery) => ({
   ...delivery.assignments,
   id: delivery.assignment_id,
   assignment_id: delivery.assignment_id,
+  library_assignment_id: delivery.library_assignment_id,
   delivery_id: delivery.id,
   class_id: delivery.class_id,
   due_date: delivery.due_date,

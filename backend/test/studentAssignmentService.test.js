@@ -48,3 +48,21 @@ test('scales browser test results to an explicit assignment max score', () => {
   assert.equal(scored.score, 5);
   assert.equal(scored.maxScore, 10);
 });
+
+test('rejects duplicate, unknown, or incomplete database test results', () => {
+  const tests = [{ id: 'tc1', points: 3 }, { id: 'tc2', points: 2 }];
+  assert.throws(() => scoreResults(tests, [
+    { test_case_id: 'tc1', passed: true },
+    { test_case_id: 'tc1', passed: true },
+  ]), /không đầy đủ hoặc bị trùng/);
+  assert.throws(() => scoreResults(tests, [
+    { test_case_id: 'tc1', passed: true },
+    { test_case_id: 'unknown', passed: true },
+  ]), /không đầy đủ hoặc bị trùng/);
+});
+
+test('browser result score never exceeds configured maximum', () => {
+  const scored = scoreResults([], [{ test_name: 'a', points: 1000, passed: true }], 10);
+  assert.equal(scored.score, 10);
+  assert.equal(scored.maxScore, 10);
+});

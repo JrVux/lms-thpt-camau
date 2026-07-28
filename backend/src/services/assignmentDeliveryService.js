@@ -42,6 +42,7 @@ export const createAssignmentDeliveryService = (db) => ({
     validateDeliveryTargets(assignment, deliveries, classesById, studentsByClass);
 
     const created = [];
+    const failures = [];
     for (const item of deliveries) {
       const { data: delivery, error } = await db
         .from('assignment_deliveries')
@@ -58,8 +59,15 @@ export const createAssignmentDeliveryService = (db) => ({
         }])
         .select()
         .single();
-      if (error?.code === '23505') throw new Error('Bài tập đã được giao cho lớp này.');
-      throwDbError(error);
+      if (error) {
+        failures.push({
+          class_id: item.class_id,
+          message: error.code === '23505'
+            ? 'Bài tập đã được giao cho lớp này.'
+            : error.message,
+        });
+        continue;
+      }
 
       if (item.recipient_mode === 'selected') {
         const recipients = [...new Set(item.student_ids)].map((userId) => ({
@@ -72,15 +80,19 @@ export const createAssignmentDeliveryService = (db) => ({
           .select();
         if (recipientError) {
           await db.from('assignment_deliveries').delete().eq('id', delivery.id);
-          throw new Error(`Không thể lưu danh sách học sinh: ${recipientError.message}`);
+          failures.push({
+            class_id: item.class_id,
+            message: `Không thể lưu danh sách học sinh: ${recipientError.message}`,
+          });
+          continue;
         }
       }
       created.push(delivery);
     }
     return {
       created: created.length,
-      failed: 0,
-      failures: [],
+      failed: failures.length,
+      failures,
       deliveries: created,
     };
   },
@@ -98,6 +110,58 @@ export const createAssignmentDeliveryService = (db) => ({
   },
 
   async updateDelivery({ teacherId, deliveryId, input }) {
+    let current = null;
+    const studentIds = [...new Set(input.student_ids ?? [])];
+    if (input.recipient_mode) {
+      const { data, error: currentError } = await db
+        .from('assignment_deliveries')
+        .select('id,class_id,recipient_mode,assignment_recipients(user_id)')
+        .eq('id', deliveryId)
+        .eq('teacher_id', teacherId)
+        .maybeSingle();
+      throwDbError(currentError);
+      current = data;
+      if (!current) throw new Error('Không tìm thấy lần giao bài.');
+    }
+
+    if (input.recipient_mode === 'selected') {
+      if (studentIds.length === 0) throw new Error('Vui lòng chọn ít nhất một học sinh.');
+      const { data: enrollments, error: enrollmentError } = await db
+        .from('enrollments')
+        .select('user_id')
+        .eq('class_id', current.class_id)
+        .in('user_id', studentIds);
+      throwDbError(enrollmentError);
+      if ((enrollments ?? []).length !== studentIds.length) {
+        throw new Error('Danh sách chỉ định có học sinh không thuộc lớp.');
+      }
+    }
+
+    const restoreRecipients = async () => {
+      await db.from('assignment_recipients').delete().eq('delivery_id', deliveryId);
+      const oldRows = (current?.assignment_recipients ?? []).map((row) => ({
+        delivery_id: deliveryId,
+        user_id: row.user_id,
+      }));
+      if (oldRows.length > 0) await db.from('assignment_recipients').insert(oldRows);
+    };
+
+    if (input.recipient_mode) {
+      const { error: deleteError } = await db
+        .from('assignment_recipients')
+        .delete()
+        .eq('delivery_id', deliveryId);
+      throwDbError(deleteError);
+      if (input.recipient_mode === 'selected') {
+        const rows = studentIds.map((userId) => ({ delivery_id: deliveryId, user_id: userId }));
+        const { error: insertError } = await db.from('assignment_recipients').insert(rows);
+        if (insertError) {
+          await restoreRecipients();
+          throwDbError(insertError);
+        }
+      }
+    }
+
     const allowed = ['due_date', 'is_published', 'max_submissions', 'recipient_mode'];
     const payload = Object.fromEntries(Object.entries(input).filter(([key]) => allowed.includes(key)));
     payload.updated_at = new Date().toISOString();
@@ -108,24 +172,13 @@ export const createAssignmentDeliveryService = (db) => ({
       .eq('teacher_id', teacherId)
       .select()
       .maybeSingle();
-    throwDbError(error);
-    if (!data) throw new Error('Không tìm thấy lần giao bài.');
-
-    if (input.recipient_mode) {
-      const { error: deleteError } = await db
-        .from('assignment_recipients')
-        .delete()
-        .eq('delivery_id', deliveryId);
-      throwDbError(deleteError);
-      if (input.recipient_mode === 'selected') {
-        const rows = [...new Set(input.student_ids ?? [])].map((userId) => ({
-          delivery_id: deliveryId,
-          user_id: userId,
-        }));
-        if (rows.length === 0) throw new Error('Vui lòng chọn ít nhất một học sinh.');
-        const { error: insertError } = await db.from('assignment_recipients').insert(rows);
-        throwDbError(insertError);
-      }
+    if (error) {
+      if (input.recipient_mode) await restoreRecipients();
+      throwDbError(error);
+    }
+    if (!data) {
+      if (input.recipient_mode) await restoreRecipients();
+      throw new Error('Không tìm thấy lần giao bài.');
     }
     return data;
   },

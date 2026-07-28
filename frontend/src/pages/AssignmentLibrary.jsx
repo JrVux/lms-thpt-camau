@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import AssignmentDeliveryModal from '../components/AssignmentDeliveryModal';
 import AssignmentDeliveryList from '../components/AssignmentDeliveryList';
@@ -12,6 +12,8 @@ const CATEGORIES = [
 ];
 
 const AssignmentLibrary = () => {
+  const [searchParams] = useSearchParams();
+  const initialClassId = searchParams.get('classId');
   const [activeCategory, setActiveCategory] = useState('grade_10');
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,7 @@ const AssignmentLibrary = () => {
           open
           onClose={() => setDeliveryAssignment(null)}
           onDelivered={loadAssignments}
+          initialClassId={initialClassId}
         />
       )}
       {listAssignment && (

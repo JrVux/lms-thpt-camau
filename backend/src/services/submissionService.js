@@ -1,12 +1,35 @@
 import { supabase } from './supabaseClient.js';
 export { scoreResults } from './studentAssignmentService.js';
 
+const resolveAuthorizedDelivery = async (assignmentId, userId) => {
+  const { data: deliveries, error } = await supabase
+    .from('assignment_deliveries')
+    .select('id,class_id,max_submissions,is_published,recipient_mode,assignment_recipients(user_id)')
+    .eq('assignment_id', assignmentId)
+    .eq('is_published', true);
+  if (error) throw new Error('Không thể kiểm tra quyền nhận bài.');
+  const classIds = (deliveries ?? []).map((delivery) => delivery.class_id);
+  if (classIds.length === 0) throw new Error('Bạn không được chỉ định làm bài tập này.');
+  const { data: enrollments, error: enrollmentError } = await supabase
+    .from('enrollments')
+    .select('class_id')
+    .eq('user_id', userId)
+    .in('class_id', classIds);
+  if (enrollmentError) throw new Error('Không thể kiểm tra lớp của học sinh.');
+  const enrolledClassIds = new Set((enrollments ?? []).map((row) => row.class_id));
+  const delivery = deliveries.find((item) => enrolledClassIds.has(item.class_id)
+    && (item.recipient_mode === 'all'
+      || item.assignment_recipients?.some((row) => row.user_id === userId)));
+  if (!delivery) throw new Error('Bạn không được chỉ định làm bài tập này.');
+  return delivery;
+};
+
 // Nộp bài (tạo mới hoặc cập nhật nếu đã nộp)
 export const submit = async ({ assignment_id, code, results }, userId) => {
   // Lấy thông tin assignment và test cases để tính điểm
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, max_score, is_published, test_cases(*)')
+    .select('id, max_score, content_version, test_cases(*)')
     .eq('id', assignment_id)
     .single();
 
@@ -14,27 +37,15 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
     throw new Error('Không tìm thấy bài tập');
   }
 
-  if (!assignment.is_published) {
-    throw new Error('Bài tập chưa được publish');
-  }
-
-  // Lấy max_submissions (có thể chưa có column trong DB)
-  let maxSubmissions = null;
-  try {
-    const { data: colData } = await supabase
-      .from('assignments')
-      .select('max_submissions')
-      .eq('id', assignment_id)
-      .single();
-    if (colData) maxSubmissions = colData.max_submissions;
-  } catch {}
+  const delivery = await resolveAuthorizedDelivery(assignment_id, userId);
+  const maxSubmissions = delivery.max_submissions;
 
   // Kiểm tra số lần nộp bài
   const { count, error: countError } = await supabase
     .from('submissions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('assignment_id', assignment_id);
+    .eq('delivery_id', delivery.id);
 
   if (countError) throw new Error('Lỗi kiểm tra số lần nộp bài');
 
@@ -75,7 +86,16 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
   // Luôn INSERT (cho phép nhiều lần nộp)
   const { data: created, error: createError } = await supabase
     .from('submissions')
-    .insert([{ user_id: userId, assignment_id, code, score, max_score }])
+    .insert([{
+      user_id: userId,
+      assignment_id,
+      delivery_id: delivery.id,
+      code,
+      score,
+      max_score,
+      graded_content_version: assignment.content_version,
+      regrade_status: 'current',
+    }])
     .select('*')
     .single();
 

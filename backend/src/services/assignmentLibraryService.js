@@ -61,14 +61,17 @@ export const createAssignmentLibraryService = (db) => ({
   async list({ teacherId, category }) {
     let query = db
       .from('assignments')
-      .select('*')
+      .select('*, assignment_deliveries(count)')
       .eq('teacher_id', teacherId)
       .eq('is_library', true)
       .order('updated_at', { ascending: false });
     if (category) query = query.eq('category', category);
     const { data, error } = await query;
     throwDbError(error);
-    return data ?? [];
+    return (data ?? []).map(({ assignment_deliveries: deliveryCounts, ...assignment }) => ({
+      ...assignment,
+      delivery_count: deliveryCounts?.[0]?.count ?? 0,
+    }));
   },
 
   async create({ teacherId, input }) {
@@ -133,20 +136,22 @@ export const createAssignmentLibraryService = (db) => ({
   async replaceTestCases({ teacherId, assignmentId, testCases }) {
     const current = await ownedAssignment(db, teacherId, assignmentId);
 
-    const { error: deleteError } = await db
+    const { data: oldTestCases, error: oldTestError } = await db
       .from('test_cases')
-      .delete()
+      .select('id')
       .eq('assignment_id', assignmentId);
-    throwDbError(deleteError);
+    throwDbError(oldTestError);
 
+    let insertedTestCases = [];
     if (testCases.length > 0) {
       const rows = testCases.map((testCase, index) => ({
         ...testCase,
         assignment_id: assignmentId,
         order_index: testCase.order_index ?? index,
       }));
-      const { error: insertError } = await db.from('test_cases').insert(rows).select();
+      const { data, error: insertError } = await db.from('test_cases').insert(rows).select('id');
       throwDbError(insertError);
+      insertedTestCases = data ?? [];
     }
 
     const maxScore = testCases.reduce((sum, testCase) => sum + Number(testCase.points ?? 1), 0);
@@ -161,9 +166,18 @@ export const createAssignmentLibraryService = (db) => ({
       .eq('teacher_id', teacherId)
       .select()
       .single();
-    throwDbError(error);
+    if (error) {
+      const insertedIds = insertedTestCases.map((testCase) => testCase.id);
+      if (insertedIds.length > 0) await db.from('test_cases').delete().in('id', insertedIds);
+      throwDbError(error);
+    }
 
     await markLinkedSubmissionsForRegrade(db, assignmentId);
+    const oldIds = (oldTestCases ?? []).map((testCase) => testCase.id);
+    if (oldIds.length > 0) {
+      const { error: deleteError } = await db.from('test_cases').delete().in('id', oldIds);
+      throwDbError(deleteError);
+    }
     return data;
   },
 });

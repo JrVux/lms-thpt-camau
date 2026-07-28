@@ -29,7 +29,7 @@ test('list filters by owner, library flag, and category', async () => {
   const db = fakeSupabase([{ data: [{ id: 'a1' }], error: null }]);
   const service = createAssignmentLibraryService(db);
 
-  assert.deepEqual(await service.list({ teacherId: 't1', category: 'grade_10' }), [{ id: 'a1' }]);
+  assert.deepEqual(await service.list({ teacherId: 't1', category: 'grade_10' }), [{ id: 'a1', delivery_count: 0 }]);
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'teacher_id' && call.args[1] === 't1'));
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'is_library' && call.args[1] === true));
   assert.ok(db.calls.some((call) => call.method === 'eq' && call.args[0] === 'category' && call.args[1] === 'grade_10'));
@@ -91,10 +91,11 @@ test('title-only update does not mark submissions', async () => {
 test('replacing tests recalculates max score, increments version, and marks linked submissions', async () => {
   const db = fakeSupabase([
     { data: { id: 'a1', content_version: 4 }, error: null },
-    { data: null, error: null },
-    { data: [{ id: 'tc1' }], error: null },
+    { data: [{ id: 'old-tc' }], error: null },
+    { data: [{ id: 'new-tc' }], error: null },
     { data: { id: 'a1', content_version: 5 }, error: null },
     { data: [{ id: 'd1' }], error: null },
+    { data: null, error: null },
     { data: null, error: null },
   ]);
   const service = createAssignmentLibraryService(db);

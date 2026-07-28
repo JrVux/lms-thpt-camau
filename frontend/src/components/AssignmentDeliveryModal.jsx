@@ -12,12 +12,14 @@ const emptySelection = {
   max_submissions: '',
 };
 
-const AssignmentDeliveryModal = ({ assignment, classes, open, onClose, onDelivered }) => {
+const AssignmentDeliveryModal = ({ assignment, classes, open, onClose, onDelivered, initialClassId }) => {
   const eligibleClasses = useMemo(
     () => eligibleTargetClasses(assignment, classes),
     [assignment, classes]
   );
-  const [selections, setSelections] = useState({});
+  const [selections, setSelections] = useState(initialClassId
+    ? { [initialClassId]: { ...emptySelection, selected: true } }
+    : {});
   const [students, setStudents] = useState({});
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');

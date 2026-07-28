@@ -545,9 +545,11 @@ const AssignmentsTab = ({ classId }) => {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const togglePublish = async (id) => {
+  const togglePublish = async (assignment) => {
     try {
-      await api.patch(`/api/assignments/${id}/publish`);
+      await api.patch(`/api/assignment-deliveries/${assignment.delivery_id}`, {
+        is_published: !assignment.is_published,
+      });
       fetch();
     } catch {}
   };
@@ -604,17 +606,11 @@ const AssignmentsTab = ({ classId }) => {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">Danh sách bài tập</h3>
         <div className="flex items-center gap-2">
-          {selectedAssignments.length > 0 && (
-            <button onClick={openShare}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium">
-              Chia sẻ ({selectedAssignments.length})
-            </button>
-          )}
           <button
             onClick={() => navigate(`/assignments?classId=${classId}`)}
             className="px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
-            + Thêm bài tập
+            Mở kho bài tập
           </button>
         </div>
       </div>
@@ -623,8 +619,6 @@ const AssignmentsTab = ({ classId }) => {
         {assignments.map((a) => (
           <div key={a.id} className="bg-white border rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1">
-              <input type="checkbox" checked={selectedAssignments.includes(a.id)}
-                onChange={() => toggleSelect(a.id)} className="accent-blue-600" />
               <div>
                 <h4 className="font-medium text-gray-800">{a.title}</h4>
                 <p className="text-sm text-gray-500 mt-0.5">
@@ -636,11 +630,13 @@ const AssignmentsTab = ({ classId }) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => navigate(`/classes/${classId}/assignments/${a.id}/edit`)}
+              <button onClick={() => navigate(a.sync_mode === 'linked'
+                ? `/assignments/${a.library_assignment_id}/edit`
+                : `/classes/${classId}/assignments/${a.assignment_id}/edit`)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-50">
                 Sửa
               </button>
-              <button onClick={() => togglePublish(a.id)}
+              <button onClick={() => togglePublish(a)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
                   a.is_published
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -656,15 +652,6 @@ const AssignmentsTab = ({ classId }) => {
           <p className="text-center py-8 text-gray-400">Chưa có bài tập nào</p>
         )}
       </div>
-
-      {/* Checkbox chọn tất cả */}
-      {assignments.length > 0 && (
-        <label className="flex items-center gap-2 mt-3 text-sm text-gray-500 cursor-pointer">
-          <input type="checkbox" checked={selectedAssignments.length === assignments.length}
-            onChange={selectAll} className="accent-blue-600" />
-          Chọn tất cả ({selectedAssignments.length}/{assignments.length})
-        </label>
-      )}
 
       {/* Modal chia sẻ */}
       {showShare && (
