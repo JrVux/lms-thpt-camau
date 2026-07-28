@@ -28,6 +28,10 @@ export const validateShareRequest = ({
     }
   }
 
+  if (assignmentIds.length === 0) {
+    throw new Error('Vui lòng chọn ít nhất một bài tập');
+  }
+
   if (assignments.length !== assignmentIds.length) {
     throw new Error('Một số bài tập không tồn tại');
   }

@@ -84,6 +84,16 @@ test('rejects missing requested assignments', () => {
   );
 });
 
+test('rejects an empty assignment selection', () => {
+  assert.throws(
+    () => validateShareRequest(validRequest({
+      assignments: [],
+      assignmentIds: [],
+    })),
+    /chọn ít nhất một bài tập/
+  );
+});
+
 const makeRepository = ({ failTestCasesFor } = {}) => {
   const calls = {
     assignments: [],
