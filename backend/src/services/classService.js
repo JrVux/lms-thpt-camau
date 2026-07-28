@@ -99,6 +99,28 @@ export const getClasses = async (userId, role) => {
   return data.map((e) => e.classes);
 };
 
+export const parseClassDeletionResult = (result) => {
+  if (result?.status === 'deleted') {
+    return { success: true, id: result.id };
+  }
+  if (result?.status === 'not_found') {
+    throw new Error('Không tìm thấy lớp');
+  }
+  if (result?.status === 'forbidden') {
+    throw new Error('Bạn không có quyền xóa lớp này');
+  }
+  throw new Error('Xóa lớp thất bại');
+};
+
+export const deleteClass = async (classId, teacherId) => {
+  const { data, error } = await supabase.rpc('delete_class_owned', {
+    p_class_id: classId,
+    p_teacher_id: teacherId,
+  });
+  if (error) throw new Error(`Xóa lớp thất bại: ${error.message}`);
+  return parseClassDeletionResult(data);
+};
+
 // Tham gia lớp bằng mã lớp
 export const joinClass = async (classCode, userId) => {
   // Tìm lớp theo class_code

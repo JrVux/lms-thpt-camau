@@ -26,6 +26,22 @@ export const list = async (req, res) => {
   }
 };
 
+// DELETE /api/classes/:id - Xóa vĩnh viễn lớp do giáo viên sở hữu
+export const deleteClass = async (req, res) => {
+  try {
+    const result = await classService.deleteClass(req.params.id, req.user.id);
+    return res.json(result);
+  } catch (error) {
+    if (error.message === 'Không tìm thấy lớp') {
+      return res.status(404).json({ message: error.message });
+    }
+    if (error.message === 'Bạn không có quyền xóa lớp này') {
+      return res.status(403).json({ message: error.message });
+    }
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 // POST /api/classes/join - Tham gia lớp bằng mã
 export const join = async (req, res) => {
   try {
