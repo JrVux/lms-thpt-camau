@@ -7,6 +7,7 @@ import * as classController from '../controllers/classController.js';
 import * as assignmentController from '../controllers/assignmentController.js';
 import * as assignmentLibraryController from '../controllers/assignmentLibraryController.js';
 import * as assignmentDeliveryController from '../controllers/assignmentDeliveryController.js';
+import * as studentAssignmentController from '../controllers/studentAssignmentController.js';
 import * as submissionController from '../controllers/submissionController.js';
 import * as statsController from '../controllers/statsController.js';
 
@@ -62,6 +63,11 @@ router.post('/api/assignment-library/:id/deliver', authenticate, requireRole('te
 router.get('/api/assignment-library/:id/deliveries', authenticate, requireRole('teacher'), assignmentDeliveryController.listForTemplate);
 router.patch('/api/assignment-deliveries/:id', authenticate, requireRole('teacher'), assignmentDeliveryController.update);
 router.post('/api/assignment-deliveries/:id/detach', authenticate, requireRole('teacher'), assignmentDeliveryController.detach);
+router.get('/api/my-assignments', authenticate, requireRole('student'), studentAssignmentController.listMine);
+router.get('/api/assignment-deliveries/:id', authenticate, requireRole('student'), studentAssignmentController.getDelivery);
+router.post('/api/assignment-deliveries/:id/submit', authenticate, requireRole('student'), studentAssignmentController.submit);
+router.get('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.prepareRegrade);
+router.post('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.completeRegrade);
 
 // Assignment routes
 router.post('/api/assignments', authenticate, requireRole('teacher'), [

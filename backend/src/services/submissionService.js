@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js';
+export { scoreResults } from './studentAssignmentService.js';
 
 // Nộp bài (tạo mới hoặc cập nhật nếu đã nộp)
 export const submit = async ({ assignment_id, code, results }, userId) => {
