@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import AssignmentDeliveryModal from '../components/AssignmentDeliveryModal';
+import AssignmentDeliveryList from '../components/AssignmentDeliveryList';
 
 const CATEGORIES = [
   { key: 'grade_10', label: 'Khối 10' },
@@ -14,6 +16,9 @@ const AssignmentLibrary = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [classes, setClasses] = useState([]);
+  const [deliveryAssignment, setDeliveryAssignment] = useState(null);
+  const [listAssignment, setListAssignment] = useState(null);
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);
@@ -31,6 +36,10 @@ const AssignmentLibrary = () => {
   useEffect(() => {
     loadAssignments();
   }, [loadAssignments]);
+
+  useEffect(() => {
+    api.get('/api/classes').then(({ data }) => setClasses(data)).catch(() => {});
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -83,12 +92,28 @@ const AssignmentLibrary = () => {
               </dl>
               <div className="mt-4 flex flex-wrap gap-3 text-sm">
                 <Link className="font-medium text-[#2563EB] hover:underline" to={`/assignments/${assignment.id}/edit`}>Chỉnh sửa</Link>
-                <button className="font-medium text-[#2563EB] opacity-60" type="button" disabled>Giao bài</button>
-                <button className="font-medium text-gray-500 opacity-60" type="button" disabled>Các lớp đã giao</button>
+                <button className="font-medium text-[#2563EB] hover:underline" type="button" onClick={() => setDeliveryAssignment(assignment)}>Giao bài</button>
+                <button className="font-medium text-gray-600 hover:underline" type="button" onClick={() => setListAssignment(assignment)}>Các lớp đã giao</button>
               </div>
             </article>
           ))}
         </div>
+      )}
+      {deliveryAssignment && (
+        <AssignmentDeliveryModal
+          assignment={deliveryAssignment}
+          classes={classes}
+          open
+          onClose={() => setDeliveryAssignment(null)}
+          onDelivered={loadAssignments}
+        />
+      )}
+      {listAssignment && (
+        <AssignmentDeliveryList
+          assignment={listAssignment}
+          open
+          onClose={() => setListAssignment(null)}
+        />
       )}
     </div>
   );
