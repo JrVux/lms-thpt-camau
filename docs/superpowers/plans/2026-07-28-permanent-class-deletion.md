@@ -4,7 +4,7 @@
 
 **Goal:** Cho phép giáo viên xóa vĩnh viễn lớp mình sở hữu sau một hộp xác nhận yêu cầu nhập đúng tên lớp.
 
-**Architecture:** Một RPC PostgreSQL `delete_class_owned` thực hiện toàn bộ dọn dữ liệu và xóa lớp trong cùng giao dịch, đồng thời giữ lại bài gốc trong Kho bài tập. Backend xác minh quyền sở hữu trước khi gọi RPC; frontend đặt thao tác trong trang chi tiết lớp và chỉ bật nút xóa khi tên nhập khớp hoàn toàn.
+**Architecture:** Một RPC PostgreSQL `delete_class_owned` thực hiện toàn bộ kiểm tra quyền sở hữu, dọn dữ liệu và xóa lớp trong cùng giao dịch, đồng thời giữ lại bài gốc trong Kho bài tập. Frontend đặt thao tác trong trang chi tiết lớp và chỉ bật nút xóa khi tên nhập khớp hoàn toàn.
 
 **Tech Stack:** PostgreSQL/Supabase RPC, Node.js/Express, React 18/Vite, Node test runner, Tailwind CSS.
 
@@ -42,7 +42,7 @@ const classDeletionMigrationUrl = new URL(
 test('class deletion transaction preserves library assignments and blocks public roles', async () => {
   const sql = await readFile(classDeletionMigrationUrl, 'utf8');
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.delete_class_owned/);
-  assert.match(sql, /SECURITY DEFINER SET search_path = pg_catalog/);
+  assert.match(sql, /SECURITY INVOKER SET search_path = ''/);
   assert.match(sql, /UPDATE public\.assignments[\s\S]*SET class_id = NULL[\s\S]*is_library IS TRUE/);
   assert.match(sql, /DELETE FROM public\.submissions/);
   assert.match(sql, /UPDATE public\.assignments[\s\S]*SET source_assignment_id = NULL/);
@@ -67,7 +67,7 @@ CREATE OR REPLACE FUNCTION public.delete_class_owned(
   p_class_id UUID,
   p_teacher_id UUID
 ) RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
 AS $$
 DECLARE
   target_class public.classes%ROWTYPE;
