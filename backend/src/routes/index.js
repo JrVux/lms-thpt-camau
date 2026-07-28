@@ -6,6 +6,7 @@ import * as authController from '../controllers/authController.js';
 import * as classController from '../controllers/classController.js';
 import * as assignmentController from '../controllers/assignmentController.js';
 import * as assignmentLibraryController from '../controllers/assignmentLibraryController.js';
+import * as assignmentDeliveryController from '../controllers/assignmentDeliveryController.js';
 import * as submissionController from '../controllers/submissionController.js';
 import * as statsController from '../controllers/statsController.js';
 
@@ -57,6 +58,10 @@ router.post('/api/assignment-library', authenticate, requireRole('teacher'), ass
 router.get('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.get);
 router.patch('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.update);
 router.post('/api/assignment-library/:id/test-cases', authenticate, requireRole('teacher'), assignmentLibraryController.replaceTestCases);
+router.post('/api/assignment-library/:id/deliver', authenticate, requireRole('teacher'), assignmentDeliveryController.deliver);
+router.get('/api/assignment-library/:id/deliveries', authenticate, requireRole('teacher'), assignmentDeliveryController.listForTemplate);
+router.patch('/api/assignment-deliveries/:id', authenticate, requireRole('teacher'), assignmentDeliveryController.update);
+router.post('/api/assignment-deliveries/:id/detach', authenticate, requireRole('teacher'), assignmentDeliveryController.detach);
 
 // Assignment routes
 router.post('/api/assignments', authenticate, requireRole('teacher'), [
