@@ -22,5 +22,5 @@ test('visual guide covers teacher and student journeys accessibly', async () => 
   assert.match(guide, /prefers-reduced-motion/);
   assert.match(guide, /skip-link/);
   assert.doesNotMatch(guide, /<img[^>]+src="https?:/);
-  assert.doesNotMatch(guide, /9ca01d06abd4b2ec/);
+  assert.doesNotMatch(guide, /TEACHER_SECRET\s*[=:]\s*[a-f0-9]{32,}/i);
 });
