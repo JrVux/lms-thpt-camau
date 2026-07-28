@@ -5,22 +5,6 @@ import {
   validateShareRequest,
 } from './assignmentSharing.js';
 
-const markAssignmentDeliveriesForRegrade = async (assignmentId, teacherId) => {
-  const { data: deliveries, error } = await supabase
-    .from('assignment_deliveries')
-    .select('id')
-    .eq('assignment_id', assignmentId)
-    .eq('teacher_id', teacherId);
-  if (error) throw new Error('Không thể cập nhật trạng thái chấm lại.');
-  const deliveryIds = (deliveries ?? []).map((delivery) => delivery.id);
-  if (deliveryIds.length === 0) return;
-  const { error: updateError } = await supabase
-    .from('submissions')
-    .update({ regrade_status: 'required', regrade_error: null })
-    .in('delivery_id', deliveryIds);
-  if (updateError) throw new Error('Không thể đánh dấu bài nộp cần chấm lại.');
-};
-
 // Tạo bài tập mới
 export const createAssignment = async (data, teacherId) => {
   const { class_id, title, description, type, starter_code, solution_code, due_date } = data;
@@ -62,7 +46,7 @@ export const createAssignment = async (data, teacherId) => {
 export const updateAssignment = async (assignmentId, data, teacherId) => {
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, class_id, content_version, classes!inner(teacher_id)')
+    .select('id, class_id, content_version, max_score, classes!inner(teacher_id)')
     .eq('id', assignmentId)
     .single();
 
@@ -87,8 +71,14 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
   const scoringChanged = ['starter_code', 'solution_code', 'test_code', 'setup_sql', 'max_score']
     .some((field) => data[field] !== undefined);
   if (scoringChanged) {
-    updates.content_version = Number(assignment.content_version ?? 1) + 1;
-    updates.updated_at = new Date().toISOString();
+    const { data: updated, error } = await supabase.rpc('update_assignment_content', {
+      p_assignment_id: assignmentId,
+      p_teacher_id: teacherId,
+      p_updates: updates,
+      p_library_only: false,
+    });
+    if (error) throw new Error('Cập nhật bài tập thất bại: ' + error.message);
+    return updated;
   }
 
   const { data: updated, error } = await supabase
@@ -99,33 +89,12 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
     .single();
 
   if (error) throw new Error('Cập nhật bài tập thất bại: ' + error.message);
-  if (scoringChanged) await markAssignmentDeliveriesForRegrade(assignmentId, teacherId);
   return updated;
 };
 
 // Thêm / cập nhật test cases cho bài tập
 export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
-  // Kiểm tra quyền sở hữu
-  const { data: assignment, error: assignError } = await supabase
-    .from('assignments')
-    .select('id, class_id, content_version, classes!inner(teacher_id)')
-    .eq('id', assignmentId)
-    .single();
-
-  if (assignError || !assignment) {
-    throw new Error('Không tìm thấy bài tập');
-  }
-
-  if (assignment.classes.teacher_id !== teacherId) {
-    throw new Error('Bạn không phải giáo viên của lớp này');
-  }
-
-  // Xóa test cases cũ
-  await supabase.from('test_cases').delete().eq('assignment_id', assignmentId);
-
-  // Thêm test cases mới với order_index
   const newTestCases = testCases.map((tc, index) => ({
-    assignment_id: assignmentId,
     input_data: tc.input_data || '',
     expected_output: tc.expected_output,
     test_name: tc.test_name || `Test ${index + 1}`,
@@ -133,31 +102,13 @@ export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
     order_index: index,
   }));
 
-  const { data: inserted, error } = await supabase
-    .from('test_cases')
-    .insert(newTestCases)
-    .select('*');
-
-  if (error) {
-    throw new Error('Lưu test cases thất bại: ' + error.message);
-  }
-
-  // Tính max_score = tổng points
-  const max_score = newTestCases.reduce((sum, tc) => sum + tc.points, 0);
-
-  // Cập nhật max_score vào assignment
-  await supabase
-    .from('assignments')
-    .update({
-      max_score,
-      content_version: Number(assignment.content_version ?? 1) + 1,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', assignmentId);
-
-  await markAssignmentDeliveriesForRegrade(assignmentId, teacherId);
-
-  return { test_cases: inserted, max_score };
+  const { data, error } = await supabase.rpc('replace_assignment_tests', {
+    p_assignment_id: assignmentId,
+    p_teacher_id: teacherId,
+    p_test_cases: newTestCases,
+  });
+  if (error) throw new Error('Lưu test cases thất bại: ' + error.message);
+  return data;
 };
 
 // Lấy chi tiết bài tập kèm test cases

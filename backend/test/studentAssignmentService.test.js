@@ -66,3 +66,9 @@ test('browser result score never exceeds configured maximum', () => {
   assert.equal(scored.score, 10);
   assert.equal(scored.maxScore, 10);
 });
+
+test('browser result never derives its grade scale from client points', () => {
+  const scored = scoreResults([], [{ test_name: 'a', points: 1000000, passed: true }], 0);
+  assert.equal(scored.score, 10);
+  assert.equal(scored.maxScore, 10);
+});

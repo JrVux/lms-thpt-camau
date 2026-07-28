@@ -65,61 +65,19 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
   const max_score = scored.maxScore;
 
   // Luôn INSERT (cho phép nhiều lần nộp)
-  const { data: created, error: createError } = await supabase
-    .from('submissions')
-    .insert([{
-      user_id: userId,
-      assignment_id,
-      delivery_id: delivery.id,
-      code,
-      score,
-      max_score,
-      graded_content_version: assignment.content_version,
-      regrade_status: 'current',
-    }])
-    .select('*')
-    .single();
+  const { data: created, error: createError } = await supabase.rpc('create_submission_with_results', {
+    p_user_id: userId,
+    p_assignment_id: assignment_id,
+    p_delivery_id: delivery.id,
+    p_code: code,
+    p_score: score,
+    p_max_score: max_score,
+    p_content_version: assignment.content_version,
+    p_results: scored.rows,
+  });
 
   if (createError) throw new Error('Nộp bài thất bại');
   const submissionId = created.id;
-
-  // Thêm submission_results mới
-  if (results.length > 0) {
-    const resultRows = results.map((r) => {
-      const row = {
-        submission_id: submissionId,
-        test_case_id: r.test_case_id || null,
-        passed: r.passed,
-        actual_output: r.actual_output || '',
-        error_message: r.error_message || '',
-      };
-      if (r.test_name !== undefined) row.test_name = r.test_name;
-      if (r.points !== undefined) row.points = r.points;
-      return row;
-    });
-
-    const { error: resultError } = await supabase
-      .from('submission_results')
-      .insert(resultRows);
-
-    if (resultError) {
-      // Thử lại không có test_name / points (cột chưa tồn tại trong DB)
-      const fallbackRows = resultRows.map((r) => ({
-        submission_id: r.submission_id,
-        test_case_id: r.test_case_id,
-        passed: r.passed,
-        actual_output: r.actual_output,
-        error_message: r.error_message,
-      }));
-      const { error: fallbackError } = await supabase
-        .from('submission_results')
-        .insert(fallbackRows);
-      if (fallbackError) {
-        await supabase.from('submissions').delete().eq('id', submissionId);
-        throw new Error('Lưu kết quả test thất bại');
-      }
-    }
-  }
 
   const remaining = maxSubmissions !== null ? maxSubmissions - attempted - 1 : null;
 

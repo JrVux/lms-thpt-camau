@@ -36,14 +36,10 @@ export const scoreResults = (testCases, results, configuredMaxScore = 0) => {
     if (new Set(browserTestNames).size !== browserTestNames.length) {
       throw new Error('Kết quả chấm trình duyệt bị trùng.');
     }
-    const possible = results.reduce((sum, result) =>
-      sum + Math.max(0, Number(result.points ?? 1)), 0);
-    const earned = results.reduce((sum, result) =>
-      sum + (result.passed ? Math.max(0, Number(result.points ?? 1)) : 0), 0);
-    maxScore = Number(configuredMaxScore) || possible;
-    score = configuredMaxScore && possible > 0
-      ? Math.round((earned / possible) * Number(configuredMaxScore))
-      : earned;
+    const possible = results.length;
+    const earned = results.filter((result) => result.passed).length;
+    maxScore = Number(configuredMaxScore) > 0 ? Number(configuredMaxScore) : 10;
+    score = possible > 0 ? Math.round((earned / possible) * maxScore) : 0;
     score = Math.min(score, maxScore);
   }
 
@@ -160,31 +156,17 @@ export const createStudentAssignmentService = (db) => {
 
       const assignment = delivery.assignments;
       const scored = scoreResults(assignment.test_cases, results, assignment.max_score);
-      const { data: submission, error } = await db
-        .from('submissions')
-        .insert([{
-          user_id: userId,
-          assignment_id: assignment.id,
-          delivery_id: deliveryId,
-          code,
-          score: scored.score,
-          max_score: scored.maxScore,
-          graded_content_version: assignment.content_version,
-          regrade_status: 'current',
-        }])
-        .select()
-        .single();
+      const { data: submission, error } = await db.rpc('create_submission_with_results', {
+        p_user_id: userId,
+        p_assignment_id: assignment.id,
+        p_delivery_id: deliveryId,
+        p_code: code,
+        p_score: scored.score,
+        p_max_score: scored.maxScore,
+        p_content_version: assignment.content_version,
+        p_results: scored.rows,
+      });
       throwDbError(error);
-
-      if (scored.rows.length > 0) {
-        const { error: resultError } = await db
-          .from('submission_results')
-          .insert(scored.rows.map((row) => ({ ...row, submission_id: submission.id })));
-        if (resultError) {
-          await db.from('submissions').delete().eq('id', submission.id);
-          throwDbError(resultError);
-        }
-      }
       return { ...submission, remaining_attempts: delivery.max_submissions === null
         ? null
         : delivery.max_submissions - Number(count ?? 0) - 1 };
@@ -225,42 +207,17 @@ export const createStudentAssignmentService = (db) => {
         throw error;
       }
 
-      const { data: oldResults, error: oldResultError } = await db
-        .from('submission_results')
-        .select('id')
-        .eq('submission_id', submissionId);
-      throwDbError(oldResultError);
-      const { data: newResults, error: resultError } = await db
-        .from('submission_results')
-        .insert(scored.rows.map((row) => ({ ...row, submission_id: submissionId })))
-        .select('id');
-      if (resultError) {
-        await markRegradeFailed(userId, submissionId, resultError.message);
-        throwDbError(resultError);
-      }
-      const { data, error } = await db
-        .from('submissions')
-        .update({
-          score: scored.score,
-          max_score: scored.maxScore,
-          graded_content_version: assignment.content_version,
-          regrade_status: 'current',
-          regrade_error: null,
-        })
-        .eq('id', submissionId)
-        .eq('user_id', userId)
-        .select()
-        .single();
+      const { data, error } = await db.rpc('complete_submission_regrade', {
+        p_submission_id: submissionId,
+        p_user_id: userId,
+        p_score: scored.score,
+        p_max_score: scored.maxScore,
+        p_content_version: assignment.content_version,
+        p_results: scored.rows,
+      });
       if (error) {
-        const newIds = (newResults ?? []).map((result) => result.id);
-        if (newIds.length > 0) await db.from('submission_results').delete().in('id', newIds);
         await markRegradeFailed(userId, submissionId, error.message);
         throwDbError(error);
-      }
-      const oldIds = (oldResults ?? []).map((result) => result.id);
-      if (oldIds.length > 0) {
-        const { error: deleteError } = await db.from('submission_results').delete().in('id', oldIds);
-        throwDbError(deleteError);
       }
       return data;
     },

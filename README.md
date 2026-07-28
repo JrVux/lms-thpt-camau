@@ -66,7 +66,15 @@ npm run dev
 ```
 
 ### Database
-Chạy file `backend/src/database/schema.sql` trong Supabase SQL Editor.
+Chạy lần lượt các file sau trong Supabase SQL Editor:
+
+1. `backend/src/database/schema.sql`
+2. `backend/src/database/migrations/005_assignment_transactions.sql`
+3. `backend/src/database/migrations/006_lock_assignment_rpcs.sql`
+
+File migration thứ hai cài các giao dịch nguyên tử bắt buộc cho thay test,
+cập nhật phiên bản, nộp bài và chấm lại. Backend sẽ không khởi động ở môi
+trường thực tế nếu thiếu `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Deploy
 

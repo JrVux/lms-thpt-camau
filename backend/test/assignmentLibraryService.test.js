@@ -7,6 +7,10 @@ const fakeSupabase = (responses) => {
   const calls = [];
   return {
     calls,
+    async rpc(name, args) {
+      calls.push({ method: 'rpc', name, args });
+      return responses.shift() ?? { data: null, error: null };
+    },
     from(table) {
       const response = responses.shift() ?? { data: null, error: null };
       const chain = new Proxy({}, {
@@ -51,12 +55,9 @@ test('create sets ownership, category, and initial version', async () => {
   assert.equal(payload.is_library, true);
 });
 
-test('update ignores teacher_id and increments version for scoring content', async () => {
+test('scoring update uses the atomic content-and-regrade transaction', async () => {
   const db = fakeSupabase([
-    { data: { id: 'a1', content_version: 2 }, error: null },
     { data: { id: 'a1', content_version: 3 }, error: null },
-    { data: [{ id: 'd1' }], error: null },
-    { data: null, error: null },
   ]);
   const service = createAssignmentLibraryService(db);
 
@@ -66,14 +67,14 @@ test('update ignores teacher_id and increments version for scoring content', asy
     input: { teacher_id: 'attacker', starter_code: 'print(2)' },
   });
 
-  const updatePayload = db.calls.find((call) => call.table === 'assignments' && call.method === 'update').args[0];
-  assert.equal(updatePayload.teacher_id, undefined);
-  assert.deepEqual(
-    { starter_code: updatePayload.starter_code, content_version: updatePayload.content_version },
-    { starter_code: 'print(2)', content_version: 3 }
-  );
-  assert.match(updatePayload.updated_at, /^\d{4}-\d{2}-\d{2}T/);
-  assert.ok(db.calls.some((call) => call.table === 'submissions' && call.method === 'update'));
+  const rpc = db.calls.find((call) => call.method === 'rpc');
+  assert.equal(rpc.name, 'update_assignment_content');
+  assert.deepEqual(rpc.args, {
+    p_assignment_id: 'a1',
+    p_teacher_id: 't1',
+    p_updates: { starter_code: 'print(2)' },
+    p_library_only: true,
+  });
 });
 
 test('title-only update does not mark submissions', async () => {
@@ -90,13 +91,7 @@ test('title-only update does not mark submissions', async () => {
 
 test('replacing tests recalculates max score, increments version, and marks linked submissions', async () => {
   const db = fakeSupabase([
-    { data: { id: 'a1', content_version: 4 }, error: null },
-    { data: [{ id: 'old-tc' }], error: null },
-    { data: [{ id: 'new-tc' }], error: null },
     { data: { id: 'a1', content_version: 5 }, error: null },
-    { data: [{ id: 'd1' }], error: null },
-    { data: null, error: null },
-    { data: null, error: null },
   ]);
   const service = createAssignmentLibraryService(db);
 
@@ -106,9 +101,9 @@ test('replacing tests recalculates max score, increments version, and marks link
     testCases: [{ expected_output: '2', points: 3 }, { expected_output: '4', points: 2 }],
   });
 
-  const assignmentUpdate = db.calls.find((call) => call.table === 'assignments' && call.method === 'update').args[0];
-  assert.equal(assignmentUpdate.max_score, 5);
-  assert.equal(assignmentUpdate.content_version, 5);
-  const submissionUpdate = db.calls.find((call) => call.table === 'submissions' && call.method === 'update').args[0];
-  assert.deepEqual(submissionUpdate, { regrade_status: 'required', regrade_error: null });
+  const rpc = db.calls.find((call) => call.method === 'rpc');
+  assert.equal(rpc.name, 'replace_assignment_tests');
+  assert.equal(rpc.args.p_assignment_id, 'a1');
+  assert.equal(rpc.args.p_teacher_id, 't1');
+  assert.deepEqual(rpc.args.p_test_cases.map((item) => item.order_index), [0, 1]);
 });

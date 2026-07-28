@@ -39,24 +39,6 @@ const ownedAssignment = async (db, teacherId, assignmentId) => {
   return data;
 };
 
-const markLinkedSubmissionsForRegrade = async (db, assignmentId) => {
-  const { data: deliveries, error: deliveryError } = await db
-    .from('assignment_deliveries')
-    .select('id')
-    .eq('library_assignment_id', assignmentId)
-    .eq('sync_mode', 'linked');
-  throwDbError(deliveryError);
-
-  const deliveryIds = (deliveries ?? []).map((delivery) => delivery.id);
-  if (deliveryIds.length === 0) return;
-
-  const { error } = await db
-    .from('submissions')
-    .update({ regrade_status: 'required', regrade_error: null })
-    .in('delivery_id', deliveryIds);
-  throwDbError(error);
-};
-
 export const createAssignmentLibraryService = (db) => ({
   async list({ teacherId, category }) {
     let query = db
@@ -111,12 +93,21 @@ export const createAssignmentLibraryService = (db) => ({
   },
 
   async update({ teacherId, assignmentId, input }) {
-    const current = await ownedAssignment(db, teacherId, assignmentId);
     const payload = Object.fromEntries(
       Object.entries(input).filter(([field]) => WRITABLE_FIELDS.has(field))
     );
     const scoringChanged = Object.keys(payload).some((field) => SCORING_FIELDS.has(field));
-    if (scoringChanged) payload.content_version = current.content_version + 1;
+    if (scoringChanged) {
+      const { data, error } = await db.rpc('update_assignment_content', {
+        p_assignment_id: assignmentId,
+        p_teacher_id: teacherId,
+        p_updates: payload,
+        p_library_only: true,
+      });
+      throwDbError(error);
+      return data;
+    }
+    await ownedAssignment(db, teacherId, assignmentId);
     payload.updated_at = new Date().toISOString();
 
     const { data, error } = await db
@@ -129,55 +120,20 @@ export const createAssignmentLibraryService = (db) => ({
       .single();
     throwDbError(error);
 
-    if (scoringChanged) await markLinkedSubmissionsForRegrade(db, assignmentId);
     return data;
   },
 
   async replaceTestCases({ teacherId, assignmentId, testCases }) {
-    const current = await ownedAssignment(db, teacherId, assignmentId);
-
-    const { data: oldTestCases, error: oldTestError } = await db
-      .from('test_cases')
-      .select('id')
-      .eq('assignment_id', assignmentId);
-    throwDbError(oldTestError);
-
-    let insertedTestCases = [];
-    if (testCases.length > 0) {
-      const rows = testCases.map((testCase, index) => ({
-        ...testCase,
-        assignment_id: assignmentId,
-        order_index: testCase.order_index ?? index,
-      }));
-      const { data, error: insertError } = await db.from('test_cases').insert(rows).select('id');
-      throwDbError(insertError);
-      insertedTestCases = data ?? [];
-    }
-
-    const maxScore = testCases.reduce((sum, testCase) => sum + Number(testCase.points ?? 1), 0);
-    const { data, error } = await db
-      .from('assignments')
-      .update({
-        max_score: maxScore,
-        content_version: current.content_version + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', assignmentId)
-      .eq('teacher_id', teacherId)
-      .select()
-      .single();
-    if (error) {
-      const insertedIds = insertedTestCases.map((testCase) => testCase.id);
-      if (insertedIds.length > 0) await db.from('test_cases').delete().in('id', insertedIds);
-      throwDbError(error);
-    }
-
-    await markLinkedSubmissionsForRegrade(db, assignmentId);
-    const oldIds = (oldTestCases ?? []).map((testCase) => testCase.id);
-    if (oldIds.length > 0) {
-      const { error: deleteError } = await db.from('test_cases').delete().in('id', oldIds);
-      throwDbError(deleteError);
-    }
+    const normalized = testCases.map((testCase, index) => ({
+      ...testCase,
+      order_index: testCase.order_index ?? index,
+    }));
+    const { data, error } = await db.rpc('replace_assignment_tests', {
+      p_assignment_id: assignmentId,
+      p_teacher_id: teacherId,
+      p_test_cases: normalized,
+    });
+    throwDbError(error);
     return data;
   },
 });
