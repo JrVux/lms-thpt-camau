@@ -5,6 +5,22 @@ import {
   validateShareRequest,
 } from './assignmentSharing.js';
 
+const markAssignmentDeliveriesForRegrade = async (assignmentId, teacherId) => {
+  const { data: deliveries, error } = await supabase
+    .from('assignment_deliveries')
+    .select('id')
+    .eq('assignment_id', assignmentId)
+    .eq('teacher_id', teacherId);
+  if (error) throw new Error('Không thể cập nhật trạng thái chấm lại.');
+  const deliveryIds = (deliveries ?? []).map((delivery) => delivery.id);
+  if (deliveryIds.length === 0) return;
+  const { error: updateError } = await supabase
+    .from('submissions')
+    .update({ regrade_status: 'required', regrade_error: null })
+    .in('delivery_id', deliveryIds);
+  if (updateError) throw new Error('Không thể đánh dấu bài nộp cần chấm lại.');
+};
+
 // Tạo bài tập mới
 export const createAssignment = async (data, teacherId) => {
   const { class_id, title, description, type, starter_code, solution_code, due_date } = data;
@@ -46,7 +62,7 @@ export const createAssignment = async (data, teacherId) => {
 export const updateAssignment = async (assignmentId, data, teacherId) => {
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, class_id, classes!inner(teacher_id)')
+    .select('id, class_id, content_version, classes!inner(teacher_id)')
     .eq('id', assignmentId)
     .single();
 
@@ -68,6 +84,12 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
   if (data.due_date !== undefined) updates.due_date = data.due_date;
   if (data.max_submissions !== undefined) updates.max_submissions = data.max_submissions === null ? null : parseInt(data.max_submissions);
   if (data.max_score !== undefined) updates.max_score = parseInt(data.max_score) || 0;
+  const scoringChanged = ['starter_code', 'solution_code', 'test_code', 'setup_sql', 'max_score']
+    .some((field) => data[field] !== undefined);
+  if (scoringChanged) {
+    updates.content_version = Number(assignment.content_version ?? 1) + 1;
+    updates.updated_at = new Date().toISOString();
+  }
 
   const { data: updated, error } = await supabase
     .from('assignments')
@@ -77,6 +99,7 @@ export const updateAssignment = async (assignmentId, data, teacherId) => {
     .single();
 
   if (error) throw new Error('Cập nhật bài tập thất bại: ' + error.message);
+  if (scoringChanged) await markAssignmentDeliveriesForRegrade(assignmentId, teacherId);
   return updated;
 };
 
@@ -85,7 +108,7 @@ export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
   // Kiểm tra quyền sở hữu
   const { data: assignment, error: assignError } = await supabase
     .from('assignments')
-    .select('id, class_id, classes!inner(teacher_id)')
+    .select('id, class_id, content_version, classes!inner(teacher_id)')
     .eq('id', assignmentId)
     .single();
 
@@ -125,8 +148,14 @@ export const upsertTestCases = async (assignmentId, testCases, teacherId) => {
   // Cập nhật max_score vào assignment
   await supabase
     .from('assignments')
-    .update({ max_score })
+    .update({
+      max_score,
+      content_version: Number(assignment.content_version ?? 1) + 1,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', assignmentId);
+
+  await markAssignmentDeliveriesForRegrade(assignmentId, teacherId);
 
   return { test_cases: inserted, max_score };
 };

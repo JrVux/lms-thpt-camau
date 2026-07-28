@@ -120,6 +120,10 @@ const CreateAssignment = () => {
           await api.post(`/api/assignment-library/${assignmentId}/test-cases`, {
             test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
           });
+        } else {
+          await api.post(`/api/assignments/${assignmentId}/test-cases`, {
+            test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
+          });
         }
       } else {
         const endpoint = isLibraryMode ? '/api/assignment-library' : '/api/assignments';

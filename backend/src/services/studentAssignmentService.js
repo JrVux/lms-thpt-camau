@@ -180,7 +180,10 @@ export const createStudentAssignmentService = (db) => {
         const { error: resultError } = await db
           .from('submission_results')
           .insert(scored.rows.map((row) => ({ ...row, submission_id: submission.id })));
-        throwDbError(resultError);
+        if (resultError) {
+          await db.from('submissions').delete().eq('id', submission.id);
+          throwDbError(resultError);
+        }
       }
       return { ...submission, remaining_attempts: delivery.max_submissions === null
         ? null

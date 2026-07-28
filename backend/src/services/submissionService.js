@@ -1,10 +1,11 @@
 import { supabase } from './supabaseClient.js';
-export { scoreResults } from './studentAssignmentService.js';
+import { scoreResults } from './studentAssignmentService.js';
+export { scoreResults };
 
 const resolveAuthorizedDelivery = async (assignmentId, userId) => {
   const { data: deliveries, error } = await supabase
     .from('assignment_deliveries')
-    .select('id,class_id,max_submissions,is_published,recipient_mode,assignment_recipients(user_id)')
+    .select('id,class_id,due_date,max_submissions,is_published,recipient_mode,assignment_recipients(user_id)')
     .eq('assignment_id', assignmentId)
     .eq('is_published', true);
   if (error) throw new Error('Không thể kiểm tra quyền nhận bài.');
@@ -21,6 +22,9 @@ const resolveAuthorizedDelivery = async (assignmentId, userId) => {
     && (item.recipient_mode === 'all'
       || item.assignment_recipients?.some((row) => row.user_id === userId)));
   if (!delivery) throw new Error('Bạn không được chỉ định làm bài tập này.');
+  if (delivery.due_date && new Date(delivery.due_date) < new Date()) {
+    throw new Error('Bài tập đã quá hạn nộp.');
+  }
   return delivery;
 };
 
@@ -56,32 +60,9 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
   }
 
   // Tính score
-  let score = 0;
-  let max_score = assignment.max_score || 0;
-
-  if (assignment.test_cases && assignment.test_cases.length > 0) {
-    // SQL/HTML: test cases có trong DB, dùng pointsMap
-    const pointsMap = {};
-    for (const tc of assignment.test_cases) {
-      pointsMap[tc.id] = tc.points;
-    }
-    for (const r of results) {
-      if (r.passed && pointsMap[r.test_case_id]) {
-        score += pointsMap[r.test_case_id];
-      }
-    }
-  } else {
-    // Python: test suites từ test_code, tính từ results
-    const totalTestPoints = results.reduce((sum, r) => sum + (r.points || 1), 0);
-    const earned = results.reduce((sum, r) => sum + (r.passed ? (r.points || 1) : 0), 0);
-    if (max_score && totalTestPoints > 0) {
-      // Nếu teacher set max_score, tính score theo tỉ lệ
-      score = Math.round((earned / totalTestPoints) * max_score);
-    } else {
-      score = earned;
-      max_score = totalTestPoints;
-    }
-  }
+  const scored = scoreResults(assignment.test_cases, results, assignment.max_score);
+  const score = scored.score;
+  const max_score = scored.maxScore;
 
   // Luôn INSERT (cho phép nhiều lần nộp)
   const { data: created, error: createError } = await supabase
@@ -133,7 +114,10 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
       const { error: fallbackError } = await supabase
         .from('submission_results')
         .insert(fallbackRows);
-      if (fallbackError) throw new Error('Lưu kết quả test thất bại');
+      if (fallbackError) {
+        await supabase.from('submissions').delete().eq('id', submissionId);
+        throw new Error('Lưu kết quả test thất bại');
+      }
     }
   }
 
