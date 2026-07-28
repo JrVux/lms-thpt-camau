@@ -730,6 +730,9 @@ import * as XLSX from 'xlsx';
 const GradebookTab = ({ classId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   useEffect(() => {
     api.get(`/api/classes/${classId}/gradebook`)
@@ -737,6 +740,20 @@ const GradebookTab = ({ classId }) => {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [classId]);
+
+  const openSubmission = async (submissionId) => {
+    setDetailLoading(true);
+    setDetailError('');
+    setSelectedSubmission(null);
+    try {
+      const { data: detail } = await api.get(`/api/classes/${classId}/submissions/${submissionId}`);
+      setSelectedSubmission(detail);
+    } catch (error) {
+      setDetailError(error.response?.data?.message || 'Không thể tải bài làm');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const exportCSV = () => {
     api.get(`/api/classes/${classId}/gradebook/export`, { responseType: 'blob' })
@@ -809,7 +826,16 @@ const GradebookTab = ({ classId }) => {
                   }
                   return (
                     <td key={a.id} className={cellClass}>
-                      {sub ? `${sub.score}/${sub.max_score}` : '--'}
+                      {sub ? (
+                        <button
+                          type="button"
+                          onClick={() => openSubmission(sub.id)}
+                          className="underline decoration-dotted underline-offset-4 hover:text-blue-700"
+                          title="Bấm để xem bài làm"
+                        >
+                          {sub.score}/{sub.max_score}
+                        </button>
+                      ) : '--'}
                     </td>
                   );
                 })}
@@ -818,6 +844,68 @@ const GradebookTab = ({ classId }) => {
           </tbody>
         </table>
       </div>
+      {(detailLoading || detailError || selectedSubmission) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4 p-5 border-b">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Bài làm của học sinh</h3>
+                {selectedSubmission && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedSubmission.student?.full_name} • {selectedSubmission.assignment?.title}
+                    {' • '}{selectedSubmission.score}/{selectedSubmission.max_score} điểm
+                    {' • '}{new Date(selectedSubmission.submitted_at).toLocaleString('vi-VN')}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedSubmission(null); setDetailError(''); setDetailLoading(false); }}
+                className="text-gray-500 hover:text-gray-800 text-2xl leading-none"
+                aria-label="Đóng"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5">
+              {detailLoading && <p className="text-center py-8 text-gray-500">Đang tải bài làm...</p>}
+              {detailError && <p className="text-center py-8 text-red-600">{detailError}</p>}
+              {selectedSubmission && (
+                <div className="space-y-5">
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">Nội dung đã nộp</h4>
+                    <pre className="bg-gray-950 text-gray-100 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap text-sm">
+                      {selectedSubmission.code || '(Không có nội dung)'}
+                    </pre>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">Kết quả chấm từng test</h4>
+                    <div className="space-y-2">
+                      {selectedSubmission.results?.map((result, index) => (
+                        <div key={result.id || index} className={`border rounded-lg p-3 ${result.passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                          <div className="flex justify-between gap-3">
+                            <span className="font-medium">{result.test_name || `Test ${index + 1}`}</span>
+                            <span className={result.passed ? 'text-green-700' : 'text-red-700'}>
+                              {result.passed ? 'Đạt' : 'Chưa đạt'} • {result.points ?? 0} điểm
+                            </span>
+                          </div>
+                          {result.test_case?.input_data && <p className="text-sm mt-2"><span className="text-gray-500">Đầu vào:</span> {result.test_case.input_data}</p>}
+                          {result.test_case?.expected_output && <p className="text-sm"><span className="text-gray-500">Mong đợi:</span> {result.test_case.expected_output}</p>}
+                          <p className="text-sm"><span className="text-gray-500">Kết quả:</span> {result.actual_output || '(trống)'}</p>
+                          {result.error_message && <p className="text-sm text-red-700 mt-1">{result.error_message}</p>}
+                        </div>
+                      ))}
+                      {(!selectedSubmission.results || selectedSubmission.results.length === 0) && (
+                        <p className="text-sm text-gray-500">Bài nộp này không có dữ liệu test chi tiết.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -85,6 +85,23 @@ export const submit = async ({ assignment_id, code, results }, userId) => {
 };
 
 // Lấy gradebook (ma trận học sinh × bài tập)
+export const buildLatestSubmissionMap = (submissions) => {
+  const submissionMap = {};
+  const seen = new Set();
+  for (const sub of submissions) {
+    const key = `${sub.user_id}_${sub.delivery_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    submissionMap[key] = {
+      id: sub.id,
+      score: sub.score,
+      max_score: sub.max_score,
+      submitted_at: sub.submitted_at,
+    };
+  }
+  return submissionMap;
+};
+
 export const getGradebook = async (classId, teacherId) => {
   // Kiểm tra quyền sở hữu lớp
   const { data: classData } = await supabase
@@ -131,7 +148,7 @@ export const getGradebook = async (classId, teacherId) => {
   if (assignmentIds.length > 0 && studentIds.length > 0) {
     const { data } = await supabase
       .from('submissions')
-      .select('user_id, delivery_id, score, max_score, submitted_at')
+      .select('id, user_id, delivery_id, score, max_score, submitted_at')
       .in('delivery_id', assignmentIds)
       .in('user_id', studentIds)
       .order('submitted_at', { ascending: false });
@@ -139,18 +156,7 @@ export const getGradebook = async (classId, teacherId) => {
   }
 
   // Xây ma trận (chỉ lấy bài nộp mới nhất của mỗi cặp học sinh × bài tập)
-  const submissionMap = {};
-  const seen = new Set();
-  for (const sub of submissions) {
-    const key = `${sub.user_id}_${sub.delivery_id}`;
-    if (seen.has(key)) continue; // bỏ qua các bản ghi cũ hơn
-    seen.add(key);
-    submissionMap[key] = {
-      score: sub.score,
-      max_score: sub.max_score,
-      submitted_at: sub.submitted_at,
-    };
-  }
+  const submissionMap = buildLatestSubmissionMap(submissions);
 
   const rows = students.map((student) => {
     const row = {
@@ -165,6 +171,45 @@ export const getGradebook = async (classId, teacherId) => {
   });
 
   return { assignments, rows };
+};
+
+export const getSubmissionForTeacher = async (classId, submissionId, teacherId) => {
+  const { data: submission, error: submissionError } = await supabase
+    .from('submissions')
+    .select('id,user_id,assignment_id,delivery_id,code,score,max_score,submitted_at')
+    .eq('id', submissionId)
+    .single();
+  if (submissionError || !submission) throw new Error('Không tìm thấy bài nộp');
+
+  const { data: delivery, error: deliveryError } = await supabase
+    .from('assignment_deliveries')
+    .select('id,class_id')
+    .eq('id', submission.delivery_id)
+    .single();
+  if (deliveryError || !delivery || delivery.class_id !== classId) {
+    throw new Error('Bài nộp không thuộc lớp này');
+  }
+
+  const { data: classData } = await supabase
+    .from('classes')
+    .select('id,teacher_id')
+    .eq('id', delivery.class_id)
+    .single();
+  if (!classData || classData.teacher_id !== teacherId) {
+    throw new Error('Bạn không phải giáo viên của lớp này');
+  }
+
+  const [{ data: student }, { data: assignment }, { data: results, error: resultsError }] = await Promise.all([
+    supabase.from('users').select('id,full_name,username,email').eq('id', submission.user_id).single(),
+    supabase.from('assignments').select('id,title,type').eq('id', submission.assignment_id).single(),
+    supabase
+      .from('submission_results')
+      .select('id,test_name,points,passed,actual_output,error_message,test_case:test_cases(input_data,expected_output)')
+      .eq('submission_id', submission.id),
+  ]);
+  if (resultsError) throw new Error('Không thể tải kết quả chấm bài');
+
+  return { ...submission, student, assignment, results: results ?? [] };
 };
 
 // Export gradebook CSV
