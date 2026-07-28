@@ -1,4 +1,9 @@
 import { supabase } from './supabaseClient.js';
+import {
+  copyAssignmentsIndependently,
+  normalizeIds,
+  validateShareRequest,
+} from './assignmentSharing.js';
 
 // Tạo bài tập mới
 export const createAssignment = async (data, teacherId) => {
@@ -188,79 +193,100 @@ export const togglePublish = async (assignmentId, teacherId) => {
   return updated;
 };
 
-// Lấy danh sách bài tập của một lớp
-// Sao chép bài tập từ lớp này sang lớp khác
-export const shareAssignments = async (sourceClassId, targetClassIds, assignmentIds, teacherId) => {
-  // Kiểm tra quyền sở hữu lớp nguồn
-  const { data: sourceClass } = await supabase
-    .from('classes').select('id, teacher_id').eq('id', sourceClassId).single();
-  if (!sourceClass || sourceClass.teacher_id !== teacherId) {
-    throw new Error('Bạn không phải giáo viên của lớp nguồn');
+// Sao chép bài tập thành các bản nháp độc lập ở lớp cùng khối.
+export const createShareAssignmentsService = (supabaseClient) => async (
+  sourceClassId,
+  targetClassIds,
+  assignmentIds,
+  teacherId
+) => {
+  const normalizedTargetIds = normalizeIds(targetClassIds);
+  const normalizedAssignmentIds = normalizeIds(assignmentIds);
+
+  const { data: sourceClass, error: sourceError } = await supabaseClient
+    .from('classes')
+    .select('id, teacher_id, grade')
+    .eq('id', sourceClassId)
+    .single();
+
+  if (sourceError || !sourceClass) {
+    throw new Error('Không tìm thấy lớp nguồn');
   }
 
-  // Kiểm tra quyền sở hữu các lớp đích
-  const { data: targetClasses } = await supabase
-    .from('classes').select('id, teacher_id').in('id', targetClassIds);
-  if (!targetClasses || targetClasses.length !== targetClassIds.length) {
-    throw new Error('Một số lớp đích không tồn tại');
-  }
-  for (const tc of targetClasses) {
-    if (tc.teacher_id !== teacherId) {
-      throw new Error('Bạn không phải giáo viên của lớp ' + tc.id);
-    }
+  const { data: targetClasses, error: targetError } = await supabaseClient
+    .from('classes')
+    .select('id, teacher_id, grade')
+    .in('id', normalizedTargetIds);
+
+  if (targetError) {
+    throw new Error('Lấy danh sách lớp đích thất bại');
   }
 
-  // Lấy bài tập kèm test cases từ lớp nguồn
-  let query = supabase
+  const { data: assignments, error: assignmentError } = await supabaseClient
     .from('assignments')
     .select('*, test_cases(*)')
-    .eq('class_id', sourceClassId);
+    .eq('class_id', sourceClassId)
+    .in('id', normalizedAssignmentIds);
 
-  if (assignmentIds && assignmentIds.length > 0) {
-    query = query.in('id', assignmentIds);
+  if (assignmentError) {
+    throw new Error('Lấy danh sách bài tập thất bại');
   }
 
-  const { data: assignments } = await query;
+  validateShareRequest({
+    sourceClass,
+    targetClasses: targetClasses || [],
+    targetClassIds: normalizedTargetIds,
+    assignments: assignments || [],
+    assignmentIds: normalizedAssignmentIds,
+    teacherId,
+  });
 
-  if (!assignments || assignments.length === 0) {
-    throw new Error('Không có bài tập nào để sao chép');
-  }
-
-  let copiedCount = 0;
-  for (const targetClassId of targetClassIds) {
-    for (const a of assignments) {
-      const { test_cases, id, class_id, is_published, created_at, ...assignData } = a;
-      const { data: newAssign, error } = await supabase
+  const repository = {
+    async createAssignment(data) {
+      const { data: created, error } = await supabaseClient
         .from('assignments')
-        .insert([{ ...assignData, class_id: targetClassId, is_published: false }])
+        .insert([data])
         .select('id')
         .single();
-
-      if (error) continue;
-
-      // Copy test cases
-      if (test_cases && test_cases.length > 0) {
-        const newTestCases = test_cases.map((tc, idx) => ({
-          assignment_id: newAssign.id,
-          input_data: tc.input_data || '',
-          expected_output: tc.expected_output || '',
-          test_name: tc.test_name || `Test ${idx + 1}`,
-          points: tc.points || 1,
-          order_index: tc.order_index || idx,
-        }));
-        const { error: tcError } = await supabase.from('test_cases').insert(newTestCases);
-        if (!tcError) {
-          // Cập nhật max_score = tổng points
-          const totalPoints = newTestCases.reduce((s, t) => s + t.points, 0);
-          await supabase.from('assignments').update({ max_score: totalPoints }).eq('id', newAssign.id);
-        }
+      if (error || !created) {
+        throw new Error(error?.message || 'Tạo bản sao bài tập thất bại');
       }
-      copiedCount++;
-    }
-  }
+      return created;
+    },
+    async createTestCases(rows) {
+      const { error } = await supabaseClient.from('test_cases').insert(rows);
+      if (error) {
+        throw new Error(error.message || 'Sao chép test case thất bại');
+      }
+    },
+    async updateAssignmentMaxScore(assignmentId, maxScore) {
+      const { error } = await supabaseClient
+        .from('assignments')
+        .update({ max_score: maxScore })
+        .eq('id', assignmentId);
+      if (error) {
+        throw new Error(error.message || 'Cập nhật điểm bài tập thất bại');
+      }
+    },
+    async deleteAssignment(assignmentId) {
+      const { error } = await supabaseClient
+        .from('assignments')
+        .delete()
+        .eq('id', assignmentId);
+      if (error) {
+        throw new Error(error.message || 'Dọn bản sao chưa hoàn chỉnh thất bại');
+      }
+    },
+  };
 
-  return { copied: copiedCount, targetCount: targetClassIds.length };
+  return copyAssignmentsIndependently({
+    targetClassIds: normalizedTargetIds,
+    assignments: assignments || [],
+    repository,
+  });
 };
+
+export const shareAssignments = createShareAssignmentsService(supabase);
 
 export const getClassAssignments = async (classId, userId, role) => {
   // Kiểm tra quyền truy cập lớp
