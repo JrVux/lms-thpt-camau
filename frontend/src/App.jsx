@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ClassDetail from './pages/ClassDetail';
 import CreateAssignment from './pages/CreateAssignment';
+import AssignmentLibrary from './pages/AssignmentLibrary';
 import CodingEditor from './pages/CodingEditor';
 import SqlEditor from './pages/SqlEditor';
 import HtmlEditor from './pages/HtmlEditor';
@@ -34,6 +35,9 @@ const App = () => {
         <Route path="/classes/:id" element={<ClassDetail />} />
         <Route path="/classes/:id/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
         <Route path="/classes/:classId/assignments/:assignmentId/edit" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
+        <Route path="/assignments" element={<PrivateRoute role="teacher"><AssignmentLibrary /></PrivateRoute>} />
+        <Route path="/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
+        <Route path="/assignments/:assignmentId/edit" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
         <Route path="/coding/:id" element={<PrivateRoute><CodingEditor /></PrivateRoute>} />
         <Route path="/python-practice/:id" element={<PrivateRoute><PythonPractice /></PrivateRoute>} />
         <Route path="/sql-editor/:id" element={<PrivateRoute><SqlEditor /></PrivateRoute>} />

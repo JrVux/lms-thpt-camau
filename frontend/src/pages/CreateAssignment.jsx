@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
 
@@ -10,8 +10,11 @@ const CreateAssignment = () => {
   const params = useParams();
   const classId = params.id || params.classId;
   const assignmentId = params.assignmentId;
+  const isLibraryMode = !classId;
   const isEdit = !!assignmentId;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialCategory = searchParams.get('category') || 'grade_10';
 
   const [form, setForm] = useState({
     title: '',
@@ -27,7 +30,10 @@ const CreateAssignment = () => {
   const [testCases, setTestCases] = useState([
     { input_data: '', expected_output: '', test_name: 'Test 1', points: 1 },
   ]);
-  const [type, setType] = useState('python');
+  const [type, setType] = useState(
+    initialCategory === 'advanced' ? 'python' : CLASS_SUBJECT_MAP[initialCategory.replace('grade_', '')]
+  );
+  const [category, setCategory] = useState(initialCategory);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
@@ -36,7 +42,10 @@ const CreateAssignment = () => {
     if (!isEdit) return;
     const load = async () => {
       try {
-        const { data } = await api.get(`/api/assignments/${assignmentId}`);
+        const endpoint = isLibraryMode
+          ? `/api/assignment-library/${assignmentId}`
+          : `/api/assignments/${assignmentId}`;
+        const { data } = await api.get(endpoint);
         setForm({
           title: data.title || '',
           description: data.description || '',
@@ -49,6 +58,7 @@ const CreateAssignment = () => {
           max_score: data.max_score ?? '',
         });
         setType(data.type);
+        if (data.category) setCategory(data.category);
         if (data.test_cases && data.test_cases.length > 0) {
           setTestCases(data.test_cases.map((tc) => ({
             input_data: tc.input_data || '',
@@ -64,7 +74,7 @@ const CreateAssignment = () => {
       }
     };
     load();
-  }, [assignmentId, isEdit]);
+  }, [assignmentId, isEdit, isLibraryMode]);
 
   const addTestCase = () => {
     setTestCases([...testCases, { input_data: '', expected_output: '', test_name: `Test ${testCases.length + 1}`, points: 1 }]);
@@ -90,22 +100,13 @@ const CreateAssignment = () => {
 
     try {
       if (isEdit) {
-        await api.patch(`/api/assignments/${assignmentId}`, {
+        const endpoint = isLibraryMode
+          ? `/api/assignment-library/${assignmentId}`
+          : `/api/assignments/${assignmentId}`;
+        await api.patch(endpoint, {
           title: form.title,
           description: form.description,
-          starter_code: form.starter_code,
-          solution_code: form.solution_code,
-          setup_sql: form.setup_sql,
-          test_code: form.test_code,
-          due_date: form.due_date || null,
-          max_submissions: form.max_submissions ? parseInt(form.max_submissions) : null,
-          max_score: form.max_score ? parseInt(form.max_score) : 0,
-        });
-      } else {
-        const { data: assignment } = await api.post('/api/assignments', {
-          class_id: classId,
-          title: form.title,
-          description: form.description,
+          category,
           type,
           starter_code: form.starter_code,
           solution_code: form.solution_code,
@@ -115,15 +116,40 @@ const CreateAssignment = () => {
           max_submissions: form.max_submissions ? parseInt(form.max_submissions) : null,
           max_score: form.max_score ? parseInt(form.max_score) : 0,
         });
+        if (isLibraryMode) {
+          await api.post(`/api/assignment-library/${assignmentId}/test-cases`, {
+            test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
+          });
+        }
+      } else {
+        const endpoint = isLibraryMode ? '/api/assignment-library' : '/api/assignments';
+        const { data: assignment } = await api.post(endpoint, {
+          ...(isLibraryMode ? { category } : { class_id: classId }),
+          title: form.title,
+          description: form.description,
+          type,
+          starter_code: form.starter_code,
+          solution_code: form.solution_code,
+          setup_sql: form.setup_sql,
+          test_code: form.test_code,
+          ...(!isLibraryMode && {
+            due_date: form.due_date || null,
+            max_submissions: form.max_submissions ? parseInt(form.max_submissions) : null,
+          }),
+          max_score: form.max_score ? parseInt(form.max_score) : 0,
+        });
 
         if (testCases.some((tc) => tc.expected_output.trim())) {
-          await api.post(`/api/assignments/${assignment.id}/test-cases`, {
+          const testEndpoint = isLibraryMode
+            ? `/api/assignment-library/${assignment.id}/test-cases`
+            : `/api/assignments/${assignment.id}/test-cases`;
+          await api.post(testEndpoint, {
             test_cases: testCases.filter((tc) => tc.expected_output.trim()),
           });
         }
       }
 
-      navigate(`/classes/${classId}`);
+      navigate(isLibraryMode ? '/assignments' : `/classes/${classId}`);
     } catch (err) {
       setError(err.response?.data?.message || (isEdit ? 'Cập nhật thất bại' : 'Tạo bài tập thất bại'));
     } finally {
@@ -163,22 +189,50 @@ const CreateAssignment = () => {
             />
           </div>
 
-          <div className="grid grid-cols-4 gap-4">
+          {isLibraryMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nhóm bài tập</label>
+              <select
+                value={category}
+                onChange={(event) => {
+                  const nextCategory = event.target.value;
+                  setCategory(nextCategory);
+                  if (nextCategory !== 'advanced') {
+                    setType(CLASS_SUBJECT_MAP[nextCategory.replace('grade_', '')]);
+                  }
+                }}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+              >
+                <option value="grade_10">Khối 10</option>
+                <option value="grade_11">Khối 11</option>
+                <option value="grade_12">Khối 12</option>
+                <option value="advanced">Nâng cao</option>
+              </select>
+            </div>
+          )}
+
+          <div className={`grid gap-4 ${isLibraryMode ? 'grid-cols-2' : 'grid-cols-4'}`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Loại bài tập</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                disabled={isEdit}
+                disabled={isEdit || (isLibraryMode && category !== 'advanced')}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
               >
-                {gradeOptions.map((g) => (
-                  <option key={g} value={CLASS_SUBJECT_MAP[g]}>
-                    Khối {g} - {CLASS_SUBJECT_MAP[g].toUpperCase()}
-                  </option>
-                ))}
+                {(isLibraryMode && category === 'advanced'
+                  ? ['python', 'sql', 'html'].map((subject) => (
+                    <option key={subject} value={subject}>{subject.toUpperCase()}</option>
+                  ))
+                  : gradeOptions.map((g) => (
+                    <option key={g} value={CLASS_SUBJECT_MAP[g]}>
+                      Khối {g} - {CLASS_SUBJECT_MAP[g].toUpperCase()}
+                    </option>
+                  )))}
               </select>
             </div>
+            {!isLibraryMode && (
+              <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Hạn nộp</label>
               <input
@@ -187,6 +241,9 @@ const CreateAssignment = () => {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
               />
             </div>
+              </>
+            )}
+            {!isLibraryMode && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số lần nộp tối đa</label>
               <input
@@ -196,6 +253,7 @@ const CreateAssignment = () => {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
               />
             </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tổng điểm</label>
               <input

@@ -6,10 +6,12 @@ import api from '../services/api';
 
 const teacherMenu = [
   { label: 'Lớp của tôi', path: '/classes' },
+  { label: 'Bài tập', path: '/assignments' },
 ];
 
 const studentMenu = [
   { label: 'Lớp học', path: '/classes' },
+  { label: 'Bài tập', path: '/assignments' },
 ];
 
 const StatCard = ({ label, value, sub }) => (
