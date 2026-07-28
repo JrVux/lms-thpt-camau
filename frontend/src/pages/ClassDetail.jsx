@@ -611,7 +611,7 @@ const AssignmentsTab = ({ classId }) => {
             </button>
           )}
           <button
-            onClick={() => navigate(`/classes/${classId}/assignments/new`)}
+            onClick={() => navigate(`/assignments?classId=${classId}`)}
             className="px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
             + Thêm bài tập
@@ -844,14 +844,25 @@ const StudentAssignments = ({ classId }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: list } = await api.get(`/api/classes/${classId}/assignments`);
+        const { data: deliveries } = await api.get('/api/my-assignments');
+        const list = deliveries
+          .filter((delivery) => delivery.class_id === classId)
+          .map((delivery) => ({
+            ...delivery.assignments,
+            delivery_id: delivery.id,
+            due_date: delivery.due_date,
+            max_submissions: delivery.max_submissions,
+            submissions: delivery.submissions ?? [],
+          }));
         setAssignments(list);
         const subMap = {};
         for (const a of list) {
-          try {
-            const { data: sub } = await api.get(`/api/submissions/my/${a.id}`);
-            subMap[a.id] = sub;
-          } catch {}
+          const latest = [...a.submissions].sort((left, right) => new Date(right.submitted_at) - new Date(left.submitted_at))[0] ?? null;
+          subMap[a.id] = {
+            data: latest,
+            max_submissions: a.max_submissions,
+            remaining_attempts: a.max_submissions === null ? null : Math.max(0, a.max_submissions - a.submissions.length),
+          };
         }
         setSubmissions(subMap);
       } catch {} finally { setLoading(false); }
@@ -898,7 +909,7 @@ const StudentAssignments = ({ classId }) => {
               </div>
             </div>
             <button
-              onClick={() => navigate(`${typeRoute[a.type] || '/coding'}/${a.id}`)}
+              onClick={() => navigate(`/deliveries/${a.delivery_id}/${a.type === 'sql' ? 'sql' : a.type === 'html' ? 'html' : 'python'}-practice`)}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 remaining === 0
                   ? 'bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-50'

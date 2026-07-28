@@ -149,11 +149,17 @@ export const getGradebook = async (classId, teacherId) => {
   }));
 
   // Lấy danh sách bài tập
-  const { data: assignments } = await supabase
-    .from('assignments')
-    .select('id, title, type, max_score')
+  const { data: deliveries } = await supabase
+    .from('assignment_deliveries')
+    .select('id, assignment_id, assignments:assignment_id(title,type,max_score)')
     .eq('class_id', classId)
     .order('created_at', { ascending: true });
+  const assignments = (deliveries ?? []).map((delivery) => ({
+    id: delivery.id,
+    delivery_id: delivery.id,
+    assignment_id: delivery.assignment_id,
+    ...delivery.assignments,
+  }));
 
   // Lấy tất cả submissions của lớp này
   const assignmentIds = assignments.map((a) => a.id);
@@ -163,8 +169,8 @@ export const getGradebook = async (classId, teacherId) => {
   if (assignmentIds.length > 0 && studentIds.length > 0) {
     const { data } = await supabase
       .from('submissions')
-      .select('user_id, assignment_id, score, max_score, submitted_at')
-      .in('assignment_id', assignmentIds)
+      .select('user_id, delivery_id, score, max_score, submitted_at')
+      .in('delivery_id', assignmentIds)
       .in('user_id', studentIds)
       .order('submitted_at', { ascending: false });
     submissions = data || [];
@@ -174,7 +180,7 @@ export const getGradebook = async (classId, teacherId) => {
   const submissionMap = {};
   const seen = new Set();
   for (const sub of submissions) {
-    const key = `${sub.user_id}_${sub.assignment_id}`;
+    const key = `${sub.user_id}_${sub.delivery_id}`;
     if (seen.has(key)) continue; // bỏ qua các bản ghi cũ hơn
     seen.add(key);
     submissionMap[key] = {

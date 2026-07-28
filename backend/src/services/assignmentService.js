@@ -288,6 +288,24 @@ export const createShareAssignmentsService = (supabaseClient) => async (
 
 export const shareAssignments = createShareAssignmentsService(supabase);
 
+export const canStudentSeeDelivery = (delivery, userId) =>
+  Boolean(delivery.is_published)
+  && (delivery.recipient_mode === 'all'
+    || (delivery.assignment_recipients ?? []).some((row) => row.user_id === userId));
+
+export const flattenDeliveryAssignment = (delivery) => ({
+  ...delivery.assignments,
+  id: delivery.assignment_id,
+  assignment_id: delivery.assignment_id,
+  delivery_id: delivery.id,
+  class_id: delivery.class_id,
+  due_date: delivery.due_date,
+  is_published: delivery.is_published,
+  max_submissions: delivery.max_submissions,
+  sync_mode: delivery.sync_mode,
+  recipient_mode: delivery.recipient_mode,
+});
+
 export const getClassAssignments = async (classId, userId, role) => {
   // Kiểm tra quyền truy cập lớp
   if (role === 'teacher') {
@@ -315,22 +333,19 @@ export const getClassAssignments = async (classId, userId, role) => {
     }
   }
 
-  let query = supabase
-    .from('assignments')
-    .select('*')
+  const query = supabase
+    .from('assignment_deliveries')
+    .select('*, assignments:assignment_id(*), assignment_recipients(user_id)')
     .eq('class_id', classId)
     .order('created_at', { ascending: false });
 
-  // Student chỉ thấy bài đã publish
-  if (role === 'student') {
-    query = query.eq('is_published', true);
-  }
-
-  const { data: assignments, error } = await query;
+  const { data: deliveries, error } = await query;
 
   if (error) {
     throw new Error('Lấy danh sách bài tập thất bại');
   }
 
-  return assignments;
+  return (deliveries ?? [])
+    .filter((delivery) => role === 'teacher' || canStudentSeeDelivery(delivery, userId))
+    .map(flattenDeliveryAssignment);
 };

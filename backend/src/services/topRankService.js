@@ -36,7 +36,7 @@ export const getTopRank = async () => {
 
     // Lấy tất cả bài tập của khối
     const { data: assignments } = await supabase
-      .from('assignments')
+      .from('assignment_deliveries')
       .select('id')
       .in('class_id', classIds)
       .eq('is_published', true);
@@ -51,8 +51,8 @@ export const getTopRank = async () => {
     // Lấy tất cả submissions
     const { data: submissions } = await supabase
       .from('submissions')
-      .select('user_id, assignment_id, score, max_score')
-      .in('assignment_id', assignmentIds)
+      .select('user_id, delivery_id, score, max_score')
+      .in('delivery_id', assignmentIds)
       .in('user_id', Object.keys(studentMap))
       .order('submitted_at', { ascending: false });
 
@@ -60,7 +60,7 @@ export const getTopRank = async () => {
     const bestScores = {};
     if (submissions) {
       for (const sub of submissions) {
-        const key = `${sub.user_id}_${sub.assignment_id}`;
+        const key = `${sub.user_id}_${sub.delivery_id}`;
         if (!bestScores[key]) {
           bestScores[key] = { score: sub.score, max_score: sub.max_score };
         }
