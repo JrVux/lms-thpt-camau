@@ -14,6 +14,10 @@ const tableSecurityMigrationUrl = new URL(
   '../src/database/migrations/007_lock_legacy_tables.sql',
   import.meta.url
 );
+const classDeletionMigrationUrl = new URL(
+  '../src/database/migrations/008_delete_class_transaction.sql',
+  import.meta.url
+);
 
 test('transaction migration is independently deployable and hardened', async () => {
   const sql = await readFile(migrationUrl, 'utf8');
@@ -54,4 +58,16 @@ test('legacy table security migration removes public write access', async () => 
   assert.match(sql, /DROP POLICY IF EXISTS %I ON public\.%I/);
   assert.match(sql, /FROM anon, authenticated/);
   assert.match(sql, /TO service_role/);
+});
+
+test('class deletion transaction preserves library assignments and blocks public roles', async () => {
+  const sql = await readFile(classDeletionMigrationUrl, 'utf8');
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.delete_class_owned/);
+  assert.match(sql, /SECURITY INVOKER SET search_path = ''/);
+  assert.match(sql, /UPDATE public\.assignments[\s\S]*SET class_id = NULL[\s\S]*is_library IS TRUE/);
+  assert.match(sql, /DELETE FROM public\.submissions/);
+  assert.match(sql, /UPDATE public\.assignments[\s\S]*SET source_assignment_id = NULL/);
+  assert.match(sql, /DELETE FROM public\.classes/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.delete_class_owned\(UUID, UUID\)\s+FROM PUBLIC, anon, authenticated/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.delete_class_owned\(UUID, UUID\) TO service_role/);
 });
