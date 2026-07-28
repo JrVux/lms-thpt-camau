@@ -101,5 +101,6 @@ router.get('/api/stats/top-rank', authenticate, requireRole('teacher'), statsCon
 // Gradebook routes
 router.get('/api/classes/:id/gradebook', authenticate, requireRole('teacher'), submissionController.getGradebook);
 router.get('/api/classes/:id/gradebook/export', authenticate, requireRole('teacher'), submissionController.exportGradebook);
+router.get('/api/classes/:id/submissions/:submissionId', authenticate, requireRole('teacher'), submissionController.getSubmissionForTeacher);
 
 export default router;

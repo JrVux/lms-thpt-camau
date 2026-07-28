@@ -36,6 +36,19 @@ export const getGradebook = async (req, res) => {
   }
 };
 
+export const getSubmissionForTeacher = async (req, res) => {
+  try {
+    const result = await submissionService.getSubmissionForTeacher(
+      req.params.id,
+      req.params.submissionId,
+      req.user.id
+    );
+    return res.json(result);
+  } catch (error) {
+    return res.status(403).json({ message: error.message });
+  }
+};
+
 // GET /api/classes/:id/gradebook/export - Export CSV
 export const exportGradebook = async (req, res) => {
   try {
