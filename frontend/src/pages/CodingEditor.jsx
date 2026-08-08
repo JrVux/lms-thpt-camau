@@ -129,33 +129,33 @@ const CodingEditor = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải bài tập...</div>;
+  if (loading) return <div className="text-center py-10 text-brand-muted">Đang tải bài tập...</div>;
   if (pyError && !assignment) return <div className="text-center py-10 text-red-500">{pyError}</div>;
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row gap-4">
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-gray-800 truncate">{assignment?.title}</h2>
+          <h2 className="font-semibold text-brand-heading truncate">{assignment?.title}</h2>
           <div className="flex gap-2">
             <button
               onClick={runCode}
               disabled={!pyodideReady || running}
-              className="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-300 text-sm font-medium"
+              className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-emerald-300 text-sm font-medium"
             >
               {running ? 'Đang chạy...' : pyodideReady ? '▶ Chạy' : 'Đang tải Pyodide...'}
             </button>
             <button
               onClick={submitCode}
               disabled={submitting}
-              className="px-4 py-1.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 text-sm font-medium"
+              className="px-4 py-1.5 bg-brand text-white rounded-lg hover:bg-red-600 disabled:bg-red-300 text-sm font-medium"
             >
               {submitting ? 'Đang nộp...' : 'Nộp bài'}
             </button>
           </div>
         </div>
 
-        <div className="flex-1 rounded-lg overflow-hidden border">
+        <div className="flex-1 rounded-2xl overflow-hidden border border-brand-border bg-card shadow-card">
           <Editor
             language="python"
             value={code}
@@ -165,25 +165,25 @@ const CodingEditor = () => {
           />
         </div>
 
-        <div className="mt-2 p-3 bg-gray-900 text-green-400 rounded-lg font-mono text-sm max-h-32 overflow-auto">
+        <div className="mt-2 p-3 bg-gray-900 text-green-400 rounded-2xl font-mono text-sm max-h-32 overflow-auto border border-brand-border">
           <pre className="whitespace-pre-wrap">{output || 'Chạy code để xem kết quả...'}</pre>
         </div>
       </div>
 
-      <div className="w-full lg:w-80 bg-white rounded-lg border p-4 overflow-auto max-h-[50vh] lg:max-h-none">
-        <h3 className="font-semibold text-gray-800 mb-3">Kết quả test cases</h3>
-        {!results.length && <p className="text-sm text-gray-400">Chạy code để kiểm tra</p>}
+      <div className="w-full lg:w-80 bg-card rounded-2xl border border-brand-border shadow-card p-4 overflow-auto max-h-[50vh] lg:max-h-none">
+        <h3 className="font-semibold text-brand-heading mb-3">Kết quả test cases</h3>
+        {!results.length && <p className="text-sm text-brand-muted">Chạy code để kiểm tra</p>}
         <div className="space-y-2">
           {results.map((r, i) => (
-            <div key={i} className={`p-3 rounded-lg text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div key={i} className={`p-3 rounded-xl text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <div className="flex items-center gap-2 mb-1">
                 <span className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="font-medium">{assignment?.test_cases?.[i]?.test_name || `Test ${i + 1}`}</span>
               </div>
               {!r.passed && (
                 <div className="text-xs mt-1 space-y-1">
-                  <p><span className="text-gray-500">Kết quả:</span> {r.actual_output || '(trống)'}</p>
-                  <p><span className="text-gray-500">Mong đợi:</span> {assignment?.test_cases?.[i]?.expected_output}</p>
+                  <p><span className="text-brand-muted">Kết quả:</span> {r.actual_output || '(trống)'}</p>
+                  <p><span className="text-brand-muted">Mong đợi:</span> {assignment?.test_cases?.[i]?.expected_output}</p>
                   {r.error_message && <p className="text-red-500">Lỗi: {r.error_message}</p>}
                 </div>
               )}

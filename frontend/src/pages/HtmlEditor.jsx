@@ -66,28 +66,28 @@ const HtmlEditor = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải bài tập...</div>;
+  if (loading) return <div className="text-center py-10 text-brand-muted">Đang tải bài tập...</div>;
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col gap-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-semibold text-gray-800 truncate">{assignment?.title}</h2>
+        <h2 className="font-semibold text-brand-heading truncate">{assignment?.title}</h2>
         <div className="flex gap-2">
           <button onClick={runPreview}
-            className="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+            className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium">
             ▶ Xem trước
           </button>
           <button onClick={submitCode} disabled={submitting}
-            className="px-4 py-1.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 text-sm font-medium">
+            className="px-4 py-1.5 bg-brand text-white rounded-lg hover:bg-red-600 disabled:bg-red-300 text-sm font-medium">
             {submitting ? 'Đang nộp...' : 'Nộp bài'}
           </button>
         </div>
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {error && <div className="rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
       <div className="flex-1 flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 rounded-lg overflow-hidden border">
+        <div className="flex-1 rounded-2xl overflow-hidden border border-brand-border bg-card shadow-card">
           <Editor
             language="html"
             value={code}
@@ -98,8 +98,8 @@ const HtmlEditor = () => {
         </div>
 
         <div className="flex-1 flex flex-col gap-4">
-          <div className="flex-1 bg-white rounded-lg border overflow-hidden">
-            <div className="bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-600 border-b">Kết quả xem trước</div>
+          <div className="flex-1 bg-card rounded-2xl border border-brand-border shadow-card overflow-hidden">
+            <div className="border-b border-brand-border bg-page px-4 py-1.5 text-sm font-medium text-brand-muted">Kết quả xem trước</div>
             <iframe
               key={previewKey}
               srcDoc={code}
@@ -109,12 +109,12 @@ const HtmlEditor = () => {
             />
           </div>
 
-          <div className="bg-white rounded-lg border p-4 max-h-48 overflow-auto">
-            <h3 className="font-semibold text-gray-800 mb-3">Kết quả test cases</h3>
-            {!hasRun && <p className="text-sm text-gray-400">Xem trước để kiểm tra</p>}
+          <div className="bg-card rounded-2xl border border-brand-border shadow-card p-4 max-h-48 overflow-auto">
+            <h3 className="font-semibold text-brand-heading mb-3">Kết quả test cases</h3>
+            {!hasRun && <p className="text-sm text-brand-muted">Xem trước để kiểm tra</p>}
             <div className="space-y-2">
               {results.map((r, i) => (
-                <div key={i} className={`p-3 rounded-lg text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div key={i} className={`p-3 rounded-xl text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`} />
                     <span className="font-medium">{assignment?.test_cases?.[i]?.test_name || `Test ${i + 1}`}</span>

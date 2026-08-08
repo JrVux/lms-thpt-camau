@@ -123,26 +123,26 @@ const SqlEditor = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải bài tập...</div>;
+  if (loading) return <div className="text-center py-10 text-brand-muted">Đang tải bài tập...</div>;
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row gap-4">
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-gray-800 truncate">{assignment?.title}</h2>
+          <h2 className="font-semibold text-brand-heading truncate">{assignment?.title}</h2>
           <div className="flex gap-2">
             <button onClick={runQuery} disabled={!sqlReady || running}
-              className="px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-300 text-sm font-medium">
+              className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-emerald-300 text-sm font-medium">
               {running ? 'Đang chạy...' : sqlReady ? '▶ Chạy' : 'Đang tải...'}
             </button>
             <button onClick={submitCode} disabled={submitting}
-              className="px-4 py-1.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 text-sm font-medium">
+              className="px-4 py-1.5 bg-brand text-white rounded-lg hover:bg-red-600 disabled:bg-red-300 text-sm font-medium">
               {submitting ? 'Đang nộp...' : 'Nộp bài'}
             </button>
           </div>
         </div>
 
-        <div className="flex-1 rounded-lg overflow-hidden border">
+        <div className="flex-1 rounded-2xl overflow-hidden border border-brand-border bg-card shadow-card">
           <Editor
             language="sql"
             value={code}
@@ -152,23 +152,23 @@ const SqlEditor = () => {
           />
         </div>
 
-        {error && <div className="mt-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+        {error && <div className="mt-2 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
         {output.length > 0 && (
-          <div className="mt-2 bg-white border rounded-lg overflow-auto max-h-48">
+          <div className="mt-2 rounded-2xl border border-brand-border bg-card shadow-card overflow-auto max-h-48">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b">
+                <tr className="bg-page/60 border-b border-brand-border">
                   {columns.map((col, i) => (
-                    <th key={i} className="px-3 py-2 text-left font-medium text-gray-600">{col}</th>
+                    <th key={i} className="px-3 py-2 text-left font-medium text-brand-muted">{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {output.map((row, i) => (
-                  <tr key={i} className="border-b hover:bg-gray-50">
+                  <tr key={i} className="border-b border-brand-border hover:bg-gray-50/60">
                     {row.map((cell, j) => (
-                      <td key={j} className="px-3 py-1.5 text-gray-700">{cell}</td>
+                      <td key={j} className="px-3 py-1.5 text-brand-body">{cell}</td>
                     ))}
                   </tr>
                 ))}
@@ -178,20 +178,20 @@ const SqlEditor = () => {
         )}
       </div>
 
-      <div className="w-full lg:w-80 bg-white rounded-lg border p-4 overflow-auto max-h-[50vh] lg:max-h-none">
-        <h3 className="font-semibold text-gray-800 mb-3">Kết quả test cases</h3>
-        {!results.length && <p className="text-sm text-gray-400">Chạy code để kiểm tra</p>}
+      <div className="w-full lg:w-80 bg-card rounded-2xl border border-brand-border shadow-card p-4 overflow-auto max-h-[50vh] lg:max-h-none">
+        <h3 className="font-semibold text-brand-heading mb-3">Kết quả test cases</h3>
+        {!results.length && <p className="text-sm text-brand-muted">Chạy code để kiểm tra</p>}
         <div className="space-y-2">
           {results.map((r, i) => (
-            <div key={i} className={`p-3 rounded-lg text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div key={i} className={`p-3 rounded-xl text-sm ${r.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <div className="flex items-center gap-2 mb-1">
                 <span className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="font-medium">{assignment?.test_cases?.[i]?.test_name || `Test ${i + 1}`}</span>
               </div>
               {!r.passed && (
                 <div className="text-xs mt-1 space-y-1">
-                  <p><span className="text-gray-500">Kết quả:</span> {r.actual_output || '(trống)'}</p>
-                  <p><span className="text-gray-500">Mong đợi:</span> {assignment?.test_cases?.[i]?.expected_output}</p>
+                  <p><span className="text-brand-muted">Kết quả:</span> {r.actual_output || '(trống)'}</p>
+                  <p><span className="text-brand-muted">Mong đợi:</span> {assignment?.test_cases?.[i]?.expected_output}</p>
                   {r.error_message && <p className="text-red-500">Lỗi: {r.error_message}</p>}
                 </div>
               )}

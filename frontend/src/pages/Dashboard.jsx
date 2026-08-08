@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import Badge from '../components/Badge';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { Users, GraduationCap, UserPlus, Plus, ArrowRight } from 'lucide-react';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -38,94 +44,93 @@ const TeacherDashboard = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải...</div>;
+  if (loading) return <LoadingSpinner text="Đang tải danh sách lớp..." />;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Lớp của tôi</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-        >
-          + Tạo lớp mới
-        </button>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Lớp của tôi</h1>
+          <p className="mt-1 text-sm text-brand-muted">Quản lý học sinh và bài tập cho từng lớp</p>
+        </div>
+        <Button onClick={() => setShowModal(true)} icon={Plus}>Tạo lớp mới</Button>
       </div>
 
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>}
+      {error && <div className="mb-4 rounded-lg bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
       {classes.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Bạn chưa có lớp học nào</p>
-          <p className="text-sm mt-1">Hãy tạo lớp mới để bắt đầu</p>
-        </div>
+        <EmptyState
+          icon={Users}
+          color="blue"
+          title="Bạn chưa có lớp học nào"
+          description="Hãy tạo lớp mới để bắt đầu"
+          action={<Button onClick={() => setShowModal(true)} icon={Plus}>Tạo lớp mới</Button>}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {classes.map((c) => (
             <div
               key={c.id}
               onClick={() => navigate(`/classes/${c.id}`)}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              className="group cursor-pointer rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
             >
-              <h3 className="text-lg font-semibold text-gray-800">{c.name}</h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                  Khối {c.grade}
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium uppercase">
-                  {c.subject}
-                </span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-light text-brand">
+                    <GraduationCap className="h-5 w-5" />
+                  </span>
+                  <h3 className="font-semibold tracking-tight text-brand-heading">{c.name}</h3>
+                </div>
+                <ArrowRight className="h-4 w-4 text-brand-muted opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
-              <div className="mt-4 bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500 mb-1">Mã lớp</p>
-                <p className="text-2xl font-bold tracking-widest text-[#2563EB]">{c.class_code}</p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge color="blue">Khối {c.grade}</Badge>
+                <Badge color={(c.subject === 'python' ? 'green' : c.subject === 'sql' ? 'purple' : 'orange')}>
+                  {c.subject}
+                </Badge>
+              </div>
+
+              <div className="mt-5 rounded-xl bg-page p-3 text-center">
+                <p className="text-xs text-brand-muted mb-1">Mã lớp</p>
+                <p className="text-2xl font-bold tracking-widest text-brand">{c.class_code}</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Tạo lớp mới</h2>
-            <form onSubmit={createClass} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên lớp</label>
-                <input
-                  type="text" value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                  placeholder="Ví dụ: 10A1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Khối lớp</label>
-                <select
-                  value={form.grade}
-                  onChange={(e) => setForm({ ...form, grade: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                >
-                  <option value="10">Khối 10 (Python)</option>
-                  <option value="11">Khối 11 (SQL)</option>
-                  <option value="12">Khối 12 (HTML)</option>
-                </select>
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium text-sm">
-                  Hủy
-                </button>
-                <button type="submit"
-                  className="flex-1 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
-                  Tạo lớp
-                </button>
-              </div>
-            </form>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Tạo lớp mới"
+        subtitle="Lớp sẽ gắn với khối và chủ đề tương ứng">
+        <form onSubmit={createClass} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-brand-heading">Tên lớp</label>
+            <input
+              type="text" value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full rounded-lg border border-brand-border px-4 py-2.5 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+              placeholder="Ví dụ: 10A1"
+            />
           </div>
-        </div>
-      )}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-brand-heading">Khối lớp</label>
+            <select
+              value={form.grade}
+              onChange={(e) => setForm({ ...form, grade: e.target.value })}
+              className="w-full rounded-lg border border-brand-border px-4 py-2.5 outline-none focus:border-brand"
+            >
+              <option value="10">Khối 10 (Python)</option>
+              <option value="11">Khối 11 (SQL)</option>
+              <option value="12">Khối 12 (HTML)</option>
+            </select>
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => setShowModal(false)}>Hủy</Button>
+            <Button type="submit" className="flex-1">Tạo lớp</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
@@ -176,94 +181,93 @@ const StudentDashboard = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải...</div>;
+  if (loading) return <LoadingSpinner text="Đang tải danh sách lớp..." />;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Lớp học của tôi</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-        >
-          + Tham gia lớp mới
-        </button>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Lớp học của tôi</h1>
+          <p className="mt-1 text-sm text-brand-muted">Các lớp bạn đang theo học và tiến độ bài tập</p>
+        </div>
+        <Button onClick={() => setShowModal(true)} icon={UserPlus}>Tham gia lớp</Button>
       </div>
 
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>}
+      {error && <div className="mb-4 rounded-lg bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
       {classes.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Bạn chưa tham gia lớp học nào</p>
-          <p className="text-sm mt-1">Nhập mã lớp từ giáo viên để tham gia</p>
-        </div>
+        <EmptyState
+          icon={Users}
+          color="blue"
+          title="Bạn chưa tham gia lớp học nào"
+          description="Nhập mã lớp từ giáo viên để tham gia"
+          action={<Button onClick={() => setShowModal(true)} icon={UserPlus}>Tham gia lớp</Button>}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {classes.map((c) => (
             <div
               key={c.id}
               onClick={() => navigate(`/classes/${c.id}`)}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              className="group cursor-pointer rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
             >
-              <h3 className="text-lg font-semibold text-gray-800">{c.name}</h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                  Khối {c.grade}
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium uppercase">
-                  {c.subject}
-                </span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-badge-green-bg text-badge-green-text">
+                    <GraduationCap className="h-5 w-5" />
+                  </span>
+                  <h3 className="font-semibold tracking-tight text-brand-heading">{c.name}</h3>
+                </div>
+                <ArrowRight className="h-4 w-4 text-brand-muted opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge color="blue">Khối {c.grade}</Badge>
+                <Badge color={(c.grade === '10' ? 'green' : c.grade === '11' ? 'purple' : 'orange')}>
+                  {c.subject}
+                </Badge>
+              </div>
+
               {c.total > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500">Bài tập</span>
-                    <span className="font-medium">{c.done}/{c.total} đã làm</span>
+                <div className="mt-5">
+                  <div className="mb-1.5 flex justify-between text-sm">
+                    <span className="text-brand-muted">Bài tập</span>
+                    <span className="font-medium text-brand-heading">{c.done}/{c.total} đã làm</span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className="h-2 w-full rounded-full bg-gray-100">
                     <div
-                      className="bg-green-500 h-2 rounded-full transition-all"
+                      className="h-2 rounded-full bg-green-500 transition-all"
                       style={{ width: `${Math.round((c.done / c.total) * 100)}%` }}
                     />
                   </div>
                 </div>
               )}
-              {c.total === 0 && <p className="mt-4 text-sm text-gray-400">Chưa có bài tập nào</p>}
+              {c.total === 0 && <p className="mt-5 text-sm text-brand-muted">Chưa có bài tập nào</p>}
             </div>
           ))}
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Tham gia lớp học</h2>
-            <form onSubmit={joinClass} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mã lớp</label>
-                <input
-                  type="text" value={classCode}
-                  onChange={(e) => setClassCode(e.target.value.toUpperCase())}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-center text-xl font-bold tracking-widest uppercase"
-                  placeholder="VD: AB3X9K"
-                  maxLength={6}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium text-sm">
-                  Hủy
-                </button>
-                <button type="submit"
-                  className="flex-1 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
-                  Tham gia
-                </button>
-              </div>
-            </form>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Tham gia lớp học"
+        subtitle="Nhập mã lớp 6 ký tự do giáo viên cung cấp">
+        <form onSubmit={joinClass} className="space-y-6">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-brand-heading">Mã lớp</label>
+            <input
+              type="text" value={classCode}
+              onChange={(e) => setClassCode(e.target.value.toUpperCase())}
+              className="w-full rounded-xl border border-brand-border px-4 py-3 text-center text-xl font-bold tracking-widest uppercase outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              placeholder="AB3X9K"
+              maxLength={6}
+            />
           </div>
-        </div>
-      )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => setShowModal(false)}>Hủy</Button>
+            <Button type="submit" className="flex-1">Tham gia</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -16,6 +16,7 @@ import HtmlEditor from './pages/HtmlEditor';
 import HTMLPractice from './pages/HTMLPractice';
 import SQLPractice from './pages/SQLPractice';
 import PythonPractice from './pages/PythonPractice';
+import OmniDashboard from './pages/OmniDashboard';
 
 const HomeRedirect = () => {
   const { user } = useAuth();
@@ -37,6 +38,7 @@ const App = () => {
       <Route path="/unauthorized" element={<div className="min-h-screen flex items-center justify-center text-xl text-gray-500">Bạn không có quyền truy cập trang này</div>} />
 
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+        <Route path="/omni-dashboard" element={<OmniDashboard />} />
         <Route path="/classes" element={<Dashboard />} />
         <Route path="/classes/:id" element={<ClassDetail />} />
         <Route path="/classes/:id/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />

@@ -3,13 +3,17 @@ import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import AssignmentDeliveryModal from '../components/AssignmentDeliveryModal';
 import AssignmentDeliveryList from '../components/AssignmentDeliveryList';
+import Badge from '../components/Badge';
+import { Plus, Pencil, Send, Layers } from 'lucide-react';
 
 const CATEGORIES = [
-  { key: 'grade_10', label: 'Khối 10' },
-  { key: 'grade_11', label: 'Khối 11' },
-  { key: 'grade_12', label: 'Khối 12' },
-  { key: 'advanced', label: 'Nâng cao' },
+  { key: 'grade_10', label: 'Khối 10', color: 'green' },
+  { key: 'grade_11', label: 'Khối 11', color: 'purple' },
+  { key: 'grade_12', label: 'Khối 12', color: 'orange' },
+  { key: 'advanced', label: 'Nâng cao', color: 'red' },
 ];
+
+const subjectColor = (type) => ({ python: 'green', sql: 'purple', html: 'orange' }[type] || 'blue');
 
 const AssignmentLibrary = () => {
   const [searchParams] = useSearchParams();
@@ -44,27 +48,28 @@ const AssignmentLibrary = () => {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bài tập</h1>
-          <p className="text-sm text-gray-500 mt-1">Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Kho bài tập</h1>
+          <p className="mt-1 text-sm text-brand-muted">Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.</p>
         </div>
-        <Link to={`/assignments/new?category=${activeCategory}`} className="rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+        <Link to={`/assignments/new?category=${activeCategory}`} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
+          <Plus className="h-4 w-4" />
           Tạo bài tập
         </Link>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto border-b">
+      <div className="inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
         {CATEGORIES.map((category) => (
           <button
             key={category.key}
             type="button"
             onClick={() => setActiveCategory(category.key)}
-            className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium ${
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeCategory === category.key
-                ? 'border-[#2563EB] text-[#2563EB]'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                ? 'bg-brand-light text-brand'
+                : 'text-brand-muted hover:bg-gray-50 hover:text-brand-heading'
             }`}
           >
             {category.label}
@@ -72,30 +77,47 @@ const AssignmentLibrary = () => {
         ))}
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {loading && <div className="rounded-xl border bg-white p-8 text-center text-gray-500">Đang tải kho bài tập...</div>}
+      {error && <div className="rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
+      {loading && <div className="rounded-2xl bg-card p-10 text-center text-brand-muted shadow-card ring-1 ring-brand-border">Đang tải kho bài tập...</div>}
       {!loading && !error && assignments.length === 0 && (
-        <div className="rounded-xl border border-dashed bg-white p-10 text-center text-gray-500">Chưa có bài tập trong nhóm này.</div>
+        <div className="rounded-2xl border border-dashed border-brand-border bg-card p-12 text-center text-brand-muted">
+          Chưa có bài tập trong nhóm này.
+        </div>
       )}
 
       {!loading && assignments.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {assignments.map((assignment) => (
-            <article key={assignment.id} className="rounded-xl border bg-white p-5 shadow-sm">
+            <article key={assignment.id} className="group flex flex-col rounded-2xl bg-card p-5 shadow-card ring-1 ring-brand-border transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="font-semibold text-gray-900">{assignment.title}</h2>
-                <span className="rounded bg-blue-50 px-2 py-1 text-xs font-medium uppercase text-blue-700">{assignment.type}</span>
+                <h2 className="font-semibold tracking-tight text-brand-heading">{assignment.title}</h2>
+                <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
               </div>
-              <p className="mt-2 line-clamp-2 min-h-10 text-sm text-gray-500">{assignment.description || 'Không có mô tả'}</p>
+              <p className="mt-2 line-clamp-2 min-h-10 text-sm text-brand-muted">{assignment.description || 'Không có mô tả'}</p>
               <dl className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded bg-gray-50 p-2"><dt className="text-gray-500">Điểm</dt><dd className="font-semibold">{assignment.max_score ?? 0}</dd></div>
-                <div className="rounded bg-gray-50 p-2"><dt className="text-gray-500">Phiên bản</dt><dd className="font-semibold">{assignment.content_version}</dd></div>
-                <div className="rounded bg-gray-50 p-2"><dt className="text-gray-500">Đã giao</dt><dd className="font-semibold">{assignment.delivery_count ?? 0}</dd></div>
+                <div className="rounded-xl bg-page p-2.5">
+                  <dt className="text-brand-muted">Điểm</dt>
+                  <dd className="mt-0.5 font-semibold text-brand-heading">{assignment.max_score ?? 0}</dd>
+                </div>
+                <div className="rounded-xl bg-page p-2.5">
+                  <dt className="text-brand-muted">Phiên bản</dt>
+                  <dd className="mt-0.5 font-semibold text-brand-heading">{assignment.content_version}</dd>
+                </div>
+                <div className="rounded-xl bg-page p-2.5">
+                  <dt className="text-brand-muted">Đã giao</dt>
+                  <dd className="mt-0.5 font-semibold text-brand-heading">{assignment.delivery_count ?? 0}</dd>
+                </div>
               </dl>
-              <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                <Link className="font-medium text-[#2563EB] hover:underline" to={`/assignments/${assignment.id}/edit`}>Chỉnh sửa</Link>
-                <button className="font-medium text-[#2563EB] hover:underline" type="button" onClick={() => setDeliveryAssignment(assignment)}>Giao bài</button>
-                <button className="font-medium text-gray-600 hover:underline" type="button" onClick={() => setListAssignment(assignment)}>Các lớp đã giao</button>
+              <div className="mt-4 flex flex-wrap gap-2 text-sm pt-1">
+                <Link className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline" to={`/assignments/${assignment.id}/edit`}>
+                  <Pencil className="h-3.5 w-3.5" />Chỉnh sửa
+                </Link>
+                <button className="inline-flex items-center gap-1.5 font-medium text-blue-600 hover:underline" type="button" onClick={() => setDeliveryAssignment(assignment)}>
+                  <Send className="h-3.5 w-3.5" />Giao bài
+                </button>
+                <button className="inline-flex items-center gap-1.5 font-medium text-brand-muted hover:underline" type="button" onClick={() => setListAssignment(assignment)}>
+                  <Layers className="h-3.5 w-3.5" />Các lớp đã giao
+                </button>
               </div>
             </article>
           ))}

@@ -281,19 +281,19 @@ const SQLPractice = () => {
   const earnedPoints = results.reduce((sum, r) => sum + (r.passed ? (r.points || 1) : 0), 0);
   const maxPoints = results.reduce((sum, r) => sum + (r.points || 1), 0);
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải...</div>;
+  if (loading) return <div className="text-center py-10 text-brand-muted">Đang tải...</div>;
 
   return (
     <div className="flex flex-col pb-6">
       {regradeMessage && <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{regradeMessage}</div>}
       {showDraftPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Bản nháp chưa lưu</h3>
-            <p className="text-sm text-gray-600 mb-4">Bạn có bản nháp chưa lưu, tiếp tục không?</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-card-hover animate-fade-in">
+            <h3 className="text-lg font-bold text-brand-heading mb-2">Bản nháp chưa lưu</h3>
+            <p className="text-sm text-brand-body mb-4">Bạn có bản nháp chưa lưu, tiếp tục không?</p>
             <div className="flex gap-3">
-              <button onClick={discardDraft} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">Bỏ qua</button>
-              <button onClick={continueDraft} className="flex-1 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Tiếp tục</button>
+              <button onClick={discardDraft} className="flex-1 py-2 border border-brand-border rounded-lg text-brand-body hover:bg-gray-50 text-sm font-medium">Bỏ qua</button>
+              <button onClick={continueDraft} className="flex-1 py-2 bg-brand text-white rounded-lg hover:bg-red-700 text-sm font-medium">Tiếp tục</button>
             </div>
           </div>
         </div>
@@ -301,11 +301,11 @@ const SQLPractice = () => {
 
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">{assignment?.title}</h2>
+          <h2 className="text-lg font-semibold text-brand-heading">{assignment?.title}</h2>
           <div className="flex items-center gap-2 mt-0.5">
-            {assignment?.description && <p className="text-sm text-gray-500">{assignment.description}</p>}
+            {assignment?.description && <p className="text-sm text-brand-muted">{assignment.description}</p>}
             {submissionInfo?.max_submissions && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${submissionInfo.remaining_attempts > 0 ? 'bg-blue-100 text-blue-700' : (readOnly ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700')}`}>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${submissionInfo.remaining_attempts > 0 ? 'bg-badge-blue-bg text-badge-blue-text' : (readOnly ? 'bg-gray-100 text-gray-600' : 'bg-badge-red-bg text-badge-red-text')}`}>
                 {readOnly
                   ? `Đã nộp — hết lượt`
                   : submissionInfo.remaining_attempts > 0
@@ -322,7 +322,7 @@ const SQLPractice = () => {
         </div>
       </div>
 
-      {error && <div className="mb-3 p-3 bg-red-50 text-red-600 rounded-lg text-sm flex-shrink-0">{error}</div>}
+      {error && <div className="mb-3 flex-shrink-0 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
       {readOnly && (
         <div className="mb-3 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm flex-shrink-0">
@@ -331,10 +331,10 @@ const SQLPractice = () => {
       )}
 
       {/* Editor */}
-      <div className="rounded-lg overflow-hidden border flex flex-col flex-shrink-0" style={{ height: '280px' }}>
-        <div className="bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-600 border-b flex items-center justify-between">
+      <div className="flex flex-col flex-shrink-0 overflow-hidden rounded-2xl border border-brand-border bg-card shadow-card" style={{ height: '280px' }}>
+        <div className="flex items-center justify-between border-b border-brand-border bg-page px-4 py-1.5 text-sm font-medium text-brand-muted">
           <span>{readOnly ? 'Bài làm đã nộp (chỉ đọc)' : 'SQL Editor'}</span>
-          {!readOnly && <button onClick={runQuery} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium">
+          {!readOnly && <button onClick={runQuery} className="px-3 py-1 bg-brand text-white rounded-lg hover:bg-red-600 text-xs font-medium">
             Chạy thử
           </button>}
         </div>
@@ -349,17 +349,17 @@ const SQLPractice = () => {
         </div>
         {assignment?.setup_sql && (
           <details className="border-t text-xs">
-            <summary className="px-4 py-1.5 bg-gray-50 cursor-pointer text-gray-500 hover:text-gray-700 font-medium">
+            <summary className="px-4 py-1.5 bg-page cursor-pointer text-brand-muted hover:text-brand-heading font-medium">
               Dữ liệu mẫu
             </summary>
-            <pre className="px-4 py-2 text-gray-600 overflow-auto max-h-24 whitespace-pre-wrap">{assignment.setup_sql}</pre>
+            <pre className="px-4 py-2 text-brand-muted overflow-auto max-h-24 whitespace-pre-wrap">{assignment.setup_sql}</pre>
           </details>
         )}
       </div>
 
       {/* Kết quả query */}
-      <div className="mt-3 rounded-lg overflow-hidden border bg-white flex flex-col flex-shrink-0" style={{ maxHeight: '240px' }}>
-        <div className="bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-600 border-b">Kết quả</div>
+      <div className="mt-3 flex flex-col flex-shrink-0 overflow-hidden rounded-2xl border border-brand-border bg-card shadow-card" style={{ maxHeight: '240px' }}>
+        <div className="border-b border-brand-border bg-page px-4 py-1.5 text-sm font-medium text-brand-muted">Kết quả</div>
         <div className="overflow-auto p-2 flex-1">
           {queryOutput.length > 0 ? (
             <div className="overflow-x-auto">
@@ -391,10 +391,10 @@ const SQLPractice = () => {
       </div>
 
       {/* Test cases + buttons */}
-      <div className="mt-3 rounded-lg border bg-white p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
+      <div className="mt-3 flex-shrink-0 rounded-2xl border border-brand-border bg-card p-4 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold text-gray-800">{readOnly ? 'Kết quả chấm điểm' : 'Test cases'}</h3>
+            <h3 className="text-sm font-semibold text-brand-heading">{readOnly ? 'Kết quả chấm điểm' : 'Test cases'}</h3>
             {checked && (
               <span className="text-sm font-medium">
                 <span className={earnedPoints === maxPoints ? 'text-green-600' : 'text-orange-500'}>
@@ -415,7 +415,7 @@ const SQLPractice = () => {
                 onClick={handleSubmit}
                 disabled={!checked || submitting || submissionInfo?.remaining_attempts <= 0}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium ${
-                  checked && submissionInfo?.remaining_attempts !== 0 ? 'bg-[#2563EB] text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  checked && submissionInfo?.remaining_attempts !== 0 ? 'bg-brand text-white hover:bg-red-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
                 {submitting ? 'Đang nộp...' : submissionInfo?.remaining_attempts <= 0 ? 'Hết lượt nộp' : 'Nộp bài'}
@@ -428,7 +428,7 @@ const SQLPractice = () => {
         {results.length > 0 ? (
           <div>
             {/* Biểu điểm tổng */}
-            <div className="mb-3 p-3 bg-gray-50 rounded-lg border">
+            <div className="mb-3 p-3 bg-page rounded-xl border border-brand-border">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-gray-700">Tổng điểm</span>
                 <span className="text-lg font-bold">{earnedPoints}/{maxPoints}</span>

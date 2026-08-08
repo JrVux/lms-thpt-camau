@@ -2,9 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
+import Button from '../components/Button';
+import { Plus, Trash2, Code } from 'lucide-react';
 
 const LANG_MAP = { python: 'python', sql: 'sql', html: 'html' };
 const CLASS_SUBJECT_MAP = { 10: 'python', 11: 'sql', 12: 'html' };
+
+const input =
+  'w-full rounded-lg border border-brand-border px-4 py-2.5 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 const CreateAssignment = () => {
   const params = useParams();
@@ -164,38 +169,43 @@ const CreateAssignment = () => {
   const gradeOptions = ['10', '11', '12'];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">{isEdit ? 'Chỉnh sửa bài tập' : 'Tạo bài tập mới'}</h1>
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight text-brand-heading">{isEdit ? 'Chỉnh sửa bài tập' : 'Tạo bài tập mới'}</h1>
+        <p className="mt-1 text-sm text-brand-muted">
+          {isLibraryMode ? 'Lưu vào kho bài tập để tái sử dụng' : 'Tạo bài tập gắn với lớp hiện tại'}
+        </p>
+      </div>
 
-      {loadingData && <div className="mb-4 p-3 rounded-lg bg-blue-50 text-blue-600 text-sm">Đang tải dữ liệu bài tập...</div>}
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>}
+      {loadingData && <div className="mb-4 rounded-xl bg-badge-blue-bg p-3 text-sm text-badge-blue-text">Đang tải dữ liệu bài tập...</div>}
+      {error && <div className="mb-4 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-        <div className={`bg-white rounded-xl shadow-sm border p-6 space-y-4 ${loadingData ? 'opacity-50 pointer-events-none' : ''}`}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className={`space-y-4 rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border ${loadingData ? 'pointer-events-none opacity-50' : ''}`}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
+            <label className="mb-1 block text-sm font-medium text-brand-heading">Tiêu đề</label>
             <input
               type="text" value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+              className={input}
               placeholder="Ví dụ: Bài 1 - Biến và kiểu dữ liệu"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+            <label className="mb-1 block text-sm font-medium text-brand-heading">Mô tả</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+              className={`${input} resize-none`}
               placeholder="Mô tả yêu cầu bài tập..."
             />
           </div>
 
           {isLibraryMode && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nhóm bài tập</label>
+              <label className="mb-1 block text-sm font-medium text-brand-heading">Nhóm bài tập</label>
               <select
                 value={category}
                 onChange={(event) => {
@@ -205,7 +215,7 @@ const CreateAssignment = () => {
                     setType(CLASS_SUBJECT_MAP[nextCategory.replace('grade_', '')]);
                   }
                 }}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+                className={`${input} bg-white`}
               >
                 <option value="grade_10">Khối 10</option>
                 <option value="grade_11">Khối 11</option>
@@ -217,12 +227,12 @@ const CreateAssignment = () => {
 
           <div className={`grid gap-4 ${isLibraryMode ? 'grid-cols-2' : 'grid-cols-4'}`}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loại bài tập</label>
+              <label className="mb-1 block text-sm font-medium text-brand-heading">Loại bài tập</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
                 disabled={isEdit || (isLibraryMode && category !== 'advanced')}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                className={`${input} bg-white`}
               >
                 {(isLibraryMode && category === 'advanced'
                   ? ['python', 'sql', 'html'].map((subject) => (
@@ -236,42 +246,39 @@ const CreateAssignment = () => {
               </select>
             </div>
             {!isLibraryMode && (
-              <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hạn nộp</label>
-              <input
-                type="date" value={form.due_date}
-                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-              />
-            </div>
-              </>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-brand-heading">Hạn nộp</label>
+                <input
+                  type="date" value={form.due_date}
+                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  className={input}
+                />
+              </div>
             )}
             {!isLibraryMode && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Số lần nộp tối đa</label>
-              <input
-                type="number" min={1} value={form.max_submissions}
-                onChange={(e) => setForm({ ...form, max_submissions: e.target.value })}
-                placeholder="Không giới hạn"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-              />
-            </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-brand-heading">Số lần nộp tối đa</label>
+                <input
+                  type="number" min={1} value={form.max_submissions}
+                  onChange={(e) => setForm({ ...form, max_submissions: e.target.value })}
+                  placeholder="Không giới hạn"
+                  className={input}
+                />
+              </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tổng điểm</label>
+              <label className="mb-1 block text-sm font-medium text-brand-heading">Tổng điểm</label>
               <input
                 type="number" min={1} value={form.max_score}
                 onChange={(e) => setForm({ ...form, max_score: e.target.value })}
                 placeholder="Tự động theo test"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                className={input}
               />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Starter Code</h2>
+        <SectionCard title="Starter Code" description="Mã khởi tạo học sinh sẽ thấy">
           <Editor
             height="250px"
             language={LANG_MAP[type] || 'python'}
@@ -280,10 +287,9 @@ const CreateAssignment = () => {
             theme="vs-dark"
             options={{ minimap: { enabled: false }, fontSize: 14 }}
           />
-        </div>
+        </SectionCard>
 
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Solution Code (ẩn với học sinh)</h2>
+        <SectionCard title="Solution Code" description="Ẩn với học sinh">
           <Editor
             height="250px"
             language={LANG_MAP[type] || 'python'}
@@ -292,12 +298,10 @@ const CreateAssignment = () => {
             theme="vs-dark"
             options={{ minimap: { enabled: false }, fontSize: 14 }}
           />
-        </div>
+        </SectionCard>
 
         {type === 'sql' && (
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Setup SQL (dữ liệu mẫu)</h2>
-            <p className="text-sm text-gray-500 mb-3">Câu lệnh CREATE TABLE và INSERT dữ liệu mẫu cho bài SQL</p>
+          <SectionCard title="Setup SQL" description="Câu lệnh CREATE TABLE và INSERT dữ liệu mẫu cho bài SQL">
             <Editor
               height="200px"
               language="sql"
@@ -306,20 +310,11 @@ const CreateAssignment = () => {
               theme="vs-dark"
               options={{ minimap: { enabled: false }, fontSize: 14 }}
             />
-          </div>
+          </SectionCard>
         )}
 
         {type === 'python' && (
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-gray-800">Test Suites (Python)</h2>
-              <span className="text-sm text-gray-500">
-                {form.max_score ? `Tổng: ${form.max_score}đ` : 'Nhập "Tổng điểm" bên trên'}
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 mb-3">
-              Viết test cases theo định dạng PythonTestSuite với <code>inputs</code> và <code>expect().with_options(points=X)</code> để đặt điểm từng test
-            </p>
+          <SectionCard title="Test Suites (Python)" description="Viết test cases theo định dạng PythonTestSuite với inputs và expect().with_options(points=X) để đặt điểm từng test" trailing={form.max_score ? `Tổng: ${form.max_score}đ` : 'Nhập "Tổng điểm" bên trên'}>
             <Editor
               height="350px"
               language="python"
@@ -328,84 +323,96 @@ const CreateAssignment = () => {
               theme="vs-dark"
               options={{ minimap: { enabled: false }, fontSize: 13 }}
             />
-          </div>
+          </SectionCard>
         )}
 
         {type !== 'python' && (
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">Test Cases</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Tổng điểm các test: {testCases.reduce((s, t) => s + (parseInt(t.points) || 0), 0)}đ
-                {form.max_score ? ` / Tổng bài: ${form.max_score}đ` : ''}
-              </p>
-            </div>
-            <button type="button" onClick={addTestCase}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">
-              + Thêm test case
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {testCases.map((tc, i) => (
-              <div key={i} className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-gray-700">{tc.test_name}</h3>
-                  {testCases.length > 1 && (
-                    <button type="button" onClick={() => removeTestCase(i)}
-                      className="text-red-500 hover:text-red-700 text-sm">
-                      Xóa
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Input</label>
-                    <input
-                      type="text" value={tc.input_data}
-                      onChange={(e) => updateTestCase(i, 'input_data', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                      placeholder="Dữ liệu đầu vào"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Expected Output</label>
-                    <input
-                      type="text" value={tc.expected_output}
-                      onChange={(e) => updateTestCase(i, 'expected_output', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                      placeholder="Kết quả mong đợi"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Điểm</label>
-                    <input
-                      type="number" min={1} value={tc.points}
-                      onChange={(e) => updateTestCase(i, 'points', parseInt(e.target.value) || 1)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-                    />
-                  </div>
-                </div>
+          <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-brand-heading">Test Cases</h2>
+                <p className="mt-0.5 text-xs text-brand-muted">
+                  Tổng điểm các test: {testCases.reduce((s, t) => s + (parseInt(t.points) || 0), 0)}đ
+                  {form.max_score ? ` / Tổng bài: ${form.max_score}đ` : ''}
+                </p>
               </div>
-            ))}
+              <Button type="button" variant="outline" size="sm" onClick={addTestCase} icon={Plus}>
+                Thêm test case
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {testCases.map((tc, i) => (
+                <div key={i} className="rounded-xl border border-brand-border bg-page p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-medium text-brand-heading">
+                      <Code className="h-4 w-4 text-brand" /> {tc.test_name}
+                    </h3>
+                    {testCases.length > 1 && (
+                      <button type="button" onClick={() => removeTestCase(i)}
+                        className="inline-flex items-center gap-1 text-sm text-brand hover:underline">
+                        <Trash2 className="h-3.5 w-3.5" /> Xóa
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-brand-muted">Input</label>
+                      <input
+                        type="text" value={tc.input_data}
+                        onChange={(e) => updateTestCase(i, 'input_data', e.target.value)}
+                        className={`${input} text-sm`}
+                        placeholder="Dữ liệu đầu vào"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-brand-muted">Expected Output</label>
+                      <input
+                        type="text" value={tc.expected_output}
+                        onChange={(e) => updateTestCase(i, 'expected_output', e.target.value)}
+                        className={`${input} text-sm`}
+                        placeholder="Kết quả mong đợi"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-brand-muted">Điểm</label>
+                      <input
+                        type="number" min={1} value={tc.points}
+                        onChange={(e) => updateTestCase(i, 'points', parseInt(e.target.value) || 1)}
+                        className={`${input} text-sm`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
         )}
 
-        <div className="flex gap-3">
-          <button type="button" onClick={() => navigate(`/classes/${classId}`)}
-            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+        <div className="flex gap-3 pb-8">
+          <Button type="button" variant="outline" onClick={() => navigate(isLibraryMode ? '/assignments' : `/classes/${classId}`)}>
             Hủy
-          </button>
-          <button type="submit" disabled={saving}
-            className="px-6 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 font-medium">
+          </Button>
+          <Button type="submit" disabled={saving}>
             {saving ? (isEdit ? 'Đang lưu...' : 'Đang tạo...') : (isEdit ? 'Lưu thay đổi' : 'Tạo bài tập')}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
   );
 };
+
+const SectionCard = ({ title, description, trailing, children }) => (
+  <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border">
+    <div className="mb-4 flex items-center justify-between">
+      <div>
+        <h2 className="text-lg font-semibold text-brand-heading">{title}</h2>
+        {description && <p className="mt-1 text-sm text-brand-muted">{description}</p>}
+      </div>
+      {trailing && <span className="text-sm text-brand-muted">{trailing}</span>}
+    </div>
+    {children}
+  </div>
+);
 
 export default CreateAssignment;

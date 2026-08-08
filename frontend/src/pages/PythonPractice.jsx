@@ -206,19 +206,19 @@ const PythonPractice = () => {
   const earnedPoints = results.reduce((sum, r) => sum + (r.passed ? (r.points || 1) : 0), 0);
   const maxPoints = results.reduce((sum, r) => sum + (r.points || 1), 0);
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Đang tải bài tập...</div>;
+  if (loading) return <div className="text-center py-10 text-brand-muted">Đang tải bài tập...</div>;
 
   return (
     <div className="flex flex-col pb-6">
       {regradeMessage && <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{regradeMessage}</div>}
       {showDraftPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Bản nháp chưa lưu</h3>
-            <p className="text-sm text-gray-600 mb-4">Bạn có bản nháp chưa lưu, tiếp tục không?</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-card-hover animate-fade-in">
+            <h3 className="text-lg font-bold text-brand-heading mb-2">Bản nháp chưa lưu</h3>
+            <p className="text-sm text-brand-body mb-4">Bạn có bản nháp chưa lưu, tiếp tục không?</p>
             <div className="flex gap-3">
-              <button onClick={discardDraft} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">Bỏ qua</button>
-              <button onClick={continueDraft} className="flex-1 py-2 bg-[#2563EB] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Tiếp tục</button>
+              <button onClick={discardDraft} className="flex-1 py-2 border border-brand-border rounded-lg text-brand-body hover:bg-gray-50 text-sm font-medium">Bỏ qua</button>
+              <button onClick={continueDraft} className="flex-1 py-2 bg-brand text-white rounded-lg hover:bg-red-700 text-sm font-medium">Tiếp tục</button>
             </div>
           </div>
         </div>
@@ -226,11 +226,11 @@ const PythonPractice = () => {
 
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">{assignment?.title}</h2>
+          <h2 className="text-lg font-semibold text-brand-heading">{assignment?.title}</h2>
           <div className="flex items-center gap-2 mt-0.5">
-            {assignment?.description && <p className="text-sm text-gray-500">{assignment.description}</p>}
+            {assignment?.description && <p className="text-sm text-brand-muted">{assignment.description}</p>}
             {submissionInfo?.max_submissions && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${submissionInfo.remaining_attempts > 0 ? 'bg-blue-100 text-blue-700' : (readOnly ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700')}`}>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${submissionInfo.remaining_attempts > 0 ? 'bg-badge-blue-bg text-badge-blue-text' : (readOnly ? 'bg-gray-100 text-gray-600' : 'bg-badge-red-bg text-badge-red-text')}`}>
                 {readOnly
                   ? `Đã nộp — hết lượt`
                   : submissionInfo.remaining_attempts > 0
@@ -247,7 +247,7 @@ const PythonPractice = () => {
         </div>
       </div>
 
-      {error && <div className="mb-3 p-3 bg-red-50 text-red-600 rounded-lg text-sm flex-shrink-0">{error}</div>}
+      {error && <div className="mb-3 flex-shrink-0 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
 
       {readOnly && (
         <div className="mb-3 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm flex-shrink-0">
@@ -256,11 +256,11 @@ const PythonPractice = () => {
       )}
 
       {/* Editor */}
-      <div className="rounded-lg overflow-hidden border flex flex-col flex-shrink-0" style={{ height: '300px' }}>
-        <div className="bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-600 border-b flex items-center justify-between">
+      <div className="flex flex-col flex-shrink-0 overflow-hidden rounded-2xl border border-brand-border bg-card shadow-card" style={{ height: '300px' }}>
+        <div className="flex items-center justify-between border-b border-brand-border bg-page px-4 py-1.5 text-sm font-medium text-brand-muted">
           <span>{readOnly ? 'Bài làm đã nộp (chỉ đọc)' : 'Python Editor'}</span>
           {!readOnly && <button onClick={runCode} disabled={running || !workerReady}
-            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-300 text-xs font-medium">
+            className="px-3 py-1 bg-brand text-white rounded-lg hover:bg-red-600 disabled:bg-red-300 text-xs font-medium">
             {running ? 'Đang chạy...' : workerReady ? 'Chạy thử' : 'Đang tải Pyodide...'}
           </button>}
         </div>
@@ -273,13 +273,13 @@ const PythonPractice = () => {
       {!readOnly && (
       <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Input thủ công</label>
+          <label className="block text-xs font-medium text-brand-muted mb-1">Input thủ công</label>
           <textarea value={customInput} onChange={(e) => setCustomInput(e.target.value)} rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] resize-none"
+            className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand resize-none"
             placeholder="Nhập dữ liệu input (mỗi dòng là một lần gọi input())" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Kết quả</label>
+          <label className="block text-xs font-medium text-brand-muted mb-1">Kết quả</label>
           <pre className="w-full h-[84px] px-3 py-2 bg-gray-900 text-green-400 rounded-lg text-sm font-mono overflow-auto whitespace-pre-wrap">
             {runOutput || 'Chạy code để xem kết quả...'}
           </pre>
@@ -288,10 +288,10 @@ const PythonPractice = () => {
       )}
 
       {/* Kiểm tra + Nộp bài / Kết quả */}
-      <div className="mt-3 rounded-lg border bg-white p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
+      <div className="mt-3 flex-shrink-0 rounded-2xl border border-brand-border bg-card p-4 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold text-gray-800">{readOnly ? 'Kết quả chấm điểm' : 'Test Suites'}</h3>
+            <h3 className="text-sm font-semibold text-brand-heading">{readOnly ? 'Kết quả chấm điểm' : 'Test Suites'}</h3>
             {checked && (
               <span className="text-sm font-medium">
                 <span className={earnedPoints === maxPoints ? 'text-green-600' : 'text-orange-500'}>
@@ -329,7 +329,7 @@ const PythonPractice = () => {
               </button>
               <button onClick={handleSubmit}
                 disabled={!checked || submitting || submissionInfo?.remaining_attempts <= 0}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium ${checked && submissionInfo?.remaining_attempts !== 0 ? 'bg-[#2563EB] text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium ${checked && submissionInfo?.remaining_attempts !== 0 ? 'bg-brand text-white hover:bg-red-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                 {submitting ? 'Đang nộp...' : submissionInfo?.remaining_attempts <= 0 ? 'Hết lượt nộp' : 'Nộp bài'}
               </button>
               </>
@@ -340,7 +340,7 @@ const PythonPractice = () => {
         {results.length > 0 ? (
           <div>
             {/* Biểu điểm tổng */}
-            <div className="mb-3 p-3 bg-gray-50 rounded-lg border">
+            <div className="mb-3 p-3 bg-page rounded-xl border border-brand-border">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-gray-700">Tổng điểm</span>
                 <span className="text-lg font-bold">{earnedPoints}/{maxPoints}</span>

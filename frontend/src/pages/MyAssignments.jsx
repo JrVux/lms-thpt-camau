@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import Badge from '../components/Badge';
+import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { CalendarClock, CheckCircle2, AlertTriangle, RefreshCcw, FileCode2, ArrowRight } from 'lucide-react';
+
+const subjectColor = (type) => ({ python: 'green', sql: 'purple', html: 'orange' }[type] || 'blue');
 
 const TABS = [
-  { key: 'pending', label: 'Cần làm' },
-  { key: 'submitted', label: 'Đã nộp' },
-  { key: 'overdue', label: 'Quá hạn' },
-  { key: 'regrade', label: 'Cần chấm lại' },
+  { key: 'pending', label: 'Cần làm', icon: CalendarClock, color: 'purple' },
+  { key: 'submitted', label: 'Đã nộp', icon: CheckCircle2, color: 'green' },
+  { key: 'overdue', label: 'Quá hạn', icon: AlertTriangle, color: 'orange' },
+  { key: 'regrade', label: 'Cần chấm lại', icon: RefreshCcw, color: 'red' },
 ];
 
 const editorPath = (delivery) => {
@@ -37,29 +43,59 @@ const MyAssignments = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div><h1 className="text-2xl font-bold">Bài tập của tôi</h1><p className="mt-1 text-sm text-gray-500">Các bài được giao cho toàn lớp hoặc riêng cho bạn.</p></div>
-      <div className="flex gap-2 overflow-x-auto border-b">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Bài tập của tôi</h1>
+        <p className="mt-1 text-sm text-brand-muted">Các bài được giao cho toàn lớp hoặc riêng cho bạn.</p>
+      </div>
+
+      <div className="inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
         {TABS.map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === tab.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key ? 'bg-brand-light text-brand' : 'text-brand-muted hover:bg-gray-50 hover:text-brand-heading'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
             {tab.label} ({counts[tab.key]})
           </button>
         ))}
       </div>
-      {loading && <div className="rounded-xl border bg-white p-8 text-center text-gray-500">Đang tải bài tập...</div>}
-      {error && <div className="rounded-lg bg-red-50 p-3 text-red-700">{error}</div>}
-      {!loading && !error && visible.length === 0 && <div className="rounded-xl border border-dashed bg-white p-8 text-center text-gray-500">Không có bài tập trong mục này.</div>}
+
+      {loading && <div className="rounded-2xl bg-card p-10 text-center text-brand-muted shadow-card ring-1 ring-brand-border">Đang tải bài tập...</div>}
+      {error && <div className="rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
+      {!loading && !error && visible.length === 0 && (
+        <div className="rounded-2xl bg-card shadow-card ring-1 ring-brand-border">
+          <EmptyState
+            icon={FileCode2}
+            color={TABS.find((t) => t.key === activeTab).color}
+            title="Không có bài tập trong mục này"
+            description="Các bài tập mới sẽ xuất hiện tại đây"
+          />
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         {visible.map((delivery) => {
           const assignment = delivery.assignments;
           const latest = [...(delivery.submissions ?? [])].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))[0];
           return (
-            <article key={delivery.id} className="rounded-xl border bg-white p-5 shadow-sm">
-              <div className="flex justify-between gap-3"><h2 className="font-semibold">{assignment.title}</h2><span className="text-xs font-semibold uppercase text-blue-600">{assignment.type}</span></div>
-              <p className="mt-2 text-sm text-gray-500">{delivery.classes?.name} · {delivery.due_date ? `Hạn ${new Date(delivery.due_date).toLocaleString('vi-VN')}` : 'Không hạn nộp'}</p>
-              {latest && <p className="mt-2 text-sm font-medium">Điểm gần nhất: {latest.score}/{latest.max_score}</p>}
-              <Link to={editorPath(delivery)} className="mt-4 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">
-                {activeTab === 'regrade' ? 'Mở và chấm lại' : activeTab === 'submitted' ? 'Xem / làm lại' : 'Làm bài'}
-              </Link>
+            <article key={delivery.id} className="group flex flex-col rounded-2xl bg-card p-5 shadow-card ring-1 ring-brand-border transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="font-semibold tracking-tight text-brand-heading">{assignment.title}</h2>
+                <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
+              </div>
+              <p className="mt-2 text-sm text-brand-muted">
+                {delivery.classes?.name} · {delivery.due_date ? `Hạn ${new Date(delivery.due_date).toLocaleString('vi-VN')}` : 'Không hạn nộp'}
+              </p>
+              {latest && <p className="mt-2 text-sm font-medium text-brand-heading">Điểm gần nhất: {latest.score}/{latest.max_score}</p>}
+              <div className="mt-4 pt-1">
+                <Link to={editorPath(delivery)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
+                  {activeTab === 'regrade' ? 'Mở và chấm lại' : activeTab === 'submitted' ? 'Xem / làm lại' : 'Làm bài'}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </article>
           );
         })}

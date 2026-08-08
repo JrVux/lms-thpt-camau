@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import Modal from './Modal';
+import Button from './Button';
+import { Unlink, Eye, GraduationCap } from 'lucide-react';
 
 const AssignmentDeliveryList = ({ assignment, open, onClose }) => {
   const [deliveries, setDeliveries] = useState([]);
@@ -36,33 +39,51 @@ const AssignmentDeliveryList = ({ assignment, open, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-6">
-        <div className="flex justify-between"><h2 className="text-xl font-bold">Các lớp đã giao</h2><button onClick={onClose} className="text-2xl">×</button></div>
-        {error && <div className="mt-3 rounded bg-red-50 p-3 text-red-700">{error}</div>}
-        <div className="mt-4 space-y-3">
-          {deliveries.length === 0 && <p className="text-gray-500">Bài này chưa được giao cho lớp nào.</p>}
-          {deliveries.map((delivery) => (
-            <div key={delivery.id} className="rounded-lg border p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Các lớp đã giao"
+      subtitle={`Bài: ${assignment.title}`}
+      maxWidth="max-w-4xl"
+    >
+      {error && <div className="mb-3 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
+      <div className="space-y-3">
+        {deliveries.length === 0 && (
+          <p className="rounded-xl border border-dashed border-brand-border py-10 text-center text-brand-muted">
+            Bài này chưa được giao cho lớp nào.
+          </p>
+        )}
+        {deliveries.map((delivery) => (
+          <div key={delivery.id} className="rounded-2xl border border-brand-border bg-page/40 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-light text-brand">
+                  <GraduationCap className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                </span>
                 <div>
-                  <h3 className="font-semibold">{delivery.classes?.name}</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-semibold text-brand-heading">{delivery.classes?.name}</h3>
+                  <p className="mt-0.5 text-sm text-brand-muted">
                     {delivery.recipient_mode === 'all' ? 'Toàn bộ lớp' : `${delivery.assignment_recipients?.length ?? 0} học sinh`}
                     {' · '}{delivery.due_date ? new Date(delivery.due_date).toLocaleString('vi-VN') : 'Không hạn nộp'}
                     {' · '}{delivery.sync_mode === 'linked' ? 'Đang đồng bộ' : 'Bản riêng'}
                   </p>
                 </div>
-                <div className="flex gap-3 text-sm">
-                  <button onClick={() => togglePublish(delivery)} className="font-medium text-blue-600">{delivery.is_published ? 'Thu hồi' : 'Giao ngay'}</button>
-                  {delivery.sync_mode === 'linked' && <button onClick={() => detach(delivery)} className="font-medium text-orange-600">Tách bản riêng</button>}
-                </div>
+              </div>
+              <div className="flex gap-2 text-sm">
+                <Button size="sm" variant="blue" icon={Link} onClick={() => togglePublish(delivery)}>
+                  {delivery.is_published ? 'Thu hồi' : 'Giao ngay'}
+                </Button>
+                {delivery.sync_mode === 'linked' && (
+                  <Button size="sm" variant="orange" icon={Unlink} onClick={() => detach(delivery)}>
+                    Tách bản riêng
+                  </Button>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </Modal>
   );
 };
 
