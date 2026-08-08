@@ -39,6 +39,7 @@ test('visual guide covers teacher and student journeys accessibly', async () => 
     assert.match(guide, new RegExp(label));
   }
   assert.match(guide, /Cập nhật.*08\/08\/2026/);
+  assert.match(guide, /\.matrix th,\.matrix td\s*\{\s*padding:3mm 4mm;/);
   assert.doesNotMatch(guide, /<img[^>]+src="https?:/);
   assert.doesNotMatch(guide, /TEACHER_SECRET\s*[=:]\s*[a-f0-9]{32,}/i);
   assert.doesNotMatch(guide, /(?:JWT_SECRET|TEACHER_SECRET)=[a-f0-9]{32,}/i);
