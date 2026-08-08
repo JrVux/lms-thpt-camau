@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Cẩm nang sử dụng LMS THPT Cà Mau dành cho giáo viên và học sinh.">
-  <title>Cẩm nang sử dụng LMS THPT Cà Mau</title>
+  <meta name="description" content="Cẩm nang sử dụng giao diện OmniRoute của LMS THPT Cà Mau dành cho giáo viên và học sinh.">
+  <title>Cẩm nang OmniRoute · LMS THPT Cà Mau</title>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
     :root {
       --font: "Be Vietnam Pro", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
       --ink: #172033; --muted: #5f6b7d; --paper: #f5f7fb; --white: #fff;
-      --line: #dfe5ef; --teacher: #2563eb; --teacher-soft: #eaf2ff;
-      --student: #7c3aed; --student-soft: #f2ebff; --danger: #dc2626;
+      --line: #dfe5ef; --teacher: #e11d48; --teacher-soft: #fff1f2;
+      --student: #2563eb; --student-soft: #eff6ff; --danger: #b91c1c;
       --danger-soft: #fff0f0; --success: #0f9f6e; --shadow: 0 16px 50px rgba(30,45,75,.10);
     }
     * { box-sizing: border-box; }
@@ -118,7 +118,7 @@
   <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="#tong-quan"><span class="brand-mark">L</span><span>LMS THPT Cà Mau</span></a>
+      <a class="brand" href="#tong-quan"><span class="brand-mark">O</span><span>OmniRoute · LMS THPT Cà Mau</span></a>
       <nav class="topnav" aria-label="Mục lục">
         <a href="#tong-quan">Tổng quan</a><a href="#giao-vien">Giáo viên</a><a href="#hoc-sinh">Học sinh</a><a href="#xu-ly-loi">Trợ giúp</a>
       </nav>
@@ -128,15 +128,15 @@
   <div class="hero">
     <div class="hero-grid">
       <div>
-        <span class="eyebrow">Cẩm nang sử dụng · 2026</span>
-        <h1>Dạy và học lập trình, rõ từng bước.</h1>
-        <p>Từ tạo lớp, giao bài cho từng học sinh đến xem bài nộp và điểm số - tất cả được trình bày trong một lộ trình dễ theo dõi.</p>
+          <span class="eyebrow">Cẩm nang OmniRoute · Cập nhật 08/08/2026</span>
+          <h1>Dạy và học lập trình, rõ từng bước.</h1>
+          <p>Từ tạo lớp, giao bài cho từng học sinh đến xem bài nộp và điểm số - tất cả được trình bày trong một lộ trình dễ theo dõi.</p>
         <div class="actions screen-only">
           <a class="btn btn-primary" href="https://frontend-alpha-henna-71.vercel.app">Mở hệ thống ↗</a>
           <a class="btn btn-ghost" href="#giao-vien">Tôi là giáo viên</a>
           <a class="btn btn-ghost" href="#hoc-sinh">Tôi là học sinh</a>
         </div>
-        <p class="print-only">Hệ thống: https://frontend-alpha-henna-71.vercel.app</p>
+          <p class="print-only">Hệ thống: https://frontend-alpha-henna-71.vercel.app · Phiên bản eaacd41</p>
       </div>
       <div class="mock" aria-hidden="true">
         <div class="mock-head"><i></i><i></i><i></i></div>
@@ -156,7 +156,7 @@
         <div class="role-switch"><a class="teacher" href="#giao-vien">Giáo viên</a><a class="student" href="#hoc-sinh">Học sinh</a></div>
       </div>
       <div class="overview">
-        <article class="overview-card"><span class="num">1</span><h3>Chuẩn bị</h3><p>Tài khoản, mã giáo viên hoặc mã lớp 6 ký tự và trình duyệt Chrome/Edge mới.</p></article>
+        <article class="overview-card"><span class="num">1</span><h3>Chuẩn bị</h3><p>Tài khoản, mã giáo viên hoặc mã lớp 6 ký tự và trình duyệt Chrome/Edge mới. Mở hệ thống tại địa chỉ production ở đầu trang.</p></article>
         <article class="overview-card"><span class="num">2</span><h3>Thực hiện</h3><p>Đi theo các thẻ bước. Mỗi thẻ cho biết thao tác và kết quả cần nhìn thấy.</p></article>
         <article class="overview-card"><span class="num">3</span><h3>Kiểm tra</h3><p>Nếu khác kết quả mô tả, đến mục Trợ giúp trước khi thực hiện lại.</p></article>
       </div>
@@ -165,13 +165,14 @@
     <section id="giao-vien">
       <div class="section-head"><div><p class="kicker">Lộ trình 01</p><h2>Dành cho giáo viên</h2><p class="lead">Thiết lập lớp, chuẩn bị nội dung, giao đúng người và theo dõi tiến độ.</p></div></div>
       <div class="steps">
-        <article class="step-card"><span class="step-icon">↗</span><h3>Đăng ký và đăng nhập</h3><p>Chọn vai trò Giáo viên, nhập thông tin và mã giáo viên do quản trị viên cung cấp. Sau khi đăng ký, dùng tên đăng nhập và mật khẩu để vào hệ thống.</p><div class="expect"><b>Kết quả</b><span>Thấy trang “Lớp của tôi”.</span></div></article>
+        <article class="step-card"><span class="step-icon">↗</span><h3>Đăng ký và đăng nhập</h3><p>Chọn vai trò Giáo viên, nhập thông tin và mã giáo viên do quản trị viên cung cấp. Sau khi đăng ký, dùng tên đăng nhập và mật khẩu để vào hệ thống.</p><div class="expect"><b>Kết quả</b><span>Thanh điều hướng OmniRoute mở tại “Lớp của tôi”.</span></div></article>
         <article class="step-card"><span class="step-icon">＋</span><h3>Tạo lớp đúng khối</h3><p>Bấm <b>Tạo lớp mới</b>, nhập tên và chọn khối. Khối 10 dùng Python, khối 11 dùng SQL, khối 12 dùng HTML.</p><div class="expect"><b>Kết quả</b><span>Thẻ lớp xuất hiện cùng mã lớp 6 ký tự.</span></div></article>
         <article class="step-card"><span class="step-icon">♙</span><h3>Thêm học sinh</h3><p>Gửi mã lớp để học sinh tự tham gia, hoặc mở tab Học sinh để thêm, nhập danh sách và cấp lại mật khẩu.</p><div class="expect"><b>Kết quả</b><span>Danh sách hiển thị đúng họ tên và tài khoản.</span></div></article>
-        <article class="step-card"><span class="step-icon">▤</span><h3>Tạo bài trong Kho</h3><p>Chọn Kho bài tập → Khối 10/11/12 hoặc Nâng cao. Bài Nâng cao vẫn phải chọn Python, SQL hoặc HTML.</p><div class="expect"><b>Kết quả</b><span>Bài có nội dung, test, điểm tối đa và phiên bản.</span></div></article>
-        <article class="step-card"><span class="step-icon">◎</span><h3>Giao đúng lớp, đúng người</h3><p>Chọn lớp tương ứng với môn. Giao cho <b>Toàn bộ lớp</b> hoặc chọn những học sinh cụ thể cần làm.</p><div class="expect"><b>Kết quả</b><span>Chỉ người được chỉ định nhìn thấy bài.</span></div></article>
+        <article class="step-card"><span class="step-icon">▤</span><h3>Tạo bài trong Kho bài tập</h3><p>Trên thanh điều hướng, chọn <b>Kho bài tập</b> → Khối 10/11/12 hoặc Nâng cao → <b>Tạo bài</b>. Bài Nâng cao vẫn phải chọn Python, SQL hoặc HTML.</p><div class="expect"><b>Kết quả</b><span>Bài có nội dung, test, điểm tối đa và phiên bản.</span></div></article>
+        <article class="step-card"><span class="step-icon">◎</span><h3>Giao đúng lớp, đúng người</h3><p>Tại bài cần dùng, bấm <b>Giao bài</b>, chọn lớp tương ứng với môn rồi chọn <b>Toàn bộ lớp</b> hoặc những học sinh cụ thể.</p><div class="expect"><b>Kết quả</b><span>Chỉ người được chỉ định nhìn thấy bài trong Bài tập của tôi.</span></div></article>
         <article class="step-card"><span class="step-icon">⧉</span><h3>Chọn cách đồng bộ</h3><p>Dùng bản độc lập để chỉnh riêng từng lớp. Dùng bản liên kết khi muốn các lớp nhận cập nhật từ bài gốc và chấm lại bài đã nộp.</p><div class="expect"><b>Mẹo</b><span>Mặc định an toàn: sao chép nháp độc lập.</span></div></article>
-        <article class="step-card"><span class="step-icon">✓</span><h3>Xem bài làm và điểm</h3><p>Mở lớp → Bảng điểm. Bấm trực tiếp vào ô điểm để xem mã nguồn, thời gian nộp và kết quả từng test. Có thể xuất CSV/Excel.</p><div class="expect"><b>Kết quả</b><span>Đọc được bài làm thực tế của học sinh.</span></div></article>
+        <article class="step-card"><span class="step-icon">✓</span><h3>Xem bài làm và điểm</h3><p>Mở <b>Lớp của tôi</b> → chọn lớp → <b>Bảng điểm</b>. Bấm trực tiếp vào ô điểm để xem mã nguồn, thời gian nộp và kết quả từng test. Có thể xuất CSV/Excel.</p><div class="expect"><b>Kết quả</b><span>Đọc được bài làm thực tế của học sinh.</span></div></article>
+        <article class="step-card"><span class="step-icon">↻</span><h3>Chấm lại sau khi cập nhật</h3><p>Khi bài liên kết đổi nội dung hoặc test, mở bài nộp có trạng thái cần chấm lại và chạy chấm theo phiên bản mới.</p><div class="expect"><b>Kết quả</b><span>Điểm và kết quả test phản ánh phiên bản hiện tại.</span></div></article>
         <article class="step-card"><span class="step-icon">×</span><h3>Xóa lớp an toàn</h3><p>Trong trang lớp, bấm Xóa lớp. Đọc cảnh báo, nhập chính xác tên lớp và bấm Xóa vĩnh viễn.</p><div class="expect"><b>Giữ lại</b><span>Tài khoản học sinh và bài gốc trong Kho bài tập.</span></div></article>
       </div>
       <div class="callout"><strong>!</strong><div><strong>Xóa lớp không thể hoàn tác</strong><p>Danh sách tham gia, bài đã giao, bài nộp và điểm của lớp sẽ bị xóa. Chỉ thực hiện sau khi đã xuất dữ liệu cần lưu.</p></div></div>
@@ -180,8 +181,8 @@
     <section id="hoc-sinh" class="student-section">
       <div class="section-head"><div><p class="kicker">Lộ trình 02</p><h2>Dành cho học sinh</h2><p class="lead">Tham gia đúng lớp, làm đúng bài và đọc kết quả để cải thiện.</p></div></div>
       <div class="steps">
-        <article class="step-card"><span class="step-icon">01</span><h3>Tạo tài khoản học sinh</h3><p>Ở trang Đăng ký, chọn Học sinh. Nhập họ tên, tên đăng nhập và mật khẩu tối thiểu 6 ký tự.</p><div class="expect"><b>Kết quả</b><span>Đăng nhập và thấy “Lớp học của tôi”.</span></div></article>
-        <article class="step-card"><span class="step-icon">02</span><h3>Tham gia lớp</h3><p>Bấm Tham gia lớp, nhập mã 6 ký tự giáo viên gửi. Mỗi học sinh tối đa hai lớp cùng khối.</p><div class="expect"><b>Kết quả</b><span>Thẻ lớp xuất hiện trong danh sách.</span></div></article>
+        <article class="step-card"><span class="step-icon">01</span><h3>Tạo tài khoản học sinh</h3><p>Ở trang Đăng ký, chọn Học sinh. Nhập họ tên, tên đăng nhập và mật khẩu tối thiểu 6 ký tự.</p><div class="expect"><b>Kết quả</b><span>Đăng nhập và thấy mục “Lớp học” trên thanh điều hướng OmniRoute.</span></div></article>
+        <article class="step-card"><span class="step-icon">02</span><h3>Tham gia lớp</h3><p>Mở <b>Lớp học</b>, bấm <b>Tham gia lớp</b> và nhập mã 6 ký tự giáo viên gửi. Mỗi học sinh tối đa hai lớp cùng khối.</p><div class="expect"><b>Kết quả</b><span>Thẻ lớp xuất hiện trong danh sách.</span></div></article>
         <article class="step-card"><span class="step-icon">03</span><h3>Mở bài được giao</h3><p>Vào mục Bài tập của tôi hoặc mở lớp. Chỉ những bài giao cho toàn lớp hoặc chỉ định cho bạn mới xuất hiện.</p><div class="expect"><b>Kết quả</b><span>Thấy hạn nộp, số lượt và trạng thái bài.</span></div></article>
         <article class="step-card"><span class="step-icon">04</span><h3>Viết và chạy thử</h3><p>Python chạy bằng Pyodide, SQL bằng sql.js, HTML kiểm tra trên DOM. Bấm chạy thử, đọc lỗi và sửa trước khi nộp.</p><div class="expect"><b>Mẹo</b><span>Đọc cả đầu vào, mong đợi và kết quả thực tế.</span></div></article>
         <article class="step-card"><span class="step-icon">05</span><h3>Nộp, xem điểm, làm lại</h3><p>Bấm Nộp bài. Hệ thống chấm từng test và hiển thị điểm. Nếu còn lượt, mở lại bài để cải thiện. Khi bài đổi phiên bản, làm theo yêu cầu chấm lại.</p><div class="expect"><b>Kết quả</b><span>Điểm và số lượt còn lại được cập nhật.</span></div></article>
@@ -195,7 +196,8 @@
         <tbody>
           <tr><td>Tạo bài dùng chung</td><td>Kho bài tập → Tạo bài</td><td><span class="status">Giáo viên</span></td></tr>
           <tr><td>Giao cho một số học sinh</td><td>Kho bài tập → Giao bài → Học sinh cụ thể</td><td><span class="status">Giáo viên</span></td></tr>
-          <tr><td>Xem mã bài nộp</td><td>Lớp → Bảng điểm → Bấm ô điểm</td><td><span class="status">Giáo viên</span></td></tr>
+          <tr><td>Xem mã bài nộp</td><td>Lớp của tôi → Chọn lớp → Bảng điểm → Bấm ô điểm</td><td><span class="status">Giáo viên</span></td></tr>
+          <tr><td>Tham gia lớp</td><td>Lớp học → Tham gia lớp</td><td><span class="status">Học sinh</span></td></tr>
           <tr><td>Làm bài</td><td>Bài tập của tôi → Vào làm bài</td><td><span class="status">Học sinh</span></td></tr>
         </tbody>
       </table>
@@ -208,13 +210,15 @@
         <details open><summary>Không xem được bài làm học sinh</summary><p>Vào lớp → Bảng điểm → bấm trực tiếp vào con số điểm. Chỉ giáo viên sở hữu lớp được xem.</p></details>
         <details open><summary>Phiên đăng nhập không còn hợp lệ</summary><p>Đăng xuất, đăng nhập lại. Nếu vừa triển khai hoặc đổi khóa, nhấn <b>Ctrl + F5</b> trước khi đăng nhập.</p></details>
         <details open><summary>Trang vẫn là phiên bản cũ</summary><p>Nhấn <b>Ctrl + F5</b> trên Windows hoặc <b>Cmd + Shift + R</b> trên macOS để tải lại toàn bộ tài nguyên.</p></details>
+        <details open><summary>Không chạy được Python, SQL hoặc HTML</summary><p>Kiểm tra kết nối mạng khi tải Pyodide lần đầu, đọc thông báo lỗi và chạy thử lại. Nếu vẫn lỗi, sao chép mã đang làm trước khi tải lại trang.</p></details>
+        <details open><summary>Cần xóa lớp</summary><p>Xuất dữ liệu cần lưu, đọc toàn bộ cảnh báo rồi nhập chính xác tên lớp. Nút <b>Xóa vĩnh viễn</b> thực hiện thao tác không thể hoàn tác.</p></details>
       </div>
     </section>
   </main>
 
   <footer>
-    <strong>LMS THPT Cà Mau</strong><br>
-    Cẩm nang dành cho giáo viên và học sinh · <span id="year">2026</span>
+      <strong>OmniRoute · LMS THPT Cà Mau</strong><br>
+      Cẩm nang dành cho giáo viên và học sinh · Cập nhật 08/08/2026 · phiên bản eaacd41
   </footer>
   <script>
     const progressBar = document.getElementById("progress-bar");
