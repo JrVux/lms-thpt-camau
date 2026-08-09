@@ -1,14 +1,16 @@
 # LMS THPT Cà Mau
 
-Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT. Giáo viên giao bài Python, SQL, HTML; học sinh làm trực tiếp trên trình duyệt và nhận kết quả tự động.
+Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT, với giao diện OmniRoute. Giáo viên giao bài Python, SQL, HTML; học sinh làm trực tiếp trên trình duyệt và nhận kết quả tự động.
 
-[Mở hệ thống](https://frontend-alpha-henna-71.vercel.app) · [Cẩm nang trực quan](docs/huong-dan-su-dung.html) · [Tải cẩm nang PDF](output/pdf/cam-nang-su-dung-lms-thpt.pdf)
+[Mở hệ thống](https://frontend-alpha-henna-71.vercel.app) · [Cẩm nang HTML](docs/huong-dan-su-dung.html) · [Cẩm nang PDF](output/pdf/cam-nang-su-dung-lms-thpt.pdf)
+
+> Tài liệu được đồng bộ với production commit `eaacd41` ngày 08/08/2026.
 
 ## Điểm nổi bật
 
 ### Dành cho giáo viên
 
-- Tạo lớp theo khối 10/Python, 11/SQL và 12/HTML.
+- Quản lý lớp tại **Lớp của tôi**; tạo lớp theo khối 10/Python, 11/SQL và 12/HTML.
 - Quản lý học sinh, nhập danh sách, cấp lại mật khẩu và mã lớp.
 - Kho bài tập chia thành Khối 10, 11, 12 và Nâng cao.
 - Một bài Nâng cao vẫn thuộc một môn Python/SQL/HTML và chỉ giao cho lớp có môn tương ứng.
@@ -21,8 +23,9 @@ Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT
 
 ### Dành cho học sinh
 
-- Đăng ký tài khoản và tham gia lớp bằng mã 6 ký tự.
+- Quản lý lớp tại **Lớp học**; đăng ký tài khoản và tham gia lớp bằng mã 6 ký tự.
 - Chỉ nhìn thấy bài được giao cho mình.
+- Theo dõi bài được giao tại **Bài tập của tôi**.
 - Làm và chạy thử Python, SQL hoặc HTML ngay trên trình duyệt.
 - Xem điểm, kết quả từng test, số lượt còn lại và làm lại khi được phép.
 - Nhận trạng thái yêu cầu chấm lại khi giáo viên cập nhật bài dùng chung.
@@ -56,8 +59,8 @@ Tạo `backend/.env`:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=<publishable-or-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<server-only-key>
-JWT_SECRET=<chuỗi-ngẫu-nhiên-dài>
-TEACHER_SECRET=<mã-do-quản-trị-viên-tạo>
+JWT_SECRET=<long-random-secret>
+TEACHER_SECRET=<teacher-registration-code>
 CORS_ORIGIN=http://localhost:5173
 PORT=3001
 NODE_ENV=development
@@ -121,8 +124,8 @@ Build command: `npm run build`. Start command: `npm start`. Health check: `/heal
 
 - Root directory: `frontend`
 - Framework: Vite
-- Build: `npm run build`
-- Output: `dist`
+- Build command: `npm run build`
+- Output directory: `dist`
 - `VITE_API_URL=https://lms-thpt-camau.onrender.com`
 
 ## API chính
