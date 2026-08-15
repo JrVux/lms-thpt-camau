@@ -32,5 +32,8 @@ services:
         value: gemini-2.5-flash
       - key: AI_ADMIN_USERS
         sync: false
+      - key: AI_REQUEST_TIMEOUT_MS
+        value: "90000"
+
 
 

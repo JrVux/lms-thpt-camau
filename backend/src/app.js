@@ -149,7 +149,7 @@ const startStudentAnalysisWorker = async () => {
     gateway: createStudentAnalysisGateway({
       openRouter: createOpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL }),
       gemini: createGeminiProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL }),
-      timeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 45000,
+      timeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 90000,
     }),
     workerId: `web-${process.pid}`,
     leaseSeconds: Number(process.env.AI_ANALYSIS_LEASE_SECONDS) || 120,
