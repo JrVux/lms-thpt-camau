@@ -35,8 +35,11 @@ export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 4
       ['gemini', gemini, base, false],
     ];
     let lastError;
+    let attemptedCount = 0;
     for (const [name, provider, prompt, repair] of attempts) {
       if (repair && !invalid) continue;
+      if (provider?.isConfigured === false) continue;
+      attemptedCount++;
       try {
         const request = repair
           ? buildStudentAnalysisRepairPrompt({ bundle, invalidOutput: invalid, issues })
@@ -45,6 +48,9 @@ export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 4
         const analysis = validateStudentAnalysis(result.value, allowedEvidenceIds);
         return { analysis, provider: name, model: result.model, usage: result.usage ?? {}, fallback_used: name === 'gemini' };
       } catch (error) {
+        if (error?.code === 'AI_CONFIGURATION_ERROR' || error?.name === 'AIConfigurationError') {
+          throw error;
+        }
         if (error instanceof StudentAnalysisValidationError) {
           invalid = error.candidate ?? null;
           issues = error.issues;
@@ -59,6 +65,11 @@ export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 4
         lastError = error;
       }
     }
-    throw lastError ?? new Error('Không thể phân tích học sinh.');
+    if (attemptedCount === 0) {
+      const configErr = new Error('Thiếu cấu hình API Key AI (OPENROUTER_API_KEY hoặc GEMINI_API_KEY) trên máy chủ.');
+      configErr.code = 'AI_CONFIGURATION_ERROR';
+      throw configErr;
+    }
+    throw lastError || new Error('Không thể phân tích học sinh.');
   },
 });
