@@ -9,3 +9,19 @@ CREATE INDEX IF NOT EXISTS idx_ai_generation_logs_teacher_time ON ai_generation_
 ALTER TABLE ai_generation_logs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ai_generation_logs FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ai_generation_logs TO service_role;
+
+INSERT INTO competencies (framework_version_id, code, name, description, subject, grade)
+SELECT f.id, s.code, s.name, s.description, s.subject, s.grade
+FROM competency_framework_versions f
+CROSS JOIN (VALUES
+ ('SQL11.SELECT','Truy vấn SELECT','Chọn đúng cột và dữ liệu cần thiết.','sql','11'),
+ ('SQL11.FILTER','Lọc dữ liệu','Dùng WHERE và điều kiện lọc chính xác.','sql','11'),
+ ('SQL11.SORT','Sắp xếp dữ liệu','Dùng ORDER BY đúng cột và thứ tự.','sql','11'),
+ ('SQL11.JOIN','Kết nối bảng','Kết nối các bảng bằng khóa phù hợp.','sql','11'),
+ ('HTML12.STRUCTURE','Cấu trúc HTML','Dùng thẻ HTML ngữ nghĩa và cấu trúc hợp lệ.','html','12'),
+ ('HTML12.CSS','Định dạng CSS','Áp dụng selector và thuộc tính CSS phù hợp.','html','12'),
+ ('HTML12.ACCESSIBILITY','Khả năng tiếp cận','Dùng alt, label và cấu trúc hỗ trợ người dùng.','html','12'),
+ ('HTML12.LAYOUT','Bố cục trang','Tổ chức bố cục rõ ràng và thích ứng.','html','12')
+) s(code,name,description,subject,grade)
+WHERE f.version=1
+ON CONFLICT DO NOTHING;

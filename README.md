@@ -6,6 +6,12 @@ Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT
 
 > Tài liệu được đồng bộ với production commit `eaacd41` ngày 08/08/2026.
 
+## Trợ lý soạn bài bằng AI
+
+Backend cần các biến `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_REQUEST_TIMEOUT_MS=45000` và `AI_ASSIGNMENT_MAX_INPUT_CHARS=12000`. Không đặt khóa AI trong frontend.
+
+OpenRouter được gọi trước; Gemini chỉ dự phòng khi lỗi kỹ thuật hoặc kết quả không hợp lệ. Giáo viên mở **Soạn bằng AI**, nhập yêu cầu hoặc bài mẫu, xác nhận môn được nhận diện rồi điền bản nháp vào biểu mẫu. AI không tự lưu hoặc giao bài. Các năng lực AI gợi ý luôn ở trạng thái chờ giáo viên duyệt. Bảng `ai_generation_logs` chỉ lưu metadata sử dụng, không lưu prompt hoặc Solution Code.
+
 ## Điểm nổi bật
 
 ### Dành cho giáo viên
