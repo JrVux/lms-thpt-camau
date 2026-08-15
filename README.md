@@ -18,6 +18,7 @@ Nền tảng quản lý lớp học và thực hành lập trình dành cho THPT
 - Sao chép bài dưới dạng bản nháp độc lập để chỉnh riêng từng lớp, hoặc giữ liên kết đồng bộ.
 - Khi nội dung dùng chung thay đổi, đánh dấu và chấm lại các bài đã nộp theo phiên bản mới.
 - Xem bảng điểm, bấm vào điểm để đọc mã nguồn và kết quả từng test.
+- Gắn kỹ năng đã duyệt cho bài/test và xem **Phân tích năng lực** theo lớp hoặc từng học sinh.
 - Xuất bảng điểm CSV/Excel.
 - Xóa lớp vĩnh viễn bằng bước nhập lại chính xác tên lớp; giữ tài khoản học sinh và bài gốc trong Kho bài tập.
 
@@ -93,8 +94,15 @@ Với database mới, chạy `backend/src/database/schema.sql`, sau đó chạy 
 6. `006_lock_assignment_rpcs.sql`
 7. `007_lock_legacy_tables.sql`
 8. `008_delete_class_transaction.sql`
+9. `009_competency_foundation.sql`
 
-Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai và xóa lớp an toàn.
+Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai, xóa lớp an toàn và nền tảng năng lực có phiên bản.
+
+## Phân tích năng lực — thử nghiệm Python lớp 10
+
+Giáo viên mở bài đã lưu để gắn kỹ năng cho toàn bài hoặc từng test, đặt độ khó/trọng số và duyệt mapping. Chỉ mapping **Đã duyệt** mới tạo bằng chứng. Trong lớp, tab **Phân tích năng lực** tính mức thành thạo, độ tin cậy và xu hướng từ lịch sử bài nộp; mọi bằng chứng đều liên kết tới bài nộp và test gốc.
+
+Khi độ tin cậy dưới 40%, hệ thống hiển thị **Chưa đủ dữ liệu** thay vì kết luận học sinh yếu. Chỉ số được tính bằng quy tắc cố định; giai đoạn nền tảng này chưa gọi dịch vụ AI.
 
 ## Kiểm thử
 
@@ -144,6 +152,10 @@ Build command: `npm run build`. Start command: `npm start`. Health check: `/heal
 | GET/POST | `/api/submissions/:id/regrade` | Học sinh |
 | GET | `/api/classes/:id/gradebook` | Giáo viên |
 | GET | `/api/classes/:id/submissions/:submissionId` | Giáo viên sở hữu lớp |
+| GET/POST/PATCH | `/api/competencies...` | Giáo viên; khung chuẩn và kỹ năng riêng |
+| GET/PUT | `/api/assignments/:assignmentId/competencies` | Giáo viên sở hữu bài |
+| GET/POST | `/api/classes/:id/competencies` | Giáo viên sở hữu lớp; xem/tính chỉ số |
+| GET | `/api/classes/:id/students/:studentId/competencies` | Giáo viên sở hữu lớp |
 
 ## Xử lý nhanh
 

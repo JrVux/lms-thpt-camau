@@ -10,6 +10,14 @@ test('README documents production and links the visual guides', async () => {
   assert.match(readme, /docs\/huong-dan-su-dung\.html/);
   assert.match(readme, /output\/pdf\/cam-nang-su-dung-lms-thpt\.pdf/);
   assert.match(readme, /008_delete_class_transaction\.sql/);
+  for (const phrase of [
+    '009_competency_foundation.sql',
+    'Phân tích năng lực',
+    'Chưa đủ dữ liệu',
+    '/api/classes/:id/competencies',
+  ]) {
+    assert.ok(readme.includes(phrase), `README thiếu: ${phrase}`);
+  }
   assert.match(readme, /eaacd41/);
   assert.match(readme, /OmniRoute/);
   assert.match(readme, /Node\.js 18\+/);
