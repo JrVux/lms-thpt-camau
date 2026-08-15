@@ -1,11 +1,12 @@
-export const PROMPT_VERSION = 'btcodehs-v1';
-const refs = {
-  python: 'Python lớp 10: input/print, 4 dấu cách, tối thiểu hai input khác nhau; expected_output là text.',
-  sql: 'SQL lớp 11: bắt buộc setup_sql; expected_output là JSON mảng hai chiều; giữ thứ tự ORDER BY.',
-  html: 'HTML/CSS lớp 12: expected_output/selector là CSS selector; autograder chỉ kiểm tra thẻ; Description có rubric thẩm mỹ thủ công 30%.',
-};
+export const PROMPT_VERSION = 'btcodehs-v2';
 const clean = (value, max = 12000) => { const text = String(value || '').trim(); if (!text) throw new Error('Yêu cầu không được để trống.'); if (text.length > max) throw new Error(`Yêu cầu tối đa ${max} ký tự.`); return text; };
 const contract = '{"title":string,"type":"python"|"sql"|"html","grade":"10"|"11"|"12","difficulty":1..5,"description":string,"starter_code":string,"solution_code":string,"setup_sql":string,"test_code":string,"max_score":integer,"test_cases":[{"test_name":string,"test_kind":"normal"|"boundary"|"anti_hardcode","input_data":string,"expected_output":string,"selector":string,"points":integer,"competency_codes":[string]}],"competencies":[{"code":string,"difficulty":1..5,"weight":number,"reason":string}]}';
+const pythonTestCodeGuide = `Định dạng bắt buộc của test_code cho Python: code Python thật, dùng 4 dấu cách, định nghĩa các class kế thừa PythonTestSuite. Mỗi class có thuộc tính inputs là list các dòng input (mỗi phần tử là một dòng), và phương thức afterRun(self) gọi expect(student_output).to_contain("chuỗi kỳ vọng") (dùng to_contain, KHÔNG dùng to_equal, để tránh lỗi khoảng trắng). Đặt điểm và tên test bằng .with_options(points=N, test_name="Ten_khong_dau"). Tạo ÍT NHẤT 2 class với inputs khác nhau để phát hiện hardcode (test thường + biên). Ví dụ chuẩn cho bài tính tổng từ 1 đến n:\nclass TinhTong(PythonTestSuite):\n    inputs = ["4"]\n    def afterRun(self):\n        expect(student_output).to_contain("10").with_options(points=4, test_name="Truong_hop_thuong")\nclass TinhTong_bien(PythonTestSuite):\n    inputs = ["100"]\n    def afterRun(self):\n        expect(student_output).to_contain("5050").with_options(points=3, test_name="Truong_hop_bien")\nclass TinhTong_hardcode(PythonTestSuite):\n    inputs = ["7"]\n    def afterRun(self):\n        expect(student_output).to_contain("28").with_options(points=3, test_name="Chong_hardcode")\nTổng points của mọi expect trong toàn bộ test_code phải bằng max_score. test_code phải là chuỗi Python hoàn chỉnh, không rỗng. test_cases (mảng JSON) cũng vẫn phải tuân theo 3 test_kind như contract.`;
+const refs = {
+  python: `Python lớp 10: input/print, 4 dấu cách, mỗi lần gọi input() nhận một dòng. ${pythonTestCodeGuide}`,
+  sql: 'SQL lớp 11: bắt buộc setup_sql; expected_output là JSON mảng hai chiều; giữ thứ tự ORDER BY; test_code để rỗng "".',
+  html: 'HTML/CSS lớp 12: expected_output/selector là CSS selector; autograder chỉ kiểm tra thẻ; Description có rubric thẩm mỹ thủ công 30%; test_code để rỗng "".',
+};
 export const buildAssignmentPrompt = (input) => ({
   version: PROMPT_VERSION,
   system: `Bạn là BTcodehs. Trả duy nhất một JSON object, không Markdown, đúng chính xác contract: ${contract}. Description tiếng Việt; starter_code có gợi ý nhưng không lộ lời giải; solution_code ngắn gọn. Có đủ 3 test_kind; test_name không dấu; tổng points bằng max_score. Môn và khối phải đúng yêu cầu. ${input.subject ? refs[input.subject] : Object.values(refs).join(' ')}`,
