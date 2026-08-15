@@ -22,3 +22,12 @@ services:
         sync: false
       - key: CORS_ORIGIN
         value: https://frontend-alpha-henna-71.vercel.app
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: nvidia/nemotron-3-ultra-550b-a55b:free
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+
