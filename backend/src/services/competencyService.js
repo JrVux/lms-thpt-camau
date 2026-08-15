@@ -12,15 +12,24 @@ export const filterVisibleCompetencies = (rows, teacherId) => (rows ?? [])
 export const buildEvidenceRows = ({ submissions = [], mappings = [] }) => {
   const approved = mappings.filter((mapping) => mapping.status === 'approved');
   const byTest = new Map();
+  const byAssignment = new Map();
   for (const mapping of approved) {
-    if (!mapping.test_case_id) continue;
+    if (!mapping.test_case_id) {
+      byAssignment.set(mapping.assignment_id, [
+        ...(byAssignment.get(mapping.assignment_id) ?? []),
+        mapping,
+      ]);
+      continue;
+    }
     const key = `${mapping.assignment_id}:${mapping.test_case_id}`;
     byTest.set(key, [...(byTest.get(key) ?? []), mapping]);
   }
   const rows = [];
   for (const submission of submissions) {
     for (const result of submission.submission_results ?? []) {
-      const matches = byTest.get(`${submission.assignment_id}:${result.test_case_id}`) ?? [];
+      const testMappings = byTest.get(`${submission.assignment_id}:${result.test_case_id}`) ?? [];
+      const assignmentMappings = byAssignment.get(submission.assignment_id) ?? [];
+      const matches = [...testMappings, ...assignmentMappings];
       for (const mapping of matches) {
         rows.push({
           student_id: submission.user_id,

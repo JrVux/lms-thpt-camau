@@ -58,6 +58,19 @@ test('builds evidence only from approved mappings and matching test results', ()
   }]);
 });
 
+test('applies approved assignment-level mappings to browser test results without test-case IDs', () => {
+  const rows = buildEvidenceRows({
+    submissions: [{
+      id: 'sub1', user_id: 's1', assignment_id: 'a1', submitted_at: '2026-08-15T00:00:00Z',
+      submission_results: [{ id: 'browser-result', test_case_id: null, passed: true }],
+    }],
+    mappings: [{ assignment_id: 'a1', test_case_id: null, competency_id: 'c1', difficulty: 2, weight: 1, status: 'approved' }],
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].submission_result_id, 'browser-result');
+  assert.equal(rows[0].competency_id, 'c1');
+});
+
 test('returns standard skills and only custom skills owned by the teacher', () => {
   const visible = filterVisibleCompetencies([
     { id: 'standard', owner_teacher_id: null },
