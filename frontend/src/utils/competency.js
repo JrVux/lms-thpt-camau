@@ -20,3 +20,14 @@ export const displayMastery = ({ mastery, confidence, label }) => {
 
 export const sortCompetencies = (items = []) => [...items]
   .sort((left, right) => String(left.code).localeCompare(String(right.code), 'en'));
+
+export const buildMappingPayload = (assignmentId, rows = []) => rows
+  .filter((row) => row.competency_id)
+  .map((row) => ({
+    assignment_id: assignmentId,
+    competency_id: row.competency_id,
+    test_case_id: row.test_case_id || null,
+    difficulty: Number(row.difficulty),
+    weight: Number(row.weight),
+    status: row.approved ? 'approved' : (row.status ?? 'proposed'),
+  }));
