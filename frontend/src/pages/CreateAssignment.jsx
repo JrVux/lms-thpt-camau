@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
 import Button from '../components/Button';
+import CompetencyMappingPanel from '../components/CompetencyMappingPanel';
 import { Plus, Trash2, Code } from 'lucide-react';
 
 const LANG_MAP = { python: 'python', sql: 'sql', html: 'html' };
@@ -66,6 +67,7 @@ const CreateAssignment = () => {
         if (data.category) setCategory(data.category);
         if (data.test_cases && data.test_cases.length > 0) {
           setTestCases(data.test_cases.map((tc) => ({
+            id: tc.id,
             input_data: tc.input_data || '',
             expected_output: tc.expected_output || '',
             test_name: tc.test_name || '',
@@ -387,6 +389,15 @@ const CreateAssignment = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {isEdit && assignmentId && (
+          <CompetencyMappingPanel
+            assignmentId={assignmentId}
+            assignmentType={type}
+            category={category}
+            testCases={testCases}
+          />
         )}
 
         <div className="flex gap-3 pb-8">

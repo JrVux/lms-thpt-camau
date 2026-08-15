@@ -10,6 +10,7 @@ import * as assignmentDeliveryController from '../controllers/assignmentDelivery
 import * as studentAssignmentController from '../controllers/studentAssignmentController.js';
 import * as submissionController from '../controllers/submissionController.js';
 import * as statsController from '../controllers/statsController.js';
+import * as competencyController from '../controllers/competencyController.js';
 
 const router = Router();
 
@@ -69,6 +70,29 @@ router.get('/api/assignment-deliveries/:id', authenticate, requireRole('student'
 router.post('/api/assignment-deliveries/:id/submit', authenticate, requireRole('student'), studentAssignmentController.submit);
 router.get('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.prepareRegrade);
 router.post('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.completeRegrade);
+
+// Competency routes (teacher only)
+router.get('/api/competencies', authenticate, requireRole('teacher'), competencyController.listFramework);
+router.post('/api/competencies', authenticate, requireRole('teacher'), [
+  body('name').trim().isLength({ min: 3, max: 160 }).withMessage('Tên kỹ năng không hợp lệ'),
+  body('description').trim().isLength({ min: 10 }).withMessage('Mô tả kỹ năng quá ngắn'),
+  body('subject').equals('python').withMessage('Thử nghiệm hiện chỉ hỗ trợ Python'),
+  body('grade').equals('10').withMessage('Thử nghiệm hiện chỉ hỗ trợ khối 10'),
+  validate,
+], competencyController.createCustomCompetency);
+router.patch('/api/competencies/:competencyId', authenticate, requireRole('teacher'), competencyController.updateCustomCompetency);
+router.get('/api/assignments/:assignmentId/competencies', authenticate, requireRole('teacher'), competencyController.getAssignmentMappings);
+router.put('/api/assignments/:assignmentId/competencies', authenticate, requireRole('teacher'), [
+  body('mappings').isArray().withMessage('Danh sách kỹ năng không hợp lệ'),
+  body('mappings.*.competency_id').isUUID().withMessage('Kỹ năng không hợp lệ'),
+  body('mappings.*.difficulty').isInt({ min: 1, max: 5 }).withMessage('Độ khó phải từ 1 đến 5'),
+  body('mappings.*.weight').isFloat({ gt: 0, max: 10 }).withMessage('Trọng số không hợp lệ'),
+  body('mappings.*.status').isIn(['proposed', 'approved', 'rejected']).withMessage('Trạng thái không hợp lệ'),
+  validate,
+], competencyController.replaceAssignmentMappings);
+router.post('/api/classes/:id/competencies/calculate', authenticate, requireRole('teacher'), competencyController.calculateClassSnapshots);
+router.get('/api/classes/:id/competencies', authenticate, requireRole('teacher'), competencyController.getClassDashboard);
+router.get('/api/classes/:id/students/:studentId/competencies', authenticate, requireRole('teacher'), competencyController.getStudentProfile);
 
 // Assignment routes
 router.post('/api/assignments', authenticate, requireRole('teacher'), [

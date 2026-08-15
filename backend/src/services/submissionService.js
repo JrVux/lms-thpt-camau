@@ -102,6 +102,13 @@ export const buildLatestSubmissionMap = (submissions) => {
   return submissionMap;
 };
 
+export const mapSubmissionDetail = ({ submission, student, assignment, results }) => ({
+  ...submission,
+  student,
+  assignment,
+  results: results ?? [],
+});
+
 export const getGradebook = async (classId, teacherId) => {
   // Kiểm tra quyền sở hữu lớp
   const { data: classData } = await supabase
@@ -204,12 +211,12 @@ export const getSubmissionForTeacher = async (classId, submissionId, teacherId) 
     supabase.from('assignments').select('id,title,type').eq('id', submission.assignment_id).single(),
     supabase
       .from('submission_results')
-      .select('id,test_name,points,passed,actual_output,error_message,test_case:test_cases(input_data,expected_output)')
+      .select('id,test_case_id,test_name,points,passed,actual_output,error_message,test_case:test_cases(input_data,expected_output)')
       .eq('submission_id', submission.id),
   ]);
   if (resultsError) throw new Error('Không thể tải kết quả chấm bài');
 
-  return { ...submission, student, assignment, results: results ?? [] };
+  return mapSubmissionDetail({ submission, student, assignment, results });
 };
 
 // Export gradebook CSV
