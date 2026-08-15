@@ -1,8 +1,8 @@
 # Thiết kế AI soạn bài, phân tích năng lực và lộ trình cá nhân hóa
 
 **Ngày:** 2026-08-15  
-**Trạng thái:** Đã thống nhất qua trao đổi, chờ duyệt đặc tả bằng văn bản  
-**Phạm vi thử nghiệm:** Python lớp 10
+**Trạng thái:** Đã duyệt thiết kế qua trao đổi
+**Phạm vi phiên bản đầu:** Python lớp 10, SQL lớp 11 và HTML/CSS lớp 12
 
 ## 1. Mục tiêu
 
@@ -35,6 +35,8 @@ Luồng phân tích:
 
 Backend là nơi duy nhất gọi dịch vụ AI. Một lớp adapter trung gian tách nghiệp vụ khỏi nhà cung cấp và mô hình cụ thể.
 
+AI Gateway dùng **OpenRouter làm nhà cung cấp mặc định** và **Google Gemini làm dự phòng**. Tên model của từng nhà cung cấp được cấu hình bằng biến môi trường, không ghi cứng trong mã nguồn. Mỗi yêu cầu được giới hạn tối đa hai lượt OpenRouter (lượt sinh và một lượt sửa JSON) và một lượt Gemini dự phòng. Chỉ lỗi kỹ thuật, quá thời gian hoặc output không hợp lệ mới được chuyển nhà cung cấp; yêu cầu đầu vào thiếu hoặc sai phải trả về cho giáo viên sửa.
+
 ## 4. Trợ lý AI soạn bài tập
 
 ### 4.1. Trải nghiệm giáo viên
@@ -44,7 +46,7 @@ Trang tạo bài có nút **Soạn bằng AI**. Giáo viên có thể:
 - Nhập yêu cầu ngắn bằng tiếng Việt; hoặc
 - Dán nội dung một bài mẫu dạng văn bản.
 
-Phiên bản đầu không đọc Word, PDF hoặc ảnh. Giáo viên có thể cung cấp mức độ, chủ đề hoặc yêu cầu bổ sung nhưng các trường này không bắt buộc.
+Phiên bản đầu không đọc Word, PDF hoặc ảnh. Giáo viên có thể cung cấp mức độ, chủ đề hoặc yêu cầu bổ sung nhưng các trường này không bắt buộc. Hệ thống nhận diện Python lớp 10, SQL lớp 11 hoặc HTML/CSS lớp 12 từ nội dung; giáo viên được xem và sửa kết quả nhận diện trước khi tạo. Nếu nội dung mơ hồ, hệ thống yêu cầu chọn môn thay vì tự đoán.
 
 AI tạo bản nháp và điền form hiện tại. Bản nháp chưa được lưu hoặc xuất bản cho đến khi giáo viên bấm lưu.
 
@@ -73,6 +75,7 @@ Quy tắc bắt buộc:
 - Python dùng chiến lược so khớp output chịu được khác biệt khoảng trắng phù hợp với runner của dự án; có ít nhất hai bộ input khác nhau khi bài dùng input.
 - SQL có setup chạy trước, kết quả mong đợi là mảng hai chiều và bảo toàn thứ tự khi đề yêu cầu `ORDER BY`.
 - HTML/CSS dùng selector hợp lệ; không tuyên bố chấm được nội dung hay thẩm mỹ khi autograder không kiểm tra được.
+- Với HTML/CSS, rubric thẩm mỹ thủ công chiếm 30% và được đặt ở cuối Description dưới tiêu đề **Tiêu chí giáo viên chấm thủ công — 30%**; phiên bản đầu chưa thêm cột dữ liệu riêng.
 
 ### 4.4. Kiểm tra trước khi điền form
 
@@ -86,9 +89,9 @@ Quy tắc bắt buộc:
 
 Nếu kiểm tra không đạt, hệ thống thử sửa có giới hạn rồi hiển thị lỗi cụ thể; không điền âm thầm dữ liệu không hợp lệ.
 
-### 4.5. Chỉnh sửa từng phần
+### 4.5. Tạo lại và chỉnh sửa
 
-Giáo viên có thể tạo lại hoặc ra lệnh AI sửa riêng Description, Starter Code, Solution Code hoặc Autograder. Hệ thống giữ nguyên các phần khác đã duyệt. Sau mọi thay đổi có ảnh hưởng chéo, toàn bộ bài được kiểm tra lại tính nhất quán.
+Phiên bản đầu cho phép tạo lại toàn bộ bản nháp. Giáo viên chỉnh trực tiếp từng trường trong biểu mẫu hiện tại trước khi lưu. Tạo lại riêng Description, Starter Code, Solution Code hoặc Autograder được để sang phiên bản sau nhằm giảm độ phức tạp và tránh tạo ra các phần mâu thuẫn nhau.
 
 ## 5. Khung năng lực và dữ liệu
 
@@ -159,6 +162,16 @@ AI không tự giao bài. Giáo viên có thể sửa mục tiêu, thay bài, đ
 
 ## 9. Giao diện
 
+### Trợ lý soạn bài
+
+- Trang tạo bài có nút **Soạn bằng AI** mở bảng nhập yêu cầu hoặc bài mẫu, mức độ và yêu cầu bổ sung.
+- Giao diện hiển thị môn/khối được nhận diện để giáo viên xác nhận hoặc sửa trước khi tạo.
+- Mỗi giáo viên chỉ có một yêu cầu tạo bài đang chạy tại một thời điểm.
+- Kết quả hợp lệ điền vào form hiện tại nhưng chưa lưu; giáo viên vẫn phải bấm **Tạo bài tập**.
+- Giao diện cảnh báo khi thiếu test thường, test biên hoặc test chống hardcode.
+- Sau khi bài được lưu, các năng lực AI đề xuất xuất hiện ở trạng thái **Chờ duyệt** trong bảng năng lực hiện có.
+- Nếu cả hai nhà cung cấp thất bại, dữ liệu đang có trong form được giữ nguyên và giao diện hiển thị lỗi có thể hành động.
+
 Trong mỗi lớp bổ sung tab **Phân tích năng lực**:
 
 ### Tổng quan lớp
@@ -190,6 +203,7 @@ Trong mỗi lớp bổ sung tab **Phân tích năng lực**:
 - Cache theo phiên bản dữ liệu, prompt, rubric và model.
 - Có hạn mức theo giáo viên/lớp và ước tính chi phí trước tác vụ hàng loạt.
 - Dùng mô hình nhỏ cho phân loại/nhận xét thường ngày; chuyển mô hình mạnh hơn khi phân tích mã phức tạp hoặc tạo bài mới.
+- Ghi nhà cung cấp, model, token, độ trễ, trạng thái và chi phí ước tính ở backend; phiên bản đầu chưa hiển thị số tiền chi tiết cho giáo viên.
 
 ## 11. Lỗi và trạng thái an toàn
 
@@ -214,10 +228,10 @@ Trong mỗi lớp bổ sung tab **Phân tích năng lực**:
 ## 13. Lộ trình triển khai
 
 1. **Nền tảng:** khung năng lực, mapping kỹ năng, phiên bản rubric và bộ máy tính mastery/confidence.
-2. **Soạn bài AI:** sinh JSON, kiểm tra, điền form và chỉnh từng phần; thử nghiệm Python lớp 10.
+2. **Soạn bài AI:** sinh JSON, kiểm tra, điền form và tạo lại toàn bộ cho Python lớp 10, SQL lớp 11 và HTML/CSS lớp 12; OpenRouter mặc định, Gemini dự phòng.
 3. **Nhận xét AI:** gói bằng chứng ẩn danh, báo cáo có dẫn chứng và quy trình giáo viên duyệt.
 4. **Lộ trình cá nhân:** chọn bài trong kho, tạo bản nháp khi thiếu và giao sau khi duyệt.
-5. **Mở rộng:** SQL lớp 11, HTML/CSS lớp 12, sau đó mới cân nhắc nhập Word/PDF/ảnh và tự động hóa theo lịch.
+5. **Mở rộng:** tạo lại từng phần, sau đó mới cân nhắc nhập Word/PDF/ảnh và tự động hóa theo lịch.
 
 ## 14. Ngoài phạm vi phiên bản đầu
 
