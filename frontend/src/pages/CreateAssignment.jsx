@@ -4,7 +4,9 @@ import Editor from '@monaco-editor/react';
 import api from '../services/api';
 import Button from '../components/Button';
 import CompetencyMappingPanel from '../components/CompetencyMappingPanel';
-import { Plus, Trash2, Code } from 'lucide-react';
+import AIAssignmentComposer from '../components/AIAssignmentComposer';
+import { applyAIDraft, subjectToCategory } from '../utils/aiAssignmentDraft';
+import { Plus, Trash2, Code, Sparkles } from 'lucide-react';
 
 const LANG_MAP = { python: 'python', sql: 'sql', html: 'html' };
 const CLASS_SUBJECT_MAP = { 10: 'python', 11: 'sql', 12: 'html' };
@@ -43,6 +45,18 @@ const CreateAssignment = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
+  const [showAI, setShowAI] = useState(false);
+  const [aiSuggestions, setAISuggestions] = useState([]);
+
+  const applyGeneratedDraft = (draft) => {
+    const next = applyAIDraft({ form, draft });
+    setForm(next.form);
+    setTestCases(next.testCases);
+    setAISuggestions(next.suggestions);
+    setType(draft.type);
+    setCategory(subjectToCategory(draft.type));
+    setShowAI(false);
+  };
 
   useEffect(() => {
     if (!isEdit) return;
@@ -158,6 +172,9 @@ const CreateAssignment = () => {
             test_cases: testCases.filter((tc) => tc.expected_output.trim()),
           });
         }
+        if (aiSuggestions.length) {
+          await api.post(`/api/assignments/${assignment.id}/ai-competencies`, { suggestions: aiSuggestions });
+        }
       }
 
       navigate(isLibraryMode ? '/assignments' : `/classes/${classId}`);
@@ -172,12 +189,17 @@ const CreateAssignment = () => {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-6">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
         <h1 className="text-2xl font-bold tracking-tight text-brand-heading">{isEdit ? 'Chỉnh sửa bài tập' : 'Tạo bài tập mới'}</h1>
         <p className="mt-1 text-sm text-brand-muted">
           {isLibraryMode ? 'Lưu vào kho bài tập để tái sử dụng' : 'Tạo bài tập gắn với lớp hiện tại'}
         </p>
+        </div>
+        {!isEdit && <Button type="button" variant="outline" icon={Sparkles} onClick={() => setShowAI(true)}>Soạn bằng AI</Button>}
       </div>
+
+      {showAI && <AIAssignmentComposer initialSubject={type} onApply={applyGeneratedDraft} onClose={() => setShowAI(false)} />}
 
       {loadingData && <div className="mb-4 rounded-xl bg-badge-blue-bg p-3 text-sm text-badge-blue-text">Đang tải dữ liệu bài tập...</div>}
       {error && <div className="mb-4 rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
