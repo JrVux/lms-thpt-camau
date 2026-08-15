@@ -19,7 +19,8 @@ export const scoreResults = (testCases, results, configuredMaxScore = 0) => {
   let score;
   let maxScore;
 
-  if (pointsById.size > 0) {
+  const hasTestIds = results.some((result) => result.test_case_id != null);
+  if (pointsById.size > 0 && hasTestIds) {
     const resultIds = results.map((result) => result.test_case_id);
     const uniqueResultIds = new Set(resultIds);
     const exactCurrentTests = results.length === pointsById.size
@@ -195,7 +196,8 @@ export const createStudentAssignmentService = (db) => {
       const prepared = await this.prepareRegrade({ userId, submissionId });
       const assignment = prepared.assignment;
       const expected = assignment.test_cases ?? [];
-      if ((expected.length > 0 && results.length < expected.length) || results.length === 0) {
+      const hasTestIds = results.some((result) => result.test_case_id != null);
+      if ((hasTestIds && expected.length > 0 && results.length < expected.length) || results.length === 0) {
         await markRegradeFailed(userId, submissionId, 'Kết quả chấm lại chưa đầy đủ.');
         throw new Error('Kết quả chấm lại chưa đầy đủ; điểm cũ được giữ nguyên.');
       }

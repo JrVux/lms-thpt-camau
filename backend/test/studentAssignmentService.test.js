@@ -72,3 +72,13 @@ test('browser result never derives its grade scale from client points', () => {
   assert.equal(scored.score, 10);
   assert.equal(scored.maxScore, 10);
 });
+
+test('scores Python suite results by test_name even when DB has test_cases', () => {
+  const scored = scoreResults([{ id: 'tc1', points: 5 }], [
+    { test_name: 'Truong_hop_thuong', points: 4, passed: true },
+    { test_name: 'Truong_hop_bien', points: 3, passed: false },
+  ], 10);
+  assert.equal(scored.score, 5);
+  assert.equal(scored.maxScore, 10);
+  assert.equal(scored.rows[0].test_case_id, null);
+});
