@@ -132,3 +132,31 @@ app.listen(PORT, () => {
   logger.info(`Server đang chạy tại port ${PORT}`);
   console.log(`Server đang chạy tại http://localhost:${PORT}`);
 });
+
+const startStudentAnalysisWorker = async () => {
+  if (process.env.AI_ANALYSIS_WORKER_ENABLED === 'false' || !process.env.OPENROUTER_API_KEY) return;
+  const [{ supabase }, { createStudentEvidenceService }, { createStudentAnalysisGateway }, { createStudentAnalysisWorker }, { createOpenRouterProvider }, { createGeminiProvider }] = await Promise.all([
+    import('./services/supabaseClient.js'),
+    import('./services/studentEvidenceService.js'),
+    import('./services/studentAnalysisGateway.js'),
+    import('./services/studentAnalysisWorker.js'),
+    import('./ai/providers/openRouterProvider.js'),
+    import('./ai/providers/geminiProvider.js'),
+  ]);
+  const worker = createStudentAnalysisWorker({
+    db: supabase,
+    evidenceService: createStudentEvidenceService(supabase),
+    gateway: createStudentAnalysisGateway({
+      openRouter: createOpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL }),
+      gemini: createGeminiProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL }),
+      timeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 45000,
+    }),
+    workerId: `web-${process.pid}`,
+    leaseSeconds: Number(process.env.AI_ANALYSIS_LEASE_SECONDS) || 120,
+    maxAttempts: Number(process.env.AI_ANALYSIS_MAX_ATTEMPTS) || 3,
+  });
+  worker.start({ intervalMs: Number(process.env.AI_ANALYSIS_POLL_MS) || 5000 });
+  logger.info('Student AI analysis worker started');
+};
+
+startStudentAnalysisWorker().catch((error) => logger.error({ message: 'Student AI analysis worker failed to start', error: error.message }));

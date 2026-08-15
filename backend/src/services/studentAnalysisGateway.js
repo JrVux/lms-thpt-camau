@@ -1,0 +1,64 @@
+import { buildStudentAnalysisPrompt, buildStudentAnalysisRepairPrompt } from '../ai/studentAnalysisPrompt.js';
+import { validateStudentAnalysis, StudentAnalysisValidationError } from '../ai/studentAnalysisValidator.js';
+
+export const isFallbackEligible = (error) =>
+  error?.code === 'AI_PROVIDER_ERROR' ||
+  error?.code === 'AI_ANALYSIS_INVALID' ||
+  error?.status === 408 || error?.status === 429 || error?.status >= 500;
+
+const run = async (provider, args, timeoutMs) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await provider.generateStructured({ ...args, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeout = new Error('AI quá thời gian.');
+      timeout.code = 'AI_PROVIDER_ERROR';
+      throw timeout;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 45000 }) => ({
+  async generate(bundle) {
+    const allowedEvidenceIds = (bundle?.evidence ?? []).map((item) => item.evidence_id);
+    const base = buildStudentAnalysisPrompt(bundle);
+    let invalid = null;
+    let issues = [];
+    const attempts = [
+      ['openrouter', openRouter, base, false],
+      ['openrouter', openRouter, null, true],
+      ['gemini', gemini, base, false],
+    ];
+    let lastError;
+    for (const [name, provider, prompt, repair] of attempts) {
+      if (repair && !invalid) continue;
+      try {
+        const request = repair
+          ? buildStudentAnalysisRepairPrompt({ bundle, invalidOutput: invalid, issues })
+          : prompt;
+        const result = await run(provider, request, timeoutMs);
+        const analysis = validateStudentAnalysis(result.value, allowedEvidenceIds);
+        return { analysis, provider: name, model: result.model, usage: result.usage ?? {}, fallback_used: name === 'gemini' };
+      } catch (error) {
+        if (error instanceof StudentAnalysisValidationError) {
+          invalid = error.candidate ?? null;
+          issues = error.issues;
+          const wrapped = new Error(error.message);
+          wrapped.code = 'AI_ANALYSIS_INVALID';
+          lastError = wrapped;
+          continue;
+        }
+        if (!isFallbackEligible(error)) throw error;
+        invalid = null;
+        issues = [];
+        lastError = error;
+      }
+    }
+    throw lastError ?? new Error('Không thể phân tích học sinh.');
+  },
+});
