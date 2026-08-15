@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { authenticate, requireRole } from '../middleware/auth.js';
+import { authenticate, requireRole, requireAIAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import * as authController from '../controllers/authController.js';
 import * as classController from '../controllers/classController.js';
@@ -97,52 +97,52 @@ router.get('/api/classes/:id/competencies', authenticate, requireRole('teacher')
 router.get('/api/classes/:id/students/:studentId/competencies', authenticate, requireRole('teacher'), competencyController.getStudentProfile);
 
 // Student analysis routes (teacher only)
-router.post('/api/classes/:id/students/:studentId/ai-analysis/preview', authenticate, requireRole('teacher'), [
-  body('scope').optional().isObject().withMessage('Ph?m vi không h?p l?'),
-  body('scope.mode').optional().isIn(['latest', 'dates']).withMessage('Ch? d? không h?p l?'),
-  body('scope.limit').optional().isIn([3, 5, 10]).withMessage('S? bài ph?i là 3, 5 ho?c 10'),
-  body('scope.from').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày b?t d?u không h?p l?'),
-  body('scope.to').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày k?t thúc không h?p l?'),
-  body('confirm_sparse_data').optional().isBoolean().withMessage('Xác nh?n d? li?u thua ph?i là boolean'),
+router.post('/api/classes/:id/students/:studentId/ai-analysis/preview', authenticate, requireRole('teacher'), requireAIAdmin, [
+  body('scope').optional().isObject().withMessage('Phạm vi không hợp lệ'),
+  body('scope.mode').optional().isIn(['latest', 'dates']).withMessage('Chế độ không hợp lệ'),
+  body('scope.limit').optional().isIn([3, 5, 10]).withMessage('Số bài phải là 3, 5 hoặc 10'),
+  body('scope.from').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày bắt đầu không hợp lệ'),
+  body('scope.to').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày kết thúc không hợp lệ'),
+  body('confirm_sparse_data').optional().isBoolean().withMessage('Xác nhận dữ liệu thưa phải là boolean'),
   validate,
 ], studentAnalysisController.preview);
-router.post('/api/classes/:id/students/:studentId/ai-analysis/jobs', authenticate, requireRole('teacher'), [
-  body('scope').optional().isObject().withMessage('Ph?m vi không h?p l?'),
-  body('scope.mode').optional().isIn(['latest', 'dates']).withMessage('Ch? d? không h?p l?'),
-  body('scope.limit').optional().isIn([3, 5, 10]).withMessage('S? bài ph?i là 3, 5 ho?c 10'),
-  body('scope.from').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày b?t d?u không h?p l?'),
-  body('scope.to').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày k?t thúc không h?p l?'),
-  body('confirm_sparse_data').optional().isBoolean().withMessage('Xác nh?n d? li?u thua ph?i là boolean'),
+router.post('/api/classes/:id/students/:studentId/ai-analysis/jobs', authenticate, requireRole('teacher'), requireAIAdmin, [
+  body('scope').optional().isObject().withMessage('Phạm vi không hợp lệ'),
+  body('scope.mode').optional().isIn(['latest', 'dates']).withMessage('Chế độ không hợp lệ'),
+  body('scope.limit').optional().isIn([3, 5, 10]).withMessage('Số bài phải là 3, 5 hoặc 10'),
+  body('scope.from').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày bắt đầu không hợp lệ'),
+  body('scope.to').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Ngày kết thúc không hợp lệ'),
+  body('confirm_sparse_data').optional().isBoolean().withMessage('Xác nhận dữ liệu thưa phải là boolean'),
   validate,
 ], studentAnalysisController.createJob);
 router.get('/api/classes/:id/students/:studentId/ai-analysis/jobs/:jobId', authenticate, requireRole('teacher'), studentAnalysisController.getJob);
 router.get('/api/classes/:id/students/:studentId/ai-analysis/reports', authenticate, requireRole('teacher'), studentAnalysisController.listReports);
 router.get('/api/classes/:id/students/:studentId/ai-analysis/reports/:reportId', authenticate, requireRole('teacher'), studentAnalysisController.getReport);
 router.patch('/api/classes/:id/students/:studentId/ai-analysis/reports/:reportId/review', authenticate, requireRole('teacher'), [
-  body('decision').isIn(['approved_internal', 'published', 'rejected']).withMessage('Quy?t d?nh không h?p l?'),
-  body('teacher_report').optional().isObject().withMessage('Báo cáo giáo viên không h?p l?'),
-  body('student_report').optional().isObject().withMessage('Báo cáo h?c sinh không h?p l?'),
-  body('instruction').optional().isString().isLength({ max: 2000 }).withMessage('Ch? d?n t?i da 2000 ký t?'),
+  body('decision').isIn(['approved_internal', 'published', 'rejected']).withMessage('Quyết định không hợp lệ'),
+  body('teacher_report').optional().isObject().withMessage('Báo cáo giáo viên không hợp lệ'),
+  body('student_report').optional().isObject().withMessage('Báo cáo học sinh không hợp lệ'),
+  body('instruction').optional().isString().isLength({ max: 2000 }).withMessage('Chỉ dẫn tối đa 2000 ký tự'),
   validate,
 ], studentAnalysisController.reviewReport);
-router.post('/api/classes/:id/students/:studentId/ai-analysis/jobs/:jobId/retry', authenticate, requireRole('teacher'), studentAnalysisController.retryJob);
+router.post('/api/classes/:id/students/:studentId/ai-analysis/jobs/:jobId/retry', authenticate, requireRole('teacher'), requireAIAdmin, studentAnalysisController.retryJob);
 
 
 
 // Assignment routes
-router.post('/api/ai/assignment-drafts', authenticate, requireRole('teacher'), [
-  body('request').trim().isLength({ min: 1, max: 12000 }).withMessage('YÃªu cáº§u pháº£i tá»« 1-12000 kÃ½ tá»±'),
-  body('subject').optional().isIn(['python', 'sql', 'html']).withMessage('MÃ´n khÃ´ng há»£p lá»‡'),
-  body('difficulty').optional().isInt({ min: 1, max: 5 }).withMessage('Äá»™ khÃ³ pháº£i tá»« 1-5'),
+router.post('/api/ai/assignment-drafts', authenticate, requireRole('teacher'), requireAIAdmin, [
+  body('request').trim().isLength({ min: 1, max: 12000 }).withMessage('Yêu cầu phải từ 1-12000 ký tự'),
+  body('subject').optional().isIn(['python', 'sql', 'html']).withMessage('Môn không hợp lệ'),
+  body('difficulty').optional().isInt({ min: 1, max: 5 }).withMessage('Độ khó phải từ 1-5'),
   validate,
 ], aiAssignmentController.generateDraft);
-router.post('/api/assignments/:assignmentId/ai-competencies', authenticate, requireRole('teacher'), [
-  body('suggestions').isArray({ max: 20 }).withMessage('Danh sÃ¡ch nÄƒng lá»±c khÃ´ng há»£p lá»‡'), validate,
+router.post('/api/assignments/:assignmentId/ai-competencies', authenticate, requireRole('teacher'), requireAIAdmin, [
+  body('suggestions').isArray({ max: 20 }).withMessage('Danh sách năng lực không hợp lệ'), validate,
 ], aiAssignmentController.saveProposedCompetencies);
 
 router.post('/api/assignments', authenticate, requireRole('teacher'), [
   body('class_id').notEmpty().withMessage('class_id khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng'),
-  body('title').trim().notEmpty().withMessage('TiÃªu Ä‘á» khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng'),
+  body('title').trim().notEmpty().withMessage('TiÃªu Ä‘á»  khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng'),
   body('type').isIn(['python', 'sql', 'html']).withMessage('Loáº¡i bÃ i táº­p khÃ´ng há»£p lá»‡'),
   validate,
 ], assignmentController.create);
