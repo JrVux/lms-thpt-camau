@@ -1,4 +1,5 @@
 import { AIConfigurationError, AIProviderError } from '../../services/aiGateway.js';
+import { cleanAndParseJson } from '../utils/parseJson.js';
 
 const geminiSchema = (value) => {
   if (Array.isArray(value)) return value.map(geminiSchema);
@@ -21,7 +22,7 @@ export const createGeminiProvider = ({ apiKey, model, fetchImpl = fetch } = {}) 
       if (!response.ok) throw new AIProviderError(`Gemini HTTP ${response.status}`);
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '{}';
-      return { value: JSON.parse(text), usage: { input_tokens: data.usageMetadata?.promptTokenCount, output_tokens: data.usageMetadata?.candidatesTokenCount }, model: resolvedModel };
+      return { value: cleanAndParseJson(text), usage: { input_tokens: data.usageMetadata?.promptTokenCount, output_tokens: data.usageMetadata?.candidatesTokenCount }, model: resolvedModel };
     },
   };
 };

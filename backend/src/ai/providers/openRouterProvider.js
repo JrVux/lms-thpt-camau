@@ -1,4 +1,5 @@
 import { AIConfigurationError, AIProviderError } from '../../services/aiGateway.js';
+import { cleanAndParseJson } from '../utils/parseJson.js';
 
 export const createOpenRouterProvider = ({ apiKey, model, fetchImpl = fetch } = {}) => {
   const resolvedModel = model || process.env.OPENROUTER_MODEL || 'openrouter/free';
@@ -18,7 +19,8 @@ export const createOpenRouterProvider = ({ apiKey, model, fetchImpl = fetch } = 
         throw new AIProviderError(`OpenRouter HTTP ${response.status}${msg ? `: ${msg}` : ''}`);
       }
       const data = await response.json();
-      return { value: JSON.parse(data.choices?.[0]?.message?.content || '{}'), usage: data.usage || {}, model: data.model || resolvedModel };
+      const content = data.choices?.[0]?.message?.content || '{}';
+      return { value: cleanAndParseJson(content), usage: data.usage || {}, model: data.model || resolvedModel };
     },
   };
 };
