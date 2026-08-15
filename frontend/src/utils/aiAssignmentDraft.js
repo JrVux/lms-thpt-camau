@@ -1,0 +1,3 @@
+export const subjectToCategory=type=>({python:'grade_10',sql:'grade_11',html:'grade_12'}[type]||'grade_10');
+export const draftToTestCases=draft=>(draft?.test_cases||[]).map(x=>({test_name:x.test_name,input_data:x.input_data||'',expected_output:x.expected_output||x.selector||'',points:Number(x.points)||1,test_kind:x.test_kind,competency_codes:x.competency_codes||[]}));
+export const applyAIDraft=({form,draft})=>{if(!draft)return {form,testCases:[],suggestions:[]};const fields=['title','description','starter_code','solution_code','setup_sql','test_code','max_score'];return {form:{...form,...Object.fromEntries(fields.map(k=>[k,draft[k]??form[k]??'']))},testCases:draftToTestCases(draft),suggestions:draft.competencies||[]};};

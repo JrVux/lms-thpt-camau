@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createAIAssignmentController} from '../src/controllers/aiAssignmentController.js';
+const response=()=>({statusCode:200,body:null,status(n){this.statusCode=n;return this},json(x){this.body=x;return this}});
+test('allowlists input and uses authenticated teacher',async()=>{let call;const c=createAIAssignmentController({generateDraft:async x=>(call=x,{draft:{}})});const res=response();await c.generateDraft({user:{id:'t1'},body:{request:'Bài',subject:'python',provider:'gemini'}},res);assert.deepEqual(call,{teacherId:'t1',input:{request:'Bài',subject:'python'}})});
+test('maps concurrent request to 409',async()=>{const e=new Error('busy');e.code='AI_REQUEST_IN_PROGRESS';const c=createAIAssignmentController({generateDraft:async()=>{throw e}});const res=response();await c.generateDraft({user:{id:'t'},body:{request:'x'}},res);assert.equal(res.statusCode,409)});

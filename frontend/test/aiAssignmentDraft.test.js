@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {applyAIDraft,subjectToCategory} from '../src/utils/aiAssignmentDraft.js';
+const draft={title:'Tổng',type:'python',description:'Mô tả',starter_code:'# code',solution_code:'print(1)',setup_sql:'',test_code:'',max_score:10,test_cases:[{test_name:'Thuong',input_data:'1',expected_output:'1',points:10}],competencies:[{code:'PY10.IO'}]};
+test('maps AI fields and keeps suggestions separate',()=>{const r=applyAIDraft({form:{title:'Cũ'},draft});assert.equal(r.form.title,'Tổng');assert.equal(r.form.competencies,undefined);assert.deepEqual(r.suggestions,draft.competencies);assert.equal(r.testCases.length,1)});
+test('maps all subjects to categories',()=>{assert.equal(subjectToCategory('python'),'grade_10');assert.equal(subjectToCategory('sql'),'grade_11');assert.equal(subjectToCategory('html'),'grade_12')});
+test('preserves form when draft is missing',()=>{const form={title:'Đang soạn'};assert.deepEqual(applyAIDraft({form,draft:null}).form,form)});
