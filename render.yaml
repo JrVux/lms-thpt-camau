@@ -25,7 +25,7 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
-        value: nvidia/nemotron-3-ultra-550b-a55b:free
+        value: openrouter/free
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
