@@ -11,6 +11,7 @@ import * as studentAssignmentController from '../controllers/studentAssignmentCo
 import * as submissionController from '../controllers/submissionController.js';
 import * as statsController from '../controllers/statsController.js';
 import * as competencyController from '../controllers/competencyController.js';
+import * as aiAssignmentController from '../controllers/aiAssignmentController.js';
 
 const router = Router();
 
@@ -95,6 +96,16 @@ router.get('/api/classes/:id/competencies', authenticate, requireRole('teacher')
 router.get('/api/classes/:id/students/:studentId/competencies', authenticate, requireRole('teacher'), competencyController.getStudentProfile);
 
 // Assignment routes
+router.post('/api/ai/assignment-drafts', authenticate, requireRole('teacher'), [
+  body('request').trim().isLength({ min: 1, max: 12000 }).withMessage('Yêu cầu phải từ 1-12000 ký tự'),
+  body('subject').optional().isIn(['python', 'sql', 'html']).withMessage('Môn không hợp lệ'),
+  body('difficulty').optional().isInt({ min: 1, max: 5 }).withMessage('Độ khó phải từ 1-5'),
+  validate,
+], aiAssignmentController.generateDraft);
+router.post('/api/assignments/:assignmentId/ai-competencies', authenticate, requireRole('teacher'), [
+  body('suggestions').isArray({ max: 20 }).withMessage('Danh sách năng lực không hợp lệ'), validate,
+], aiAssignmentController.saveProposedCompetencies);
+
 router.post('/api/assignments', authenticate, requireRole('teacher'), [
   body('class_id').notEmpty().withMessage('class_id không được để trống'),
   body('title').trim().notEmpty().withMessage('Tiêu đề không được để trống'),

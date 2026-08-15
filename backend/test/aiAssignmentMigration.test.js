@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+test('AI log migration is service-role-only',async()=>{const sql=await readFile(new URL('../src/database/migrations/010_ai_generation_logs.sql',import.meta.url),'utf8');assert.match(sql,/CREATE TABLE IF NOT EXISTS ai_generation_logs/i);assert.match(sql,/ENABLE ROW LEVEL SECURITY/i);assert.match(sql,/REVOKE ALL ON ai_generation_logs FROM anon, authenticated/i);assert.match(sql,/GRANT SELECT, INSERT, UPDATE, DELETE ON ai_generation_logs TO service_role/i)});
