@@ -31,3 +31,14 @@ export const buildMappingPayload = (assignmentId, rows = []) => rows
     weight: Number(row.weight),
     status: row.approved ? 'approved' : (row.status ?? 'proposed'),
   }));
+
+export const buildCompetencySummary = (snapshots = []) => snapshots.reduce((summary, item) => {
+  const counts = summary[item.competency_id] ?? {
+    insufficient: 0, emerging: 0, achieved: 0, mastered: 0,
+  };
+  if (Number(item.confidence) < MIN_CONFIDENCE) counts.insufficient += 1;
+  else if (Number(item.mastery) < 60) counts.emerging += 1;
+  else if (Number(item.mastery) < 80) counts.achieved += 1;
+  else counts.mastered += 1;
+  return { ...summary, [item.competency_id]: counts };
+}, {});

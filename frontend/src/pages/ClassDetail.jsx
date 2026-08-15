@@ -8,8 +8,9 @@ import Badge from '../components/Badge';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ClassCompetencyDashboard from '../components/ClassCompetencyDashboard';
 import * as XLSX from 'xlsx';
-import { GraduationCap, Users, BookOpen, BarChart3, Plus, Upload, UserSearch, UserPlus, Search, ArrowUpDown, Pencil, KeyRound, LogOut, Copy } from 'lucide-react';
+import { GraduationCap, Users, BookOpen, BarChart3, BrainCircuit, Plus, Upload, UserSearch, UserPlus, Search, ArrowUpDown, Pencil, KeyRound, LogOut, Copy } from 'lucide-react';
 
 const inputCls = 'w-full rounded-lg border border-brand-border px-3 py-2 text-sm outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20';
 const miniBtn = 'px-2 py-1 text-xs rounded-lg font-medium transition-colors';
@@ -23,13 +24,14 @@ const TeacherTabs = ({ classId }) => {
     { key: 'students', label: 'Học sinh' },
     { key: 'assignments', label: 'Bài tập' },
     { key: 'gradebook', label: 'Bảng điểm' },
+    { key: 'competencies', label: 'Phân tích năng lực' },
   ];
 
   return (
     <div>
       <div className="mb-6 inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
         {tabs.map((t) => {
-          const IconMap = { students: Users, assignments: BookOpen, gradebook: BarChart3 };
+          const IconMap = { students: Users, assignments: BookOpen, gradebook: BarChart3, competencies: BrainCircuit };
           const Icon = IconMap[t.key];
           return (
             <button
@@ -50,6 +52,7 @@ const TeacherTabs = ({ classId }) => {
       {tab === 'students' && <StudentTab classId={classId} />}
       {tab === 'assignments' && <AssignmentsTab classId={classId} />}
       {tab === 'gradebook' && <GradebookTab classId={classId} />}
+      {tab === 'competencies' && <ClassCompetencyDashboard classId={classId} />}
     </div>
   );
 };
