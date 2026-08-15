@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import Modal from './Modal';
 import Button from './Button';
-import { Unlink, Eye, GraduationCap } from 'lucide-react';
+import { Unlink, Link, GraduationCap } from 'lucide-react';
 
 const AssignmentDeliveryList = ({ assignment, open, onClose }) => {
   const [deliveries, setDeliveries] = useState([]);
