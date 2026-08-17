@@ -52,11 +52,17 @@ const DocumentManager = () => {
       let body = { ...uploadForm };
 
       if (selectedFile) {
-        const buffer = await selectedFile.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        body.file_buffer = btoa(binary);
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            const base64Str = result.split(',')[1];
+            resolve(base64Str);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+        body.file_buffer = base64;
         body.file_mime = selectedFile.type || 'application/octet-stream';
         body.ten_file = selectedFile.name;
       }
@@ -185,7 +191,7 @@ const DocumentManager = () => {
                 <textarea value={uploadForm.noi_dung} onChange={(e) => setUploadForm({ ...uploadForm, noi_dung: e.target.value })}
                   rows={8}
                   className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-brand/20 resize-none"
-                  placeholder="Nhập nội dung tài liệu (sẽ được tự động chunk)" required />
+                  placeholder={selectedFile ? 'Đã chọn file, nội dung sẽ được trích xuất tự động' : 'Nhập nội dung tài liệu (hoặc chọn file bên trên)'} />
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={uploading}
