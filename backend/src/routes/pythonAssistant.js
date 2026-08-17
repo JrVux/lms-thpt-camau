@@ -35,8 +35,8 @@ router.post('/api/python-assistant/search', authenticate, requireAIAdmin, [
   validate,
 ], pythonAssistantController.searchDocuments);
 
-// Lộ trình học
-router.get('/api/python-assistant/learning-path', authenticate, requireAIAdmin, [
+// Lộ trình học (public cho học sinh, không cần admin)
+router.get('/api/python-assistant/learning-path', authenticate, [
   query('nhanh').isIn(NHANH_VALUES).withMessage('Nhánh không hợp lệ'),
   validate,
 ], pythonAssistantController.getLearningPath);

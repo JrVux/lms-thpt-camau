@@ -36,13 +36,6 @@ const adminOnlyMenu = [
     section: 'Công cụ AI',
   },
   {
-    label: 'Lộ trình học',
-    subtitle: 'Theo dõi tiến độ',
-    path: '/python-assistant/learning-path',
-    icon: TrendingUp,
-    section: 'Công cụ AI',
-  },
-  {
     label: 'Quản lý tài liệu',
     subtitle: 'Tài liệu cho RAG',
     path: '/python-assistant/documents',
@@ -71,6 +64,13 @@ const studentMenu = [
     subtitle: 'Bài được giao cho bạn',
     path: '/assignments',
     icon: FileCode2,
+    section: 'Học tập',
+  },
+  {
+    label: 'Lộ trình học Python',
+    subtitle: 'Theo dõi tiến độ',
+    path: '/python-assistant/learning-path',
+    icon: TrendingUp,
     section: 'Học tập',
   },
 ];
