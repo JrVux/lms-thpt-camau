@@ -41,8 +41,8 @@ app.use(cors({
   credentials: true,
 }));
 
-// Parse JSON body
-app.use(express.json({ limit: '10mb' }));
+// Parse JSON body (tăng limit cho upload file PDF/DOCX)
+app.use(express.json({ limit: '50mb' }));
 
 // General rate limit (5000 req/15 ph = ~5.5 req/s, đủ cho 250+ HS)
 app.use('/api/', rateLimit({

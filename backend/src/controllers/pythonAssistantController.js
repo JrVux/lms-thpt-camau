@@ -191,6 +191,8 @@ export const uploadDocument = async (req, res, next) => {
     }
 
     if (!noi_dung) return res.status(400).json({ success: false, message: 'Thiếu nội dung tài liệu', code: 'MISSING_CONTENT' });
+
+    const chunks = splitText(noi_dung);
     const records = chunks.map((text, i) => ({
       file_path: filePath,
       ten_file,

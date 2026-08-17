@@ -39,7 +39,7 @@ export const splitText = (text, { chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLA
 
 export const extractTextFromPdf = async (buffer) => {
   try {
-    const pdfjsLib = await import('pdfjs-dist');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
     const pages = [];
     for (let i = 1; i <= doc.numPages; i++) {
@@ -67,7 +67,7 @@ export const extractTextFromDocx = async (buffer) => {
 export const extractImagesFromPdf = async (buffer) => {
   const images = [];
   try {
-    const pdfjsLib = await import('pdfjs-dist');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
     for (let i = 1; i <= Math.min(doc.numPages, 20); i++) {
       const page = await doc.getPage(i);
@@ -117,7 +117,7 @@ export const ocrImage = async (imageBuffer, { openRouterApiKey } = {}) => {
 
 export const detectPdfHasTextLayer = async (buffer) => {
   try {
-    const pdfjsLib = await import('pdfjs-dist');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
     const page = await doc.getPage(1);
     const content = await page.getTextContent();
