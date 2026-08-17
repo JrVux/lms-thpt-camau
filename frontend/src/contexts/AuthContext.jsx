@@ -28,8 +28,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.post('/api/login', { email: credential, password });
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
+      const userData = { ...data.user, is_admin: data.user?.is_admin === true };
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
       navigate('/classes');
     } finally {
       setLoading(false);
@@ -43,8 +44,9 @@ export const AuthProvider = ({ children }) => {
         username, password, full_name, role: role || 'student', teacher_secret,
       });
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
+      const userData = { ...data.user, is_admin: data.user?.is_admin === true };
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
       navigate('/classes');
     } finally {
       setLoading(false);

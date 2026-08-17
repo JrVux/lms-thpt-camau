@@ -25,33 +25,36 @@ const teacherMenu = [
     icon: Library,
     section: 'Quản lý',
   },
+];
+
+const adminOnlyMenu = [
   {
     label: 'Trợ lý Python',
     subtitle: 'Chat agent hỏi đáp Python',
     path: '/python-assistant',
     icon: Bot,
-    section: 'Công cụ',
+    section: 'Công cụ AI',
   },
   {
     label: 'Lộ trình học',
     subtitle: 'Theo dõi tiến độ',
     path: '/python-assistant/learning-path',
     icon: TrendingUp,
-    section: 'Công cụ',
+    section: 'Công cụ AI',
   },
   {
     label: 'Quản lý tài liệu',
     subtitle: 'Tài liệu cho RAG',
     path: '/python-assistant/documents',
     icon: Library,
-    section: 'Công cụ',
+    section: 'Công cụ AI',
   },
   {
     label: 'Duyệt bài tập AI',
     subtitle: 'Duyệt bài tập/đề thi',
     path: '/python-assistant/exercises/review',
     icon: Eye,
-    section: 'Công cụ',
+    section: 'Công cụ AI',
   },
 ];
 
@@ -69,20 +72,6 @@ const studentMenu = [
     path: '/assignments',
     icon: FileCode2,
     section: 'Học tập',
-  },
-  {
-    label: 'Trợ lý Python',
-    subtitle: 'Chat agent hỏi đáp Python',
-    path: '/python-assistant',
-    icon: Bot,
-    section: 'Công cụ',
-  },
-  {
-    label: 'Lộ trình học',
-    subtitle: 'Theo dõi tiến độ',
-    path: '/python-assistant/learning-path',
-    icon: TrendingUp,
-    section: 'Công cụ',
   },
 ];
 
@@ -171,7 +160,9 @@ const Layout = () => {
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   }, [dark]);
 
-  const menu = (user?.role === 'teacher' ? teacherMenu : studentMenu).map((item) => ({
+  const baseMenu = user?.role === 'teacher' ? teacherMenu : studentMenu;
+  const extraMenu = user?.is_admin ? adminOnlyMenu : [];
+  const menu = [...baseMenu, ...extraMenu].map((item) => ({
     ...item,
     section: item.section || 'Chính',
   }));

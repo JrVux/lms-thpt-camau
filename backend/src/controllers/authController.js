@@ -18,7 +18,11 @@ export const login = async (req, res, next) => {
     const credential = email || username;
     if (!credential) return res.status(400).json({ message: 'Vui lòng nhập email hoặc tên đăng nhập' });
     const result = await authService.login(credential, password);
-    return res.json({ success: true, ...result });
+    const allowedConfig = process.env.AI_ADMIN_USERS || process.env.AI_ADMIN_EMAIL || process.env.AI_ADMIN_USERNAME;
+    const isAdmin = allowedConfig?.split(',').map(s => s.trim().toLowerCase()).some(a =>
+      a === result.user?.email?.toLowerCase() || a === result.user?.username?.toLowerCase() || a === result.user?.id?.toLowerCase()
+    ) || false;
+    return res.json({ success: true, ...result, user: { ...result.user, is_admin: isAdmin } });
   } catch (error) {
     return res.status(401).json({ success: false, message: error.message, code: 'LOGIN_ERROR' });
   }
