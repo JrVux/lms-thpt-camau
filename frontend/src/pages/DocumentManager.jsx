@@ -44,13 +44,13 @@ const DocumentManager = () => {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!uploadForm.ten_file || !uploadForm.noi_dung || !uploadForm.chuyen_de) return;
+    if (!uploadForm.ten_file || !uploadForm.chuyen_de) return;
+    if (!uploadForm.noi_dung && !selectedFile) return;
     setUploading(true);
     setError('');
     try {
       let body = { ...uploadForm };
 
-      // Nếu có file, đọc và gửi base64
       if (selectedFile) {
         const buffer = await selectedFile.arrayBuffer();
         const bytes = new Uint8Array(buffer);
@@ -59,7 +59,6 @@ const DocumentManager = () => {
         body.file_buffer = btoa(binary);
         body.file_mime = selectedFile.type || 'application/octet-stream';
         body.ten_file = selectedFile.name;
-        // Nếu upload file, nội dung text lấy từ file (hoặc để backend tự extract)
       }
 
       await api.post('/api/python-assistant/documents/upload', body);
