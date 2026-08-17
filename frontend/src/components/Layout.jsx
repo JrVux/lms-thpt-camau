@@ -25,14 +25,18 @@ const teacherMenu = [
     icon: Library,
     section: 'Quản lý',
   },
-];
-
-const adminOnlyMenu = [
   {
     label: 'Trợ lý Python',
     subtitle: 'Chat agent hỏi đáp Python',
     path: '/python-assistant',
     icon: Bot,
+    section: 'Công cụ AI',
+  },
+  {
+    label: 'Lộ trình học',
+    subtitle: 'Theo dõi tiến độ',
+    path: '/python-assistant/learning-path',
+    icon: TrendingUp,
     section: 'Công cụ AI',
   },
   {
@@ -161,8 +165,7 @@ const Layout = () => {
   }, [dark]);
 
   const baseMenu = user?.role === 'teacher' ? teacherMenu : studentMenu;
-  const extraMenu = user?.is_admin ? adminOnlyMenu : [];
-  const menu = [...baseMenu, ...extraMenu].map((item) => ({
+  const menu = [...baseMenu].map((item) => ({
     ...item,
     section: item.section || 'Chính',
   }));

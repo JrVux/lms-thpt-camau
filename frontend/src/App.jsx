@@ -61,11 +61,11 @@ const App = () => {
         <Route path="/deliveries/:deliveryId/python-practice" element={<PrivateRoute role="student"><PythonPractice /></PrivateRoute>} />
         <Route path="/deliveries/:deliveryId/sql-practice" element={<PrivateRoute role="student"><SQLPractice /></PrivateRoute>} />
         <Route path="/deliveries/:deliveryId/html-practice" element={<PrivateRoute role="student"><HTMLPractice /></PrivateRoute>} />
-        <Route path="/python-assistant" element={<PrivateRoute><AdminRoute><PythonAssistant /></AdminRoute></PrivateRoute>} />
+        <Route path="/python-assistant" element={<PrivateRoute><PythonAssistant /></PrivateRoute>} />
         <Route path="/python-assistant/learning-path" element={<PrivateRoute><LearningPath /></PrivateRoute>} />
-        <Route path="/python-assistant/documents" element={<PrivateRoute role="teacher"><AdminRoute><DocumentManager /></AdminRoute></PrivateRoute>} />
-        <Route path="/python-assistant/exercises/review" element={<PrivateRoute role="teacher"><AdminRoute><ExerciseReview /></AdminRoute></PrivateRoute>} />
-        <Route path="/visualizer/:slug" element={<PrivateRoute><AdminRoute><VisualizerDemo /></AdminRoute></PrivateRoute>} />
+        <Route path="/python-assistant/documents" element={<PrivateRoute role="teacher"><DocumentManager /></PrivateRoute>} />
+        <Route path="/python-assistant/exercises/review" element={<PrivateRoute role="teacher"><ExerciseReview /></PrivateRoute>} />
+        <Route path="/visualizer/:slug" element={<PrivateRoute><VisualizerDemo /></PrivateRoute>} />
       </Route>
 
       <Route path="*" element={<HomeRedirect />} />
