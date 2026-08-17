@@ -5,11 +5,11 @@ export const AIProviderError = class extends Error {
   constructor(m) { super(m); this.code = 'AI_PROVIDER_ERROR'; }
 };
 
-const runWithTimeout = async (provider, args, timeoutMs) => {
+const runWithTimeout = async (provider, method, args, timeoutMs) => {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), timeoutMs);
   try {
-    return await provider.generateStructured({ ...args, signal: c.signal });
+    return await provider[method]({ ...args, signal: c.signal });
   } catch (e) {
     if (e.name === 'AbortError') throw new AIProviderError('AI quá thời gian.');
     throw e;
@@ -18,7 +18,7 @@ const runWithTimeout = async (provider, args, timeoutMs) => {
   }
 };
 
-export const createPythonAiGateway = ({ openRouter, gemini, timeoutMs = 45000 }) => ({
+export const createPythonAiGateway = ({ openRouter, gemini, timeoutMs = 120000 }) => ({
   async generateChat({ system, user }) {
     const providers = [
       { name: 'openrouter', p: openRouter },
@@ -27,8 +27,8 @@ export const createPythonAiGateway = ({ openRouter, gemini, timeoutMs = 45000 })
     for (const { name, p } of providers) {
       if (p?.isConfigured === false) continue;
       try {
-        const result = await runWithTimeout(p, { system, user }, timeoutMs);
-        return { content: result.value?.reply || result.value?.content || JSON.stringify(result.value), provider: name, usage: result.usage };
+        const result = await runWithTimeout(p, 'generateChat', { system, user }, timeoutMs);
+        return { content: result.content, provider: name, usage: result.usage };
       } catch (e) {
         if (e instanceof AIConfigurationError) continue;
         throw e;
@@ -44,7 +44,7 @@ export const createPythonAiGateway = ({ openRouter, gemini, timeoutMs = 45000 })
     for (const { name, p } of providers) {
       if (p?.isConfigured === false) continue;
       try {
-        return await runWithTimeout(p, { system, user }, timeoutMs);
+        return await runWithTimeout(p, 'generateStructured', { system, user }, timeoutMs);
       } catch (e) {
         if (e instanceof AIConfigurationError) continue;
         throw e;
