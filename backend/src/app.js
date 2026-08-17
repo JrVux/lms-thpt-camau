@@ -167,7 +167,7 @@ const startPythonAssistant = async () => {
     logger.info('Python Assistant: skipping init (no AI API keys configured)');
     return;
   }
-  const [{ createOpenRouterProvider }, { createGeminiProvider }, { createGeminiEmbeddingProvider, createOpenRouterEmbeddingProvider }, { createCloudflareVisionProvider, createGeminiVisionProvider }, { initializePythonAssistant }] = await Promise.all([
+  const [{ createOpenRouterProvider }, { createGeminiProvider }, { createGeminiEmbeddingProvider, createOpenRouterEmbeddingProvider }, { createOpenRouterVisionProvider }, { initializePythonAssistant }] = await Promise.all([
     import('./ai/providers/openRouterProvider.js'),
     import('./ai/providers/geminiProvider.js'),
     import('./ai/providers/pythonEmbeddingProvider.js'),
@@ -179,12 +179,9 @@ const startPythonAssistant = async () => {
   const embeddingProvider = process.env.GEMINI_API_KEY
     ? createGeminiEmbeddingProvider({ apiKey: process.env.GEMINI_API_KEY })
     : createOpenRouterEmbeddingProvider({ apiKey: process.env.OPENROUTER_API_KEY });
-  const hasCF = process.env.CLOUDFLARE_API_KEY && process.env.CLOUDFLARE_ACCOUNT_ID;
-  const visionProvider = hasCF
-    ? createCloudflareVisionProvider({ apiKey: process.env.CLOUDFLARE_API_KEY, accountId: process.env.CLOUDFLARE_ACCOUNT_ID })
-    : process.env.GEMINI_API_KEY
-      ? createGeminiVisionProvider({ apiKey: process.env.GEMINI_API_KEY })
-      : null;
+  const visionProvider = process.env.OPENROUTER_API_KEY
+    ? createOpenRouterVisionProvider({ apiKey: process.env.OPENROUTER_API_KEY })
+    : null;
   initializePythonAssistant({ openRouter, gemini, embeddingProvider, visionProvider });
   logger.info('Python Assistant module initialized' + (visionProvider ? ' (vision ready)' : ''));
 };

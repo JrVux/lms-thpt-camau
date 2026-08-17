@@ -83,7 +83,6 @@ switch ($platform) {
 
 Write-Host "`n=== DEPLOY HOÀN TẤT ===" -ForegroundColor Cyan
 Write-Host "Sau deploy, nhớ set env vars trên hosting dashboard:" -ForegroundColor Yellow
-Write-Host "  OPENROUTER_API_KEY - Chat + Embedding (bắt buộc)" -ForegroundColor Gray
-Write-Host "  GEMINI_API_KEY - Chat fallback + Embedding (ưu tiên hơn OpenRouter cho embedding)" -ForegroundColor Gray
-Write-Host "  CLOUDFLARE_API_KEY + CLOUDFLARE_ACCOUNT_ID - Vision caption (tuỳ chọn)" -ForegroundColor Gray
-Write-Host "  BRAVE_SEARCH_API_KEY - Web search (Supabase Edge Function)" -ForegroundColor Gray
+Write-Host "  OPENROUTER_API_KEY - Chat + Embedding + Vision (bắt buộc)" -ForegroundColor Gray
+Write-Host "  GEMINI_API_KEY - Embedding fallback (tuỳ chọn, dùng text-embedding-004)" -ForegroundColor Gray
+Write-Host "  BRAVE_SEARCH_API_KEY - Web search (Supabase Edge Function, tuỳ chọn)" -ForegroundColor Gray

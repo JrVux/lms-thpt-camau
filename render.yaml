@@ -36,9 +36,5 @@ services:
         value: "90000"
       - key: AI_ANALYSIS_WORKER_ENABLED
         value: "true"
-      - key: CLOUDFLARE_API_KEY
-        sync: false
-      - key: CLOUDFLARE_ACCOUNT_ID
-        sync: false
       - key: BRAVE_SEARCH_API_KEY
         sync: false

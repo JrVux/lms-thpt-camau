@@ -95,21 +95,21 @@ export const detectFileType = (filename) => {
   return 'unknown';
 };
 
-export const ocrImage = async (imageBuffer, { cloudflareApiKey, cloudflareAccountId } = {}) => {
-  if (!cloudflareApiKey || !cloudflareAccountId) return null;
+export const ocrImage = async (imageBuffer, { openRouterApiKey } = {}) => {
+  if (!openRouterApiKey) return null;
   try {
     const base64 = imageBuffer.toString('base64');
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/run/@cf/microsoft/resnet-50`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${cloudflareApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
-      }
-    );
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${openRouterApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen/qwen-vl-plus:free',
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'Đọc và trích xuất toàn bộ văn bản từ hình ảnh này. Chỉ trả về nội dung văn bản, không thêm giải thích.' }, { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } }] }],
+      }),
+    });
     if (!response.ok) return null;
     const data = await response.json();
-    return data.result?.description || null;
+    return data.choices?.[0]?.message?.content || null;
   } catch {
     return null;
   }
