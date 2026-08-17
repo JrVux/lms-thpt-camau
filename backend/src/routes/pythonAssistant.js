@@ -64,7 +64,7 @@ router.get('/api/python-assistant/documents', authenticate, requireRole('teacher
 
 router.post('/api/python-assistant/documents/upload', authenticate, requireRole('teacher'), requireAIAdmin, [
   body('ten_file').trim().notEmpty().withMessage('Thiếu tên file'),
-  body('noi_dung').trim().isLength({ min: 1 }).withMessage('Thiếu nội dung'),
+  body('noi_dung').optional({ values: 'falsy' }).trim(),
   body('chuyen_de').trim().notEmpty().withMessage('Thiếu chuyên đề'),
   body('nhanh').isIn(NHANH_VALUES).withMessage('Nhánh không hợp lệ'),
   body('loai').isIn(['ly-thuyet', 'bai-tap', 'de-thi']).withMessage('Loại không hợp lệ'),
