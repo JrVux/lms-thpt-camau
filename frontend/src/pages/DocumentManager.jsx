@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Upload, FileText, Search, Filter, CheckCircle, AlertCircle, Clock, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Upload, FileText, Search, Filter, CheckCircle, AlertCircle, Clock, X, MessageCircle, ArrowRight } from 'lucide-react';
 
 const STATUS_BADGES = {
   cho_xu_ly: { label: 'Chờ xử lý', class: 'bg-yellow-100 text-yellow-700' },
@@ -21,6 +22,8 @@ const DocumentManager = () => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [lastUploadedFile, setLastUploadedFile] = useState('');
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -71,6 +74,8 @@ const DocumentManager = () => {
       setShowUpload(false);
       setSelectedFile(null);
       setUploadForm({ ten_file: '', noi_dung: '', chuyen_de: '', nhanh: 'dai-tra', loai: 'ly-thuyet', muc_do: 'CB' });
+      setLastUploadedFile(body.ten_file || 'Tài liệu');
+      setUploadSuccess(true);
       fetchDocs();
     } catch (err) {
       setError(err.response?.data?.message || 'Upload thất bại');
@@ -109,6 +114,27 @@ const DocumentManager = () => {
       </div>
 
       {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-center gap-2">{error}</div>}
+
+      {uploadSuccess && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-100 rounded-xl text-sm flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-start gap-3 flex-1">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-green-800">Đã tải lên thành công</p>
+              <p className="text-green-700">{lastUploadedFile} đã được thêm vào kho tài liệu. Hệ thống đang xử lý embedding để có thể hỏi đáp.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link to="/python-assistant" className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" /> Chat với RAG
+            </Link>
+            <button onClick={() => setUploadSuccess(false)}
+              className="px-3 py-1.5 border border-green-200 text-green-700 rounded-lg hover:bg-green-100 text-xs font-medium">
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-4 flex items-center gap-3">

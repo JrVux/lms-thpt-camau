@@ -70,13 +70,6 @@ const studentMenu = [
     icon: FileCode2,
     section: 'Học tập',
   },
-  {
-    label: 'Lộ trình học Python',
-    subtitle: 'Theo dõi tiến độ',
-    path: '/python-assistant/learning-path',
-    icon: TrendingUp,
-    section: 'Học tập',
-  },
 ];
 
 const Logo = () => (
