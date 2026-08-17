@@ -13,7 +13,6 @@ import * as statsController from '../controllers/statsController.js';
 import * as competencyController from '../controllers/competencyController.js';
 import * as studentAnalysisController from '../controllers/studentAnalysisController.js';
 import * as aiAssignmentController from '../controllers/aiAssignmentController.js';
-import pythonAssistantRoutes from './pythonAssistant.js';
 
 const router = Router();
 
@@ -173,8 +172,5 @@ router.get('/api/stats/top-rank', authenticate, requireRole('teacher'), statsCon
 router.get('/api/classes/:id/gradebook', authenticate, requireRole('teacher'), submissionController.getGradebook);
 router.get('/api/classes/:id/gradebook/export', authenticate, requireRole('teacher'), submissionController.exportGradebook);
 router.get('/api/classes/:id/submissions/:submissionId', authenticate, requireRole('teacher'), submissionController.getSubmissionForTeacher);
-
-// Python Assistant routes
-router.use(pythonAssistantRoutes);
 
 export default router;

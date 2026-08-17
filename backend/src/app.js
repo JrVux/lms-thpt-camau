@@ -160,29 +160,3 @@ const startStudentAnalysisWorker = async () => {
 };
 
 startStudentAnalysisWorker().catch((error) => logger.error({ message: 'Student AI analysis worker failed to start', error: error.message }));
-
-// Python Assistant initialization
-const startPythonAssistant = async () => {
-  if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
-    logger.info('Python Assistant: skipping init (no AI API keys configured)');
-    return;
-  }
-  const [{ createOpenRouterProvider }, { createGeminiProvider }, { createGeminiEmbeddingProvider, createOpenRouterEmbeddingProvider }, { createOpenRouterVisionProvider }, { initializePythonAssistant }] = await Promise.all([
-    import('./ai/providers/openRouterProvider.js'),
-    import('./ai/providers/geminiProvider.js'),
-    import('./ai/providers/pythonEmbeddingProvider.js'),
-    import('./ai/providers/visionProviders.js'),
-    import('./controllers/pythonAssistantController.js'),
-  ]);
-  const openRouter = createOpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || 'openrouter/auto' });
-  const gemini = createGeminiProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL });
-  const embeddingProvider = process.env.GEMINI_API_KEY
-    ? createGeminiEmbeddingProvider({ apiKey: process.env.GEMINI_API_KEY })
-    : createOpenRouterEmbeddingProvider({ apiKey: process.env.OPENROUTER_API_KEY });
-  const visionProvider = process.env.OPENROUTER_API_KEY
-    ? createOpenRouterVisionProvider({ apiKey: process.env.OPENROUTER_API_KEY })
-    : null;
-  initializePythonAssistant({ openRouter, gemini, embeddingProvider, visionProvider });
-  logger.info('Python Assistant module initialized' + (visionProvider ? ' (vision ready)' : ''));
-};
-startPythonAssistant().catch((error) => logger.error({ message: 'Python Assistant init failed', error: error.message }));

@@ -17,11 +17,6 @@ import HtmlEditor from './pages/HtmlEditor';
 import HTMLPractice from './pages/HTMLPractice';
 import SQLPractice from './pages/SQLPractice';
 import PythonPractice from './pages/PythonPractice';
-import PythonAssistant from './pages/PythonAssistant';
-import LearningPath from './pages/LearningPath';
-import DocumentManager from './pages/DocumentManager';
-import ExerciseReview from './pages/ExerciseReview';
-import VisualizerDemo from './pages/VisualizerDemo';
 import OmniDashboard from './pages/OmniDashboard';
 
 const HomeRedirect = () => {
@@ -61,11 +56,6 @@ const App = () => {
         <Route path="/deliveries/:deliveryId/python-practice" element={<PrivateRoute role="student"><PythonPractice /></PrivateRoute>} />
         <Route path="/deliveries/:deliveryId/sql-practice" element={<PrivateRoute role="student"><SQLPractice /></PrivateRoute>} />
         <Route path="/deliveries/:deliveryId/html-practice" element={<PrivateRoute role="student"><HTMLPractice /></PrivateRoute>} />
-        <Route path="/python-assistant" element={<PrivateRoute role="teacher"><PythonAssistant /></PrivateRoute>} />
-        <Route path="/python-assistant/learning-path" element={<PrivateRoute role="teacher"><LearningPath /></PrivateRoute>} />
-        <Route path="/python-assistant/documents" element={<PrivateRoute role="teacher"><DocumentManager /></PrivateRoute>} />
-        <Route path="/python-assistant/exercises/review" element={<PrivateRoute role="teacher"><ExerciseReview /></PrivateRoute>} />
-        <Route path="/visualizer/:slug" element={<PrivateRoute><VisualizerDemo /></PrivateRoute>} />
       </Route>
 
       <Route path="*" element={<HomeRedirect />} />

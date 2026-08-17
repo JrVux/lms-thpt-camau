@@ -13,10 +13,8 @@ Write-Host "=== DEPLOY: LMS THPT Cà Mau + Trợ lý Python ===" -ForegroundColo
 
 # --- Bước 1: Chạy migration Supabase ---
 Write-Host "`n[1/5] Chạy migration Supabase..." -ForegroundColor Yellow
-$migrations = @(
-  "012_python_assistant.sql"
-  "013_seed_learning_path.sql"
-)
+  $migrations = @(
+  )
 
 foreach ($m in $migrations) {
   $path = "$ROOT\backend\src\database\migrations\$m"
