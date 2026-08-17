@@ -20,6 +20,7 @@ const DocumentManager = () => {
   });
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -47,8 +48,23 @@ const DocumentManager = () => {
     setUploading(true);
     setError('');
     try {
-      await api.post('/api/python-assistant/documents/upload', uploadForm);
+      let body = { ...uploadForm };
+
+      // Nếu có file, đọc và gửi base64
+      if (selectedFile) {
+        const buffer = await selectedFile.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        body.file_buffer = btoa(binary);
+        body.file_mime = selectedFile.type || 'application/octet-stream';
+        body.ten_file = selectedFile.name;
+        // Nếu upload file, nội dung text lấy từ file (hoặc để backend tự extract)
+      }
+
+      await api.post('/api/python-assistant/documents/upload', body);
       setShowUpload(false);
+      setSelectedFile(null);
       setUploadForm({ ten_file: '', noi_dung: '', chuyen_de: '', nhanh: 'dai-tra', loai: 'ly-thuyet', muc_do: 'CB' });
       fetchDocs();
     } catch (err) {
@@ -122,10 +138,13 @@ const DocumentManager = () => {
             </div>
             <form onSubmit={handleUpload} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-brand-muted mb-1">Tên file</label>
-                <input value={uploadForm.ten_file} onChange={(e) => setUploadForm({ ...uploadForm, ten_file: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/20"
-                  placeholder="vd: bai-20-vong-lap-for.txt" required />
+                <label className="block text-xs font-medium text-brand-muted mb-1">Chọn file (PDF, DOCX, TXT) hoặc nhập text bên dưới</label>
+                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  setSelectedFile(file || null);
+                  if (file) setUploadForm({ ...uploadForm, ten_file: file.name });
+                }}
+                  className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-sm file:cursor-pointer hover:file:bg-red-700" />
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>

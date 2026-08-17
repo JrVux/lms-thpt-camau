@@ -145,28 +145,42 @@ export const listDocuments = async (req, res, next) => {
 
 export const uploadDocument = async (req, res, next) => {
   try {
-    const { ten_file, noi_dung, chuyen_de, nhanh, loai, muc_do, file_buffer, file_mime } = req.body;
-    if (!ten_file || !noi_dung || !chuyen_de || !nhanh || !loai) {
+    let { ten_file, noi_dung, chuyen_de, nhanh, loai, muc_do, file_buffer, file_mime } = req.body;
+    if (!ten_file || !chuyen_de || !nhanh || !loai) {
       return res.status(400).json({ success: false, message: 'Thiếu thông tin tài liệu', code: 'MISSING_DOC_INFO' });
     }
 
-    // Sanitize ten_file (chống path traversal)
+    // Sanitize ten_file
     const safeFileName = ten_file.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 200);
 
-    // Upload file gốc lên Supabase Storage (nếu có buffer)
+    // Upload file gốc lên Supabase Storage
     let filePath = `upload/${nhanh}/${safeFileName}`;
     if (file_buffer) {
-      // Kiểm tra bucket tồn tại, nếu không thì tạo
+      const buffer = Buffer.from(file_buffer, 'base64');
+
+      // Trích xuất text nếu chưa có noi_dung
+      if (!noi_dung) {
+        const fileType = detectFileType(ten_file);
+        if (fileType === 'pdf') {
+          const pages = await extractTextFromPdf(buffer);
+          noi_dung = pages.map(p => p.text).join('\n\n');
+        } else if (fileType === 'docx') {
+          const pages = await extractTextFromDocx(buffer);
+          noi_dung = pages.map(p => p.text).join('\n\n');
+        } else {
+          noi_dung = buffer.toString('utf-8');
+        }
+      }
+
       const { data: buckets } = await supabase.storage.listBuckets();
       if (!buckets?.find(b => b.name === 'tai-lieu')) {
         await supabase.storage.createBucket('tai-lieu', { public: true });
       }
 
-      const buffer = Buffer.from(file_buffer, 'base64');
       const { error: storageError } = await supabase.storage
         .from('tai-lieu')
         .upload(filePath, buffer, {
-          contentType: file_mime || 'text/plain',
+          contentType: file_mime || 'application/octet-stream',
           upsert: true,
         });
       if (storageError && !storageError.message?.includes('Duplicate')) {
@@ -176,7 +190,7 @@ export const uploadDocument = async (req, res, next) => {
       filePath = publicUrl;
     }
 
-    const chunks = splitText(noi_dung);
+    if (!noi_dung) return res.status(400).json({ success: false, message: 'Thiếu nội dung tài liệu', code: 'MISSING_CONTENT' });
     const records = chunks.map((text, i) => ({
       file_path: filePath,
       ten_file,
