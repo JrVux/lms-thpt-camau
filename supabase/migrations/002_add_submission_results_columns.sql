@@ -1,0 +1,2 @@
+ALTER TABLE submission_results ADD COLUMN IF NOT EXISTS test_name VARCHAR(200);
+ALTER TABLE submission_results ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 1;

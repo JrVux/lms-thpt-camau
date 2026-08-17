@@ -28,8 +28,15 @@ export const cleanAndParseJson = (rawText) => {
   try {
     return JSON.parse(str);
   } catch (err) {
-    // Attempt fallback fixes for trailing commas
-    const fixedStr = str.replace(/,\s*([}\]])/g, '$1');
+    // Attempt fallback fixes for unquoted type placeholders and trailing commas
+    const fixedStr = str
+      .replace(/:\s*string\b/gi, ':""')
+      .replace(/:\s*integer\b/gi, ':0')
+      .replace(/:\s*int\b/gi, ':0')
+      .replace(/:\s*number\b/gi, ':0')
+      .replace(/:\s*boolean\b/gi, ':false')
+      .replace(/:\s*array\b/gi, ':[]')
+      .replace(/,\s*([}\]])/g, '$1');
     try {
       return JSON.parse(fixedStr);
     } catch {

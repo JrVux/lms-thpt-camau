@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import {
   GraduationCap, Users, Home, Search, Moon, Sun,
-  LogOut, ChevronDown, Menu, X, Trophy, BarChart3, RefreshCw, Library, FileCode2,
+  LogOut, ChevronDown, Menu, X, Trophy, BarChart3, RefreshCw, Library, FileCode2, Bot, TrendingUp, Eye, Code2,
 } from 'lucide-react';
 
 const APP_NAME = 'LMS THPT';
@@ -25,6 +25,34 @@ const teacherMenu = [
     icon: Library,
     section: 'Quản lý',
   },
+  {
+    label: 'Trợ lý Python',
+    subtitle: 'Chat agent hỏi đáp Python',
+    path: '/python-assistant',
+    icon: Bot,
+    section: 'Công cụ',
+  },
+  {
+    label: 'Lộ trình học',
+    subtitle: 'Theo dõi tiến độ',
+    path: '/python-assistant/learning-path',
+    icon: TrendingUp,
+    section: 'Công cụ',
+  },
+  {
+    label: 'Quản lý tài liệu',
+    subtitle: 'Tài liệu cho RAG',
+    path: '/python-assistant/documents',
+    icon: Library,
+    section: 'Công cụ',
+  },
+  {
+    label: 'Duyệt bài tập AI',
+    subtitle: 'Duyệt bài tập/đề thi',
+    path: '/python-assistant/exercises/review',
+    icon: Eye,
+    section: 'Công cụ',
+  },
 ];
 
 const studentMenu = [
@@ -41,6 +69,20 @@ const studentMenu = [
     path: '/assignments',
     icon: FileCode2,
     section: 'Học tập',
+  },
+  {
+    label: 'Trợ lý Python',
+    subtitle: 'Chat agent hỏi đáp Python',
+    path: '/python-assistant',
+    icon: Bot,
+    section: 'Công cụ',
+  },
+  {
+    label: 'Lộ trình học',
+    subtitle: 'Theo dõi tiến độ',
+    path: '/python-assistant/learning-path',
+    icon: TrendingUp,
+    section: 'Công cụ',
   },
 ];
 
@@ -140,7 +182,8 @@ const Layout = () => {
     (item) =>
       currentPath === item.path ||
       (item.path === '/classes' && currentPath.startsWith('/classes')) ||
-      (item.path === '/assignments' && (currentPath.startsWith('/assignments') || currentPath.includes('-practice') || currentPath.includes('-editor')))
+      (item.path === '/assignments' && (currentPath.startsWith('/assignments') || currentPath.includes('-practice') || currentPath.includes('-editor'))) ||
+      (item.path === '/python-assistant' && currentPath.startsWith('/python-assistant'))
   );
 
   const pageMeta = currentItem
