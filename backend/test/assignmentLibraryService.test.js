@@ -249,3 +249,42 @@ test('deleting a missing topic reports NOT_FOUND', async () => {
     (error) => error.code === 'NOT_FOUND'
   );
 });
+
+test('deleteAssignment calls the transaction RPC for library assignments', async () => {
+  const db = fakeSupabase([{ data: { status: 'deleted', id: 'a1', copies: 2 }, error: null }]);
+  const service = createAssignmentLibraryService(db);
+
+  const result = await service.deleteAssignment({ teacherId: 't1', assignmentId: 'a1', libraryOnly: true });
+  assert.equal(result.status, 'deleted');
+
+  const rpc = db.calls.find((call) => call.method === 'rpc');
+  assert.equal(rpc.name, 'delete_assignment_owned');
+  assert.deepEqual(rpc.args, {
+    p_assignment_id: 'a1',
+    p_teacher_id: 't1',
+    p_library_only: true,
+  });
+});
+
+test('deleteAssignment defaults to library-only and maps missing rows to NOT_FOUND', async () => {
+  const db = fakeSupabase([{ data: { status: 'not_found' }, error: null }]);
+  const service = createAssignmentLibraryService(db);
+
+  await assert.rejects(
+    () => service.deleteAssignment({ teacherId: 't1', assignmentId: 'missing' }),
+    (error) => error.code === 'NOT_FOUND'
+  );
+
+  const rpc = db.calls.find((call) => call.method === 'rpc');
+  assert.equal(rpc.args.p_library_only, true);
+});
+
+test('deleteAssignment maps forbidden status to FORBIDDEN', async () => {
+  const db = fakeSupabase([{ data: { status: 'forbidden' }, error: null }]);
+  const service = createAssignmentLibraryService(db);
+
+  await assert.rejects(
+    () => service.deleteAssignment({ teacherId: 't1', assignmentId: 'a1', libraryOnly: false }),
+    (error) => error.code === 'FORBIDDEN'
+  );
+});

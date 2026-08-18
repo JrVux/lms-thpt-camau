@@ -1,4 +1,8 @@
 import * as assignmentService from '../services/assignmentService.js';
+import { createAssignmentLibraryService } from '../services/assignmentLibraryService.js';
+import { supabase } from '../services/supabaseClient.js';
+
+const libraryService = createAssignmentLibraryService(supabase);
 
 // POST /api/assignments - Tạo bài tập mới
 export const create = async (req, res) => {
@@ -103,5 +107,19 @@ export const getClassAssignments = async (req, res) => {
     return res.json(assignments);
   } catch (error) {
     return res.status(403).json({ message: error.message });
+  }
+};
+
+// DELETE /api/assignments/:id - Xóa bài giao cho một lớp (giữ bài gốc trong Kho)
+export const remove = async (req, res) => {
+  try {
+    return res.json(await libraryService.deleteAssignment({
+      teacherId: req.user.id,
+      assignmentId: req.params.id,
+      libraryOnly: false,
+    }));
+  } catch (error) {
+    const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'FORBIDDEN' ? 403 : 400;
+    return res.status(status).json({ message: error.message });
   }
 };

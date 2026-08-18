@@ -26,8 +26,10 @@ const validationMessage = (input, requireAll = false) => {
 
 const topicName = (raw) => String(raw ?? '').trim();
 
-const failure = (res, error) =>
-  res.status(error.code === 'NOT_FOUND' ? 404 : 400).json({ message: error.message });
+const failure = (res, error) => {
+  const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'FORBIDDEN' ? 403 : 400;
+  return res.status(status).json({ message: error.message });
+};
 
 export const list = async (req, res) => {
   try {
@@ -157,6 +159,18 @@ export const deleteTopic = async (req, res) => {
     return res.json(await service.deleteTopic({
       teacherId: req.user.id,
       topicId: req.params.id,
+    }));
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const remove = async (req, res) => {
+  try {
+    return res.json(await service.deleteAssignment({
+      teacherId: req.user.id,
+      assignmentId: req.params.id,
+      libraryOnly: true,
     }));
   } catch (error) {
     return failure(res, error);

@@ -233,4 +233,26 @@ export const createAssignmentLibraryService = (db) => ({
     if (!data) notFound('Không tìm thấy chủ đề.');
     return data;
   },
+
+  async deleteAssignment({ teacherId, assignmentId, libraryOnly = true }) {
+    const { data, error } = await db.rpc('delete_assignment_owned', {
+      p_assignment_id: assignmentId,
+      p_teacher_id: teacherId,
+      p_library_only: libraryOnly,
+    });
+    throwDbError(error);
+    const status = data?.status;
+    if (status === 'not_found') notFound('Không tìm thấy bài tập.');
+    if (status === 'forbidden') {
+      const forbidden = new Error('Bạn không phải giáo viên của bài tập này.');
+      forbidden.code = 'FORBIDDEN';
+      throw forbidden;
+    }
+    if (status !== 'deleted') {
+      const failed = new Error('Không thể xóa bài tập.');
+      failed.code = 'DELETE_FAILED';
+      throw failed;
+    }
+    return data;
+  },
 });

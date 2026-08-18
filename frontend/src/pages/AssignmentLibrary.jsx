@@ -4,7 +4,8 @@ import api from '../services/api';
 import AssignmentDeliveryModal from '../components/AssignmentDeliveryModal';
 import AssignmentDeliveryList from '../components/AssignmentDeliveryList';
 import Badge from '../components/Badge';
-import { Plus, Pencil, Send, Layers, Folder } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { Plus, Pencil, Send, Layers, Folder, Trash2 } from 'lucide-react';
 
 const CATEGORIES = [
   { key: 'grade_10', label: 'Khối 10', color: 'green' },
@@ -27,6 +28,9 @@ const AssignmentLibrary = () => {
   const [classes, setClasses] = useState([]);
   const [deliveryAssignment, setDeliveryAssignment] = useState(null);
   const [listAssignment, setListAssignment] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadTopics = useCallback(async () => {
     try {
@@ -67,6 +71,21 @@ const AssignmentLibrary = () => {
   useEffect(() => {
     api.get('/api/classes').then(({ data }) => setClasses(data)).catch(() => {});
   }, []);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/api/assignment-library/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      await Promise.all([loadAssignments(), loadTopics()]);
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Xóa bài tập thất bại');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -183,6 +202,13 @@ const AssignmentLibrary = () => {
                 <button className="inline-flex items-center gap-1.5 font-medium text-brand-muted hover:underline" type="button" onClick={() => setListAssignment(assignment)}>
                   <Layers className="h-3.5 w-3.5" />Các lớp đã giao
                 </button>
+                <button
+                  className="inline-flex items-center gap-1.5 font-medium text-badge-red-text hover:underline"
+                  type="button"
+                  onClick={() => { setDeleteError(''); setDeleteTarget(assignment); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />Xóa
+                </button>
               </div>
             </article>
           ))}
@@ -204,6 +230,23 @@ const AssignmentLibrary = () => {
           open
           onClose={() => setListAssignment(null)}
         />
+      )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa bài tập?"
+        message={
+          deleteTarget
+            ? deleteTarget.delivery_count > 0
+              ? `"${deleteTarget.title}" đã giao cho ${deleteTarget.delivery_count} lớp. Xóa sẽ gỡ bài khỏi các lớp đó và xóa toàn bộ bài nộp, điểm của học sinh. Hành động này không thể hoàn tác.`
+              : `Xóa "${deleteTarget.title}" khỏi Kho bài tập? Hành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmLabel={deleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+        onConfirm={confirmDelete}
+        onCancel={() => { if (!deleting) setDeleteTarget(null); }}
+      />
+      {deleteError && (
+        <div className="rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{deleteError}</div>
       )}
     </div>
   );

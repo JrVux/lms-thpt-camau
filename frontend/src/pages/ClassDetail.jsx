@@ -495,6 +495,25 @@ const AssignmentsTab = ({ classId }) => {
     } catch {}
   };
 
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const confirmDeleteAssignment = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/api/assignments/${deleteTarget.assignment_id}`);
+      setDeleteTarget(null);
+      fetch();
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Xóa bài tập thất bại');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleSelect = (id) => {
     setSelectedAssignments((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -584,6 +603,12 @@ const AssignmentsTab = ({ classId }) => {
                 }`}>
                 {a.is_published ? 'Đã publish' : 'Nháp'}
               </button>
+              <button
+                onClick={() => { setDeleteError(''); setDeleteTarget(a); }}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-badge-red-text transition-colors hover:bg-badge-red-bg"
+              >
+                Xóa
+              </button>
             </div>
           </div>
         ))}
@@ -591,6 +616,22 @@ const AssignmentsTab = ({ classId }) => {
           <p className="py-10 text-center text-brand-muted">Chưa có bài tập nào</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Xóa bài tập khỏi lớp?"
+        message={
+          deleteTarget
+            ? `"${deleteTarget.title}" sẽ bị gỡ khỏi lớp này cùng toàn bộ bài nộp, điểm của học sinh. Bài gốc trong Kho bài tập vẫn được giữ. Hành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmLabel={deleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+        onConfirm={confirmDeleteAssignment}
+        onCancel={() => { if (!deleting) setDeleteTarget(null); }}
+      />
+      {deleteError && (
+        <p className="mt-3 text-sm text-badge-red-text">{deleteError}</p>
+      )}
 
       {/* Modal chia sẻ */}
       <Modal open={showShare} onClose={() => { if (!sharing) setShowShare(false); }} title="Chia sẻ bài tập sang lớp khác" maxWidth="max-w-lg">

@@ -74,6 +74,7 @@ router.patch('/api/assignment-library/topics/:id', authenticate, requireRole('te
 router.delete('/api/assignment-library/topics/:id', authenticate, requireRole('teacher'), assignmentLibraryController.deleteTopic);
 router.get('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.get);
 router.patch('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.update);
+router.delete('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.remove);
 router.post('/api/assignment-library/:id/test-cases', authenticate, requireRole('teacher'), assignmentLibraryController.replaceTestCases);
 router.post('/api/assignment-library/:id/deliver', authenticate, requireRole('teacher'), assignmentDeliveryController.deliver);
 router.get('/api/assignment-library/:id/deliveries', authenticate, requireRole('teacher'), assignmentDeliveryController.listForTemplate);
@@ -160,6 +161,7 @@ router.post('/api/assignments', authenticate, requireRole('teacher'), [
 ], assignmentController.create);
 
 router.patch('/api/assignments/:id', authenticate, requireRole('teacher'), assignmentController.update);
+router.delete('/api/assignments/:id', authenticate, requireRole('teacher'), assignmentController.remove);
 router.post('/api/assignments/:id/test-cases', authenticate, requireRole('teacher'), assignmentController.addTestCases);
 router.patch('/api/assignments/:id/publish', authenticate, requireRole('teacher'), assignmentController.togglePublish);
 router.get('/api/assignments/:id', authenticate, assignmentController.getDetail);
