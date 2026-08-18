@@ -294,8 +294,14 @@ const Layout = () => {
             Hệ thống đang hoạt động
           </div>
           <div className="mt-3 text-center text-[11px] text-gray-400 dark:text-gray-500">
-            <p>{user?.role === 'teacher' ? 'Giáo viên • ' : 'Học sinh • '}Thanh Vũ - THPT Cà Mau</p>
-            <p className="mt-0.5">by KILO CODE & CODEX & OPENCODE</p>
+            {user?.role === 'teacher' ? (
+              <>
+                <p>Giáo viên • Thanh Vũ - THPT Cà Mau</p>
+                <p className="mt-0.5">by KILO CODE & CODEX & OPENCODE</p>
+              </>
+            ) : (
+              <p>Học sinh • {user?.full_name || user?.username}</p>
+            )}
           </div>
         </div>
       </aside>
