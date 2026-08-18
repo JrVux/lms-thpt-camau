@@ -23,6 +23,7 @@ const CreateAssignment = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || 'grade_10';
+  const initialTopicId = searchParams.get('topicId') || '';
 
   const [form, setForm] = useState({
     title: '',
@@ -42,6 +43,10 @@ const CreateAssignment = () => {
     initialCategory === 'advanced' ? 'python' : CLASS_SUBJECT_MAP[initialCategory.replace('grade_', '')]
   );
   const [category, setCategory] = useState(initialCategory);
+  const [topics, setTopics] = useState([]);
+  const [topicId, setTopicId] = useState(initialTopicId);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [showNewTopic, setShowNewTopic] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
@@ -79,6 +84,7 @@ const CreateAssignment = () => {
         });
         setType(data.type);
         if (data.category) setCategory(data.category);
+        setTopicId(data.topic_id || '');
         if (data.test_cases && data.test_cases.length > 0) {
           setTestCases(data.test_cases.map((tc) => ({
             id: tc.id,
@@ -96,6 +102,18 @@ const CreateAssignment = () => {
     };
     load();
   }, [assignmentId, isEdit, isLibraryMode]);
+
+  useEffect(() => {
+    if (!isLibraryMode) return;
+    setNewTopicName('');
+    setShowNewTopic(false);
+    api.get(`/api/assignment-library/topics?category=${category}`)
+      .then(({ data }) => {
+        setTopics(data);
+        setTopicId((current) => (current && !data.some((topic) => topic.id === current) ? '' : current));
+      })
+      .catch(() => setTopics([]));
+  }, [category, isLibraryMode]);
 
   const addTestCase = () => {
     setTestCases([...testCases, { input_data: '', expected_output: '', test_name: `Test ${testCases.length + 1}`, points: 1 }]);
@@ -115,11 +133,24 @@ const CreateAssignment = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề bài tập'); return; }
+    if (isLibraryMode && showNewTopic && !newTopicName.trim()) {
+      setError('Vui lòng nhập tên chủ đề mới');
+      return;
+    }
 
     setSaving(true);
     setError('');
 
     try {
+      let resolvedTopicId = topicId;
+      if (isLibraryMode && showNewTopic && newTopicName.trim()) {
+        const { data: createdTopic } = await api.post('/api/assignment-library/topics', {
+          category,
+          name: newTopicName.trim(),
+        });
+        resolvedTopicId = createdTopic.id;
+      }
+
       if (isEdit) {
         const endpoint = isLibraryMode
           ? `/api/assignment-library/${assignmentId}`
@@ -129,6 +160,7 @@ const CreateAssignment = () => {
           description: form.description,
           category,
           type,
+          ...(isLibraryMode ? { topic_id: resolvedTopicId || null } : {}),
           starter_code: form.starter_code,
           solution_code: form.solution_code,
           setup_sql: form.setup_sql,
@@ -149,7 +181,7 @@ const CreateAssignment = () => {
       } else {
         const endpoint = isLibraryMode ? '/api/assignment-library' : '/api/assignments';
         const { data: assignment } = await api.post(endpoint, {
-          ...(isLibraryMode ? { category } : { class_id: classId }),
+          ...(isLibraryMode ? { category, topic_id: resolvedTopicId || null } : { class_id: classId }),
           title: form.title,
           description: form.description,
           type,
@@ -246,6 +278,42 @@ const CreateAssignment = () => {
                 <option value="grade_12">Khối 12</option>
                 <option value="advanced">Nâng cao</option>
               </select>
+            </div>
+          )}
+
+          {isLibraryMode && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-brand-heading">Chủ đề</label>
+              <select
+                value={showNewTopic ? '__new__' : topicId || ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === '__new__') {
+                    setShowNewTopic(true);
+                    setTopicId('');
+                  } else {
+                    setShowNewTopic(false);
+                    setTopicId(value);
+                  }
+                }}
+                className={`${input} bg-white`}
+              >
+                <option value="">Chưa có chủ đề</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.name}</option>
+                ))}
+                <option value="__new__">＋ Thêm chủ đề mới...</option>
+              </select>
+              {showNewTopic && (
+                <input
+                  type="text"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  className={`${input} mt-2`}
+                  placeholder="Nhập tên chủ đề, ví dụ: Vòng lặp"
+                  maxLength={100}
+                />
+              )}
             </div>
           )}
 

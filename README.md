@@ -19,6 +19,7 @@ OpenRouter được gọi trước; Gemini chỉ dự phòng khi lỗi kỹ thu�
 - Quản lý lớp tại **Lớp của tôi**; tạo lớp theo khối 10/Python, 11/SQL và 12/HTML.
 - Quản lý học sinh, nhập danh sách, cấp lại mật khẩu và mã lớp.
 - Kho bài tập chia thành Khối 10, 11, 12 và Nâng cao.
+- Sắp xếp bài trong Kho bài tập theo **chủ đề** riêng của từng khối (ví dụ Biến, Vòng lặp, Hàm); lọc nhanh theo chủ đề khi soạn và giao bài.
 - Một bài Nâng cao vẫn thuộc một môn Python/SQL/HTML và chỉ giao cho lớp có môn tương ứng.
 - Giao bài cho toàn lớp hoặc một nhóm học sinh cụ thể.
 - Sao chép bài dưới dạng bản nháp độc lập để chỉnh riêng từng lớp, hoặc giữ liên kết đồng bộ.
@@ -101,8 +102,11 @@ Với database mới, chạy `backend/src/database/schema.sql`, sau đó chạy 
 7. `007_lock_legacy_tables.sql`
 8. `008_delete_class_transaction.sql`
 9. `009_competency_foundation.sql`
+10. `010_ai_generation_logs.sql`
+11. `011_student_ai_analysis.sql`
+12. `012_assignment_topics.sql`
 
-Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai, xóa lớp an toàn và nền tảng năng lực có phiên bản.
+Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai, xóa lớp an toàn, nền tảng năng lực có phiên bản và chủ đề bài tập theo từng khối.
 
 ## Phân tích năng lực — thử nghiệm Python lớp 10
 

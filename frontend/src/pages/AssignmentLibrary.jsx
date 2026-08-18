@@ -4,7 +4,7 @@ import api from '../services/api';
 import AssignmentDeliveryModal from '../components/AssignmentDeliveryModal';
 import AssignmentDeliveryList from '../components/AssignmentDeliveryList';
 import Badge from '../components/Badge';
-import { Plus, Pencil, Send, Layers } from 'lucide-react';
+import { Plus, Pencil, Send, Layers, Folder } from 'lucide-react';
 
 const CATEGORIES = [
   { key: 'grade_10', label: 'Khối 10', color: 'green' },
@@ -19,6 +19,8 @@ const AssignmentLibrary = () => {
   const [searchParams] = useSearchParams();
   const initialClassId = searchParams.get('classId');
   const [activeCategory, setActiveCategory] = useState('grade_10');
+  const [topics, setTopics] = useState([]);
+  const [activeTopic, setActiveTopic] = useState('all');
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,22 +28,41 @@ const AssignmentLibrary = () => {
   const [deliveryAssignment, setDeliveryAssignment] = useState(null);
   const [listAssignment, setListAssignment] = useState(null);
 
+  const loadTopics = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/api/assignment-library/topics?category=${activeCategory}`);
+      setTopics(data);
+    } catch {
+      setTopics([]);
+    }
+  }, [activeCategory]);
+
   const loadAssignments = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.get(`/api/assignment-library?category=${activeCategory}`);
+      const params = new URLSearchParams({ category: activeCategory });
+      if (activeTopic !== 'all') params.set('topicId', activeTopic);
+      const { data } = await api.get(`/api/assignment-library?${params.toString()}`);
       setAssignments(data);
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể tải kho bài tập.');
     } finally {
       setLoading(false);
     }
-  }, [activeCategory]);
+  }, [activeCategory, activeTopic]);
+
+  useEffect(() => {
+    loadTopics();
+  }, [loadTopics]);
 
   useEffect(() => {
     loadAssignments();
   }, [loadAssignments]);
+
+  useEffect(() => {
+    setActiveTopic('all');
+  }, [activeCategory]);
 
   useEffect(() => {
     api.get('/api/classes').then(({ data }) => setClasses(data)).catch(() => {});
@@ -54,7 +75,7 @@ const AssignmentLibrary = () => {
           <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Kho bài tập</h1>
           <p className="mt-1 text-sm text-brand-muted">Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.</p>
         </div>
-        <Link to={`/assignments/new?category=${activeCategory}`} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
+        <Link to={`/assignments/new?category=${activeCategory}${activeTopic !== 'all' ? `&topicId=${activeTopic}` : ''}`} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600">
           <Plus className="h-4 w-4" />
           Tạo bài tập
         </Link>
@@ -77,11 +98,50 @@ const AssignmentLibrary = () => {
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-brand-muted">
+          <Folder className="h-4 w-4" /> Chủ đề:
+        </span>
+        <button
+          type="button"
+          onClick={() => setActiveTopic('all')}
+          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTopic === 'all'
+              ? 'bg-brand text-white'
+              : 'bg-card text-brand-muted ring-1 ring-brand-border hover:text-brand-heading'
+          }`}
+        >
+          Tất cả
+        </button>
+        {topics.map((topic) => (
+          <button
+            key={topic.id}
+            type="button"
+            onClick={() => setActiveTopic(topic.id)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTopic === topic.id
+                ? 'bg-brand text-white'
+                : 'bg-card text-brand-muted ring-1 ring-brand-border hover:text-brand-heading'
+            }`}
+          >
+            {topic.name}
+            <span className={`rounded-full px-1.5 text-xs ${activeTopic === topic.id ? 'bg-white/20' : 'bg-page text-brand-muted'}`}>
+              {topic.assignment_count ?? 0}
+            </span>
+          </button>
+        ))}
+        {topics.length === 0 && (
+          <span className="text-sm text-brand-muted">
+            Chưa có chủ đề — chọn "Thêm chủ đề mới" khi soạn bài để sắp xếp gọn gàng.
+          </span>
+        )}
+      </div>
+
       {error && <div className="rounded-xl bg-badge-red-bg p-3 text-sm text-badge-red-text">{error}</div>}
       {loading && <div className="rounded-2xl bg-card p-10 text-center text-brand-muted shadow-card ring-1 ring-brand-border">Đang tải kho bài tập...</div>}
       {!loading && !error && assignments.length === 0 && (
         <div className="rounded-2xl border border-dashed border-brand-border bg-card p-12 text-center text-brand-muted">
-          Chưa có bài tập trong nhóm này.
+          {activeTopic === 'all' ? 'Chưa có bài tập trong nhóm này.' : 'Chưa có bài tập thuộc chủ đề này.'}
         </div>
       )}
 
@@ -94,6 +154,11 @@ const AssignmentLibrary = () => {
                 <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
               </div>
               <p className="mt-2 line-clamp-2 min-h-10 text-sm text-brand-muted">{assignment.description || 'Không có mô tả'}</p>
+              {assignment.topic && (
+                <span className="mt-2 inline-flex items-center gap-1 self-start rounded-full bg-page px-2.5 py-1 text-xs font-medium text-brand-muted ring-1 ring-brand-border">
+                  <Folder className="h-3 w-3 text-brand" /> {assignment.topic}
+                </span>
+              )}
               <dl className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="rounded-xl bg-page p-2.5">
                   <dt className="text-brand-muted">Điểm</dt>

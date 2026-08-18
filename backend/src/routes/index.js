@@ -60,6 +60,18 @@ router.post('/api/classes/:id/students/enroll', authenticate, requireRole('teach
 // Assignment library routes (must stay before /api/assignments/:id)
 router.get('/api/assignment-library', authenticate, requireRole('teacher'), assignmentLibraryController.list);
 router.post('/api/assignment-library', authenticate, requireRole('teacher'), assignmentLibraryController.create);
+// Topic routes must stay before /api/assignment-library/:id
+router.get('/api/assignment-library/topics', authenticate, requireRole('teacher'), assignmentLibraryController.listTopics);
+router.post('/api/assignment-library/topics', authenticate, requireRole('teacher'), [
+  body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Tên chủ đề không hợp lệ'),
+  body('category').isIn(['grade_10', 'grade_11', 'grade_12', 'advanced']).withMessage('Nhóm bài tập không hợp lệ'),
+  validate,
+], assignmentLibraryController.createTopic);
+router.patch('/api/assignment-library/topics/:id', authenticate, requireRole('teacher'), [
+  body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Tên chủ đề không hợp lệ'),
+  validate,
+], assignmentLibraryController.updateTopic);
+router.delete('/api/assignment-library/topics/:id', authenticate, requireRole('teacher'), assignmentLibraryController.deleteTopic);
 router.get('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.get);
 router.patch('/api/assignment-library/:id', authenticate, requireRole('teacher'), assignmentLibraryController.update);
 router.post('/api/assignment-library/:id/test-cases', authenticate, requireRole('teacher'), assignmentLibraryController.replaceTestCases);

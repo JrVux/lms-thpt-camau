@@ -60,6 +60,31 @@ ALTER TABLE assignments
   ADD CONSTRAINT assignments_category_required_for_new_rows
   CHECK (category IS NOT NULL) NOT VALID;
 
+-- 4b. Chủ đề bài tập: mỗi giáo viên một danh sách riêng theo từng khối
+CREATE TABLE assignment_topics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category VARCHAR(20) NOT NULL
+    CHECK (category IN ('grade_10', 'grade_11', 'grade_12', 'advanced')),
+  name VARCHAR(100) NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (teacher_id, category, name)
+);
+
+ALTER TABLE assignments
+  ADD COLUMN topic_id UUID REFERENCES assignment_topics(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_assignment_topics_teacher_category
+  ON assignment_topics(teacher_id, category, sort_order, name);
+CREATE INDEX idx_assignments_teacher_topic
+  ON assignments(teacher_id, topic_id);
+
+ALTER TABLE assignment_topics ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON assignment_topics FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON assignment_topics TO service_role;
+
 -- 5. Cấu hình giao bài theo từng lớp
 CREATE TABLE assignment_deliveries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
