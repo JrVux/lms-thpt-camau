@@ -364,7 +364,7 @@ const StudentTab = ({ classId }) => {
         open={!!deleteTarget}
         title="Xác nhận cho rời lớp"
         message="Bạn có chắc muốn cho học sinh này rời khỏi lớp? (Tài khoản sẽ được giữ lại)"
-        confirmText="Rời lớp"
+        confirmLabel="Rời lớp"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

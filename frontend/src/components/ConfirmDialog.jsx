@@ -26,7 +26,7 @@ const ConfirmDialog = ({ open, title, message, confirmLabel = 'Xác nhận', onC
               isDanger ? 'bg-brand hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {confirmText}
+            {confirmLabel}
           </button>
         </div>
       </div>
