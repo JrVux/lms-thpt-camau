@@ -10,7 +10,7 @@ const geminiSchema = (value) => {
 export const createGeminiProvider = ({ apiKey, model, fetchImpl = fetch } = {}) => {
   const resolvedKey = apiKey || process.env.GEMINI_API_KEY;
   const rawModel = model || process.env.GEMINI_MODEL;
-  const resolvedModel = (!rawModel || rawModel === 'Auto') ? 'gemini-2.5-flash' : rawModel;
+  const resolvedModel = (!rawModel || rawModel === 'Auto' || rawModel === 'gemini-2.5-flash' || rawModel === 'gemini-1.5-flash') ? 'gemini-3.6-flash' : rawModel;
   return {
     isConfigured: Boolean(resolvedKey && resolvedModel),
     async generateStructured({ system, user, schema, signal }) {
