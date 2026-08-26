@@ -29,49 +29,46 @@ const provider = (name) => ({
 const providerError = (err) => ({
   async generateStructured() { calls.push('err'); throw err; },
 });
-const invalidProvider = (name) => ({
-  async generateStructured() { calls.push(name); throw new StudentAnalysisValidationError(['bad']); },
-});
 
 const reset = () => { calls.length = 0; };
 
-test('returns the first valid OpenRouter result without calling Gemini', async () => {
+test('returns the first valid Gemini result without calling fallbacks', async () => {
   reset();
-  const gateway = createStudentAnalysisGateway({ openRouter: provider('openrouter'), gemini: provider('gemini') });
+  const gateway = createStudentAnalysisGateway({ gemini: provider('gemini'), deepseek: provider('deepseek'), openRouter: provider('openrouter') });
   const result = await gateway.generate(bundle);
-  assert.equal(result.provider, 'openrouter');
-  assert.deepEqual(calls, ['openrouter']);
+  assert.equal(result.provider, 'gemini');
+  assert.deepEqual(calls, ['gemini']);
   assert.equal(result.fallback_used, false);
 });
 
-test('repairs invalid OpenRouter output once before fallback', async () => {
+test('falls back to DeepSeek after Gemini failure', async () => {
   reset();
-  const bad = new StudentAnalysisValidationError(['bad']); bad.candidate = { teacher_report: {}, student_report: {} };
-  const open = { async generateStructured() { calls.push('openrouter'); if (calls.filter((c) => c === 'openrouter').length === 1) throw bad; return { value: validAnalysis(), usage: {}, model: 'or' }; } };
-  const gateway = createStudentAnalysisGateway({ openRouter: open, gemini: provider('gemini') });
+  const gateway = createStudentAnalysisGateway({ gemini: providerError(new AIProviderError('429')), deepseek: provider('deepseek'), openRouter: provider('openrouter') });
+  const result = await gateway.generate(bundle);
+  assert.equal(result.provider, 'deepseek');
+  assert.equal(result.fallback_used, true);
+  assert.deepEqual(calls, ['err', 'deepseek']);
+});
+
+test('falls back to OpenRouter after Gemini and DeepSeek failures', async () => {
+  reset();
+  const gateway = createStudentAnalysisGateway({ gemini: providerError(new AIProviderError('429')), deepseek: providerError(new AIProviderError('500')), openRouter: provider('openrouter') });
   const result = await gateway.generate(bundle);
   assert.equal(result.provider, 'openrouter');
-  assert.deepEqual(calls, ['openrouter', 'openrouter']);
-});
-
-test('falls back to Gemini after retryable OpenRouter failures', async () => {
-  reset();
-  const gateway = createStudentAnalysisGateway({ openRouter: providerError(new AIProviderError('429')), gemini: provider('gemini') });
-  const result = await gateway.generate(bundle);
-  assert.equal(result.provider, 'gemini');
   assert.equal(result.fallback_used, true);
+  assert.deepEqual(calls, ['err', 'err', 'openrouter']);
 });
 
-test('does not fallback for invalid teacher input or missing configuration', async () => {
+test('does not fallback for missing configuration error', async () => {
   reset();
-  const gateway = createStudentAnalysisGateway({ openRouter: providerError(new AIConfigError('missing')), gemini: provider('gemini') });
+  const gateway = createStudentAnalysisGateway({ gemini: providerError(new AIConfigError('missing')), openRouter: provider('openrouter') });
   await assert.rejects(gateway.generate(bundle), (err) => err.code === 'AI_CONFIGURATION_ERROR');
   assert.equal(calls.length, 1);
 });
 
 test('aborts providers at the configured timeout', async () => {
   const slow = { async generateStructured({ signal }) { if (!signal) throw new Error('no signal'); await new Promise((resolve, reject) => { signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))); }); } };
-  const gateway = createStudentAnalysisGateway({ openRouter: slow, gemini: slow, timeoutMs: 5 });
+  const gateway = createStudentAnalysisGateway({ gemini: slow, openRouter: slow, timeoutMs: 5 });
   await assert.rejects(gateway.generate(bundle), /quá thời gian/);
 });
 

@@ -23,22 +23,23 @@ const run = async (provider, args, timeoutMs) => {
   }
 };
 
-export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 45000 }) => ({
+export const createStudentAnalysisGateway = ({ gemini, deepseek, openRouter, timeoutMs = 90000 }) => ({
   async generate(bundle) {
     const allowedEvidenceIds = (bundle?.evidence ?? []).map((item) => item.evidence_id);
     const base = buildStudentAnalysisPrompt(bundle);
     let invalid = null;
     let issues = [];
     const attempts = [
+      ['gemini', gemini, base, false],
+      ['deepseek', deepseek, base, false],
       ['openrouter', openRouter, base, false],
       ['openrouter', openRouter, null, true],
-      ['gemini', gemini, base, false],
     ];
     let lastError;
     let attemptedCount = 0;
     for (const [name, provider, prompt, repair] of attempts) {
       if (repair && !invalid) continue;
-      if (provider?.isConfigured === false) continue;
+      if (!provider || provider?.isConfigured === false) continue;
       attemptedCount++;
       try {
         const request = repair
@@ -46,7 +47,7 @@ export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 4
           : prompt;
         const result = await run(provider, request, timeoutMs);
         const analysis = validateStudentAnalysis(result.value, allowedEvidenceIds);
-        return { analysis, provider: name, model: result.model, usage: result.usage ?? {}, fallback_used: name === 'gemini' };
+        return { analysis, provider: name, model: result.model, usage: result.usage ?? {}, fallback_used: name !== 'gemini' };
       } catch (error) {
         if (error?.code === 'AI_CONFIGURATION_ERROR' || error?.name === 'AIConfigurationError') {
           throw error;
@@ -66,7 +67,7 @@ export const createStudentAnalysisGateway = ({ openRouter, gemini, timeoutMs = 4
       }
     }
     if (attemptedCount === 0) {
-      const configErr = new Error('Thiếu cấu hình API Key AI (OPENROUTER_API_KEY hoặc GEMINI_API_KEY) trên máy chủ.');
+      const configErr = new Error('Thiếu cấu hình API Key AI (GEMINI_API_KEY, DEEPSEEK_API_KEY hoặc OPENROUTER_API_KEY) trên máy chủ.');
       configErr.code = 'AI_CONFIGURATION_ERROR';
       throw configErr;
     }

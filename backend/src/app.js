@@ -134,21 +134,32 @@ app.listen(PORT, () => {
 });
 
 const startStudentAnalysisWorker = async () => {
-  if (process.env.AI_ANALYSIS_WORKER_ENABLED === 'false' || !process.env.OPENROUTER_API_KEY) return;
-  const [{ supabase }, { createStudentEvidenceService }, { createStudentAnalysisGateway }, { createStudentAnalysisWorker }, { createOpenRouterProvider }, { createGeminiProvider }] = await Promise.all([
+  const hasAIKey = Boolean(process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENROUTER_API_KEY);
+  if (process.env.AI_ANALYSIS_WORKER_ENABLED === 'false' || !hasAIKey) return;
+  const [
+    { supabase },
+    { createStudentEvidenceService },
+    { createStudentAnalysisGateway },
+    { createStudentAnalysisWorker },
+    { createGeminiProvider },
+    { createDeepSeekProvider },
+    { createOpenRouterProvider },
+  ] = await Promise.all([
     import('./services/supabaseClient.js'),
     import('./services/studentEvidenceService.js'),
     import('./services/studentAnalysisGateway.js'),
     import('./services/studentAnalysisWorker.js'),
-    import('./ai/providers/openRouterProvider.js'),
     import('./ai/providers/geminiProvider.js'),
+    import('./ai/providers/deepSeekProvider.js'),
+    import('./ai/providers/openRouterProvider.js'),
   ]);
   const worker = createStudentAnalysisWorker({
     db: supabase,
     evidenceService: createStudentEvidenceService(supabase),
     gateway: createStudentAnalysisGateway({
-      openRouter: createOpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL }),
       gemini: createGeminiProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL }),
+      deepseek: createDeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY, model: process.env.DEEPSEEK_MODEL }),
+      openRouter: createOpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL }),
       timeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 90000,
     }),
     workerId: `web-${process.pid}`,
