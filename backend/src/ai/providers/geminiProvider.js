@@ -17,7 +17,7 @@ export const createGeminiProvider = ({ apiKey, model, fetchImpl = fetch } = {}) 
       if (!resolvedKey || !resolvedModel) throw new AIConfigurationError('Thiếu cấu hình Gemini.');
       const response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(resolvedModel)}:generateContent`, {
         method: 'POST', signal, headers: { 'x-goog-api-key': resolvedKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: geminiSchema(schema) } }),
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json' } }),
       });
       if (!response.ok) throw new AIProviderError(`Gemini HTTP ${response.status}`);
       const data = await response.json();
