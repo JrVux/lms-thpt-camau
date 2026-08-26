@@ -13,8 +13,11 @@ import * as statsController from '../controllers/statsController.js';
 import * as competencyController from '../controllers/competencyController.js';
 import * as studentAnalysisController from '../controllers/studentAnalysisController.js';
 import * as aiAssignmentController from '../controllers/aiAssignmentController.js';
+import * as searchController from '../controllers/searchController.js';
 
 const router = Router();
+
+router.get('/api/search', authenticate, searchController.handleGlobalSearch);
 
 // Auth routes
 router.post('/api/register', [

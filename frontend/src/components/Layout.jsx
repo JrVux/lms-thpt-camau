@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import QuickSearch from './QuickSearch';
 import {
   GraduationCap, Users, Home, Search, Moon, Sun,
   LogOut, ChevronDown, Menu, X, Trophy, BarChart3, RefreshCw, Library, FileCode2, Code2,
@@ -174,15 +175,7 @@ const Layout = () => {
         </div>
 
         {/* Search */}
-        <div className="px-4 pb-3">
-          <div className="flex items-center gap-2 rounded-lg border border-brand-border bg-gray-50 px-3 py-2 text-gray-400 dark:border-white/10 dark:bg-white/5">
-            <Search className="h-4 w-4" />
-            <span className="text-sm">Tìm kiếm</span>
-            <kbd className="ml-auto rounded border border-gray-200 bg-white px-1.5 text-[10px] font-medium text-gray-400 dark:border-white/10 dark:bg-white/10">
-              ⌘K
-            </kbd>
-          </div>
-        </div>
+        <QuickSearch onSelectResult={() => setSidebarOpen(false)} />
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto pb-4 scrollbar-thin">
