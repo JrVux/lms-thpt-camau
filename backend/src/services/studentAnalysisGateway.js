@@ -8,7 +8,8 @@ export const isFallbackEligible = (error) =>
 
 const run = async (provider, args, timeoutMs) => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const perAttemptTimeout = Math.min(timeoutMs, 25000);
+  const timer = setTimeout(() => controller.abort(), perAttemptTimeout);
   try {
     return await provider.generateStructured({ ...args, signal: controller.signal });
   } catch (error) {

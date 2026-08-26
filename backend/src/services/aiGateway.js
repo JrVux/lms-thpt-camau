@@ -7,7 +7,8 @@ export class AIProviderError extends Error { constructor(m) { super(m); this.cod
 
 const run = async (provider, args, timeoutMs) => {
   const c = new AbortController();
-  const t = setTimeout(() => c.abort(), timeoutMs);
+  const perAttemptTimeout = Math.min(timeoutMs, 25000);
+  const t = setTimeout(() => c.abort(), perAttemptTimeout);
   try {
     return await provider.generateStructured({ ...args, signal: c.signal });
   } catch (e) {
