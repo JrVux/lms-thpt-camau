@@ -59,7 +59,9 @@ const CreateAssignment = () => {
     setTestCases(next.testCases);
     setAISuggestions(next.suggestions);
     setType(draft.type);
-    setCategory(subjectToCategory(draft.type));
+    if (category !== 'advanced') {
+      setCategory(subjectToCategory(draft.type));
+    }
     setShowAI(false);
   };
 
