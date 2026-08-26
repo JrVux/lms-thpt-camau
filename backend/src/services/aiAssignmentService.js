@@ -1,6 +1,77 @@
-import {createHash} from 'node:crypto';import {PROMPT_VERSION} from '../ai/btcodehsPrompt.js';
-const active=new Set();const hash=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
-export const createAIAssignmentService=({db,gateway})=>({
- async generateDraft({teacherId,input}){if(active.has(teacherId)){const e=new Error('Một yêu cầu AI của bạn đang được xử lý.');e.code='AI_REQUEST_IN_PROGRESS';throw e}active.add(teacherId);const started=Date.now();try{const r=await gateway.generateAssignment(input);await db.from('ai_generation_logs').insert({teacher_id:teacherId,prompt_version:PROMPT_VERSION,provider:r.provider,model:r.model,status:'success',input_tokens:r.usage?.input_tokens??null,output_tokens:r.usage?.output_tokens??null,latency_ms:Date.now()-started,request_hash:hash(input)});return {draft:r.draft,warnings:r.warnings,generation:{provider:r.provider,model:r.model,fallback_used:r.fallback_used}}}catch(error){await db.from('ai_generation_logs').insert({teacher_id:teacherId,prompt_version:PROMPT_VERSION,status:'failed',latency_ms:Date.now()-started,request_hash:hash(input),error_code:error.code||'AI_PROVIDERS_UNAVAILABLE'});throw error}finally{active.delete(teacherId)}},
- async saveProposedCompetencies({teacherId,assignmentId,suggestions}){const {data:a,error:ae}=await db.from('assignments').select('id,teacher_id,type,category').eq('id',assignmentId).maybeSingle();if(ae)throw ae;if(!a||a.teacher_id!==teacherId)throw new Error('Bạn không có quyền chỉnh sửa bài tập này.');const grade={python:'10',sql:'11',html:'12'}[a.type];const codes=[...new Set((suggestions||[]).map(x=>x.code))];if(!codes.length)return [];const {data:skills,error:se}=await db.from('competencies').select('id,code,owner_teacher_id').in('code',codes).eq('subject',a.type).eq('grade',grade).eq('is_active',true);if(se)throw se;const visible=(skills||[]).filter(x=>!x.owner_teacher_id||x.owner_teacher_id===teacherId);const byCode=new Map(visible.map(x=>[x.code,x]));const rows=suggestions.filter(x=>byCode.has(x.code)).map(x=>({assignment_id:assignmentId,competency_id:byCode.get(x.code).id,difficulty:Number(x.difficulty),weight:Number(x.weight),status:'proposed',proposed_by:'ai',reviewed_by:null,reviewed_at:null}));if(!rows.length)return [];const {data,error}=await db.from('assignment_competency_mappings').upsert(rows,{onConflict:'assignment_id,competency_id'}).select();if(error)throw error;return data||[]}
+import { createHash } from 'node:crypto';
+import { PROMPT_VERSION } from '../ai/btcodehsPrompt.js';
+
+const active = new Map();
+const hash = (x) => createHash('sha256').update(JSON.stringify(x)).digest('hex');
+
+export const createAIAssignmentService = ({ db, gateway }) => ({
+  async generateDraft({ teacherId, input }) {
+    const now = Date.now();
+    const lockTime = active.get(teacherId);
+    if (lockTime && (now - lockTime < 30000)) {
+      const e = new Error('Một yêu cầu AI của bạn đang được xử lý. Vui lòng đợi vài giây rồi thử lại.');
+      e.code = 'AI_REQUEST_IN_PROGRESS';
+      throw e;
+    }
+    active.set(teacherId, now);
+    const started = Date.now();
+    try {
+      const r = await gateway.generateAssignment(input);
+      await db.from('ai_generation_logs').insert({
+        teacher_id: teacherId,
+        prompt_version: PROMPT_VERSION,
+        provider: r.provider,
+        model: r.model,
+        status: 'success',
+        input_tokens: r.usage?.input_tokens ?? null,
+        output_tokens: r.usage?.output_tokens ?? null,
+        latency_ms: Date.now() - started,
+        request_hash: hash(input),
+      });
+      return {
+        draft: r.draft,
+        warnings: r.warnings,
+        generation: { provider: r.provider, model: r.model, fallback_used: r.fallback_used },
+      };
+    } catch (error) {
+      await db.from('ai_generation_logs').insert({
+        teacher_id: teacherId,
+        prompt_version: PROMPT_VERSION,
+        status: 'failed',
+        latency_ms: Date.now() - started,
+        request_hash: hash(input),
+        error_code: error.code || 'AI_PROVIDERS_UNAVAILABLE',
+      });
+      throw error;
+    } finally {
+      active.delete(teacherId);
+    }
+  },
+
+  async saveProposedCompetencies({ teacherId, assignmentId, suggestions }) {
+    const { data: a, error: ae } = await db.from('assignments').select('id,teacher_id,type,category').eq('id',assignmentId).maybeSingle();
+    if (ae) throw ae;
+    if (!a || a.teacher_id !== teacherId) throw new Error('Bạn không có quyền chỉnh sửa bài tập này.');
+    const grade = { python: '10', sql: '11', html: '12' }[a.type];
+    const codes = [...new Set((suggestions || []).map((x) => x.code))];
+    if (!codes.length) return [];
+    const { data: skills, error: se } = await db.from('competencies').select('id,code,owner_teacher_id').in('code', codes).eq('subject', a.type).eq('grade', grade).eq('is_active', true);
+    if (se) throw se;
+    const visible = (skills || []).filter((x) => !x.owner_teacher_id || x.owner_teacher_id === teacherId);
+    const byCode = new Map(visible.map((x) => [x.code, x]));
+    const rows = suggestions.filter((x) => byCode.has(x.code)).map((x) => ({
+      assignment_id: assignmentId,
+      competency_id: byCode.get(x.code).id,
+      difficulty: Number(x.difficulty),
+      weight: Number(x.weight),
+      status: 'proposed',
+      proposed_by: 'ai',
+      reviewed_by: null,
+      reviewed_at: null,
+    }));
+    if (!rows.length) return [];
+    const { data, error } = await db.from('assignment_competency_mappings').upsert(rows, { onConflict: 'assignment_id,competency_id' }).select();
+    if (error) throw error;
+    return data || [];
+  },
 });
