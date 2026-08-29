@@ -17,3 +17,13 @@ test('R2 helper uses private S3 signing and fixed expiries', () => {
   assert.match(r2, /900/);
   assert.doesNotMatch(r2, /console\.log\(.*url|console\.log\(.*key/i);
 });
+
+test('upload and confirmation repeat authorization and never return object keys', async () => {
+  const upload = await readFile(new URL('../../supabase/functions/get-upload-url/index.ts', import.meta.url), 'utf8');
+  const confirm = await readFile(new URL('../../supabase/functions/confirm-submission/index.ts', import.meta.url), 'utf8');
+  assert.match(upload, /authorizeStudentDelivery/);
+  assert.match(confirm, /authorizeStudentDelivery/);
+  assert.match(confirm, /headObject/);
+  assert.match(confirm, /create_file_submission/);
+  assert.doesNotMatch(confirm, /object_key\s*:/);
+});
