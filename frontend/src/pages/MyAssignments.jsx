@@ -11,11 +11,16 @@ const subjectColor = (type) => ({ python: 'green', sql: 'purple', html: 'orange'
 const TABS = [
   { key: 'pending', label: 'Cần làm', icon: CalendarClock, color: 'purple' },
   { key: 'submitted', label: 'Đã nộp', icon: CheckCircle2, color: 'green' },
+  { key: 'graded', label: 'Đã chấm', icon: CheckCircle2, color: 'blue' },
   { key: 'overdue', label: 'Quá hạn', icon: AlertTriangle, color: 'orange' },
   { key: 'regrade', label: 'Cần chấm lại', icon: RefreshCcw, color: 'red' },
 ];
 
 const editorPath = (delivery) => {
+  const submissionType = delivery.assignments?.submission_type;
+  if (['practice_file', 'essay'].includes(submissionType)) {
+    return `/deliveries/${delivery.id}/file-submission`;
+  }
   const type = delivery.assignments?.type;
   if (type === 'sql') return `/deliveries/${delivery.id}/sql-practice`;
   if (type === 'html') return `/deliveries/${delivery.id}/html-practice`;
@@ -84,7 +89,15 @@ const MyAssignments = () => {
             <article key={delivery.id} className="group flex flex-col rounded-2xl bg-card p-5 shadow-card ring-1 ring-brand-border transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-semibold tracking-tight text-brand-heading">{assignment.title}</h2>
-                <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
+                <div className="flex items-center gap-1.5">
+                  {['practice_file', 'essay'].includes(assignment.submission_type) ? (
+                    <Badge color={assignment.submission_type === 'essay' ? 'purple' : 'blue'}>
+                      {assignment.submission_type === 'essay' ? 'Tự luận' : 'Thực hành'}
+                    </Badge>
+                  ) : (
+                    <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
+                  )}
+                </div>
               </div>
               <p className="mt-2 text-sm text-brand-muted">
                 {delivery.classes?.name} · {delivery.due_date ? `Hạn ${new Date(delivery.due_date).toLocaleString('vi-VN')}` : 'Không hạn nộp'}

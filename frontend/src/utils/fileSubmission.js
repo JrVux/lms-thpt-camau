@@ -89,17 +89,17 @@ export const buildFileAssignmentPayload = (formState) => {
   };
 };
 
-export const studentFileCard = (delivery) => {
+export const studentFileCard = (delivery = {}) => {
   const assignment = delivery.assignments || {};
   const isEssay = assignment.submission_type === 'essay';
   const badge = isEssay ? 'Tự luận' : 'Thực hành';
 
   const latest = [...(delivery.submissions || [])]
-    .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))[0];
+    .sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0))[0];
 
   let statusText = 'Chưa nộp';
   if (latest) {
-    if (latest.graded_at && latest.score !== null && latest.score !== undefined) {
+    if ((latest.graded_at || delivery.assignment_status === 'graded') && latest.score !== null && latest.score !== undefined) {
       statusText = `Đã chấm: ${latest.score}/${latest.max_score ?? assignment.max_score ?? 10}`;
     } else if (latest.is_late) {
       statusText = 'Đã nộp trễ';
