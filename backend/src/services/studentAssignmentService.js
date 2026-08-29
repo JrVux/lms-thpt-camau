@@ -5,6 +5,11 @@ export const canReceive = (delivery, userId) =>
 export const assignmentStatus = (delivery, now = new Date()) => {
   const latest = [...(delivery.submissions ?? [])]
     .sort((left, right) => new Date(right.submitted_at) - new Date(left.submitted_at))[0];
+  if (latest?.object_key != null || latest?.file_name != null) {
+    if (latest.graded_at) return 'graded';
+    if (latest.is_late) return 'late';
+    return 'submitted';
+  }
   if (latest?.regrade_status === 'required' || latest?.regrade_status === 'failed') return 'regrade';
   if (latest) return 'submitted';
   if (delivery.due_date && new Date(delivery.due_date) < now) return 'overdue';
@@ -123,7 +128,7 @@ export const createStudentAssignmentService = (db) => {
 
       const { data: deliveries, error } = await db
         .from('assignment_deliveries')
-        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)), assignment_recipients(user_id), submissions(id,score,max_score,regrade_status,submitted_at)')
+        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,submission_type,essay_content,allowed_mime_types,max_file_size_mb,allow_late_submission,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)), assignment_recipients(user_id), submissions(id,score,max_score,regrade_status,object_key,file_name,mime_type,file_size,is_late,is_latest,feedback,graded_at,submitted_at)')
         .in('class_id', classIds)
         .eq('is_published', true)
         .eq('submissions.user_id', userId)

@@ -14,6 +14,7 @@ import * as competencyController from '../controllers/competencyController.js';
 import * as studentAnalysisController from '../controllers/studentAnalysisController.js';
 import * as aiAssignmentController from '../controllers/aiAssignmentController.js';
 import * as searchController from '../controllers/searchController.js';
+import * as fileSubmissionController from '../controllers/fileSubmissionController.js';
 
 const router = Router();
 
@@ -81,9 +82,12 @@ router.delete('/api/assignment-library/:id', authenticate, requireRole('teacher'
 router.post('/api/assignment-library/:id/test-cases', authenticate, requireRole('teacher'), assignmentLibraryController.replaceTestCases);
 router.post('/api/assignment-library/:id/deliver', authenticate, requireRole('teacher'), assignmentDeliveryController.deliver);
 router.get('/api/assignment-library/:id/deliveries', authenticate, requireRole('teacher'), assignmentDeliveryController.listForTemplate);
+router.get('/api/assignment-library/:assignmentId/file-submissions', authenticate, requireRole('teacher'), fileSubmissionController.getTeacherRoster);
+router.get('/api/assignment-library/:assignmentId/file-submissions/export', authenticate, requireRole('teacher'), fileSubmissionController.exportReport);
 router.patch('/api/assignment-deliveries/:id', authenticate, requireRole('teacher'), assignmentDeliveryController.update);
 router.post('/api/assignment-deliveries/:id/detach', authenticate, requireRole('teacher'), assignmentDeliveryController.detach);
 router.get('/api/my-assignments', authenticate, requireRole('student'), studentAssignmentController.listMine);
+router.get('/api/file-submissions/deliveries/:deliveryId', authenticate, requireRole('student'), fileSubmissionController.getStudentDelivery);
 router.get('/api/assignment-deliveries/:id', authenticate, requireRole('student'), studentAssignmentController.getDelivery);
 router.post('/api/assignment-deliveries/:id/submit', authenticate, requireRole('student'), studentAssignmentController.submit);
 router.get('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.prepareRegrade);
