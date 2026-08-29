@@ -90,8 +90,7 @@ export default function FileSubmissionManager() {
       setSavingGrade(true);
       setGradeError('');
 
-      await gradeSubmission({
-        submissionId: selectedItem.latest.id,
+      await api.post(`/api/file-submissions/${selectedItem.latest.id}/grade`, {
         score: numScore,
         feedback,
       });

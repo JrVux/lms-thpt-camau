@@ -281,11 +281,41 @@ export const createFileSubmissionService = (db) => {
     throwNotFound('Không tìm thấy file bài nộp.');
   };
 
+  const gradeStudentSubmission = async ({ teacherId, submissionId, score, feedback }) => {
+    const { data: sub, error: subErr } = await db
+      .from('submissions')
+      .select('*, assignment_deliveries!inner(teacher_id)')
+      .eq('id', submissionId)
+      .maybeSingle();
+
+    if (subErr || !sub) throwNotFound('Không tìm thấy bài nộp.');
+    if (sub.assignment_deliveries?.teacher_id !== teacherId) {
+      throwForbidden('Bạn không có quyền chấm bài nộp này.');
+    }
+
+    const now = new Date().toISOString();
+    const { data: updated, error: updateErr } = await db
+      .from('submissions')
+      .update({
+        score,
+        feedback,
+        graded_at: now,
+        graded_by: teacherId,
+      })
+      .eq('id', submissionId)
+      .select()
+      .maybeSingle();
+
+    if (updateErr) throw new Error(updateErr.message);
+    return safeFileSubmission(updated);
+  };
+
   return {
     getStudentDelivery,
     getTeacherRoster,
     exportRows,
     submitStudentFile,
     getSubmissionDownload,
+    gradeStudentSubmission,
   };
 };

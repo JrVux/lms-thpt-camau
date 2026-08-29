@@ -105,3 +105,19 @@ export const downloadFile = async (req, res) => {
     return failure(res, error);
   }
 };
+
+export const gradeFileSubmission = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { score, feedback } = req.body;
+    const submission = await service.gradeStudentSubmission({
+      teacherId: req.user.id,
+      submissionId,
+      score,
+      feedback,
+    });
+    return res.json({ success: true, submission });
+  } catch (error) {
+    return failure(res, error);
+  }
+};

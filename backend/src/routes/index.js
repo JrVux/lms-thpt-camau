@@ -90,6 +90,7 @@ router.get('/api/my-assignments', authenticate, requireRole('student'), studentA
 router.get('/api/file-submissions/deliveries/:deliveryId', authenticate, requireRole('student'), fileSubmissionController.getStudentDelivery);
 router.post('/api/file-submissions/deliveries/:deliveryId/submit', authenticate, requireRole('student'), fileSubmissionController.submitFile);
 router.get('/api/file-submissions/:submissionId/download', authenticate, fileSubmissionController.downloadFile);
+router.post('/api/file-submissions/:submissionId/grade', authenticate, requireRole('teacher'), fileSubmissionController.gradeFileSubmission);
 router.get('/api/assignment-deliveries/:id', authenticate, requireRole('student'), studentAssignmentController.getDelivery);
 router.post('/api/assignment-deliveries/:id/submit', authenticate, requireRole('student'), studentAssignmentController.submit);
 router.get('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.prepareRegrade);
