@@ -6,6 +6,8 @@ import Button from '../components/Button';
 import CompetencyMappingPanel from '../components/CompetencyMappingPanel';
 import AIAssignmentComposer from '../components/AIAssignmentComposer';
 import { applyAIDraft, subjectToCategory } from '../utils/aiAssignmentDraft';
+import FileAssignmentFields from '../components/FileAssignmentFields';
+import { buildFileAssignmentPayload } from '../utils/fileSubmission';
 import { Plus, Trash2, Code, Sparkles } from 'lucide-react';
 
 const LANG_MAP = { python: 'python', sql: 'sql', html: 'html' };
@@ -35,6 +37,19 @@ const CreateAssignment = () => {
     test_code: '',
     max_submissions: '',
     max_score: '',
+  });
+  const [fileSettings, setFileSettings] = useState({
+    submission_type: 'autograde',
+    essay_content: '',
+    allowed_mime_types: [
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'image/jpeg', 'image/png', 'image/webp'
+    ],
+    max_file_size_mb: 25,
+    allow_late_submission: false,
   });
   const [testCases, setTestCases] = useState([
     { input_data: '', expected_output: '', test_name: 'Test 1', points: 1 },
@@ -83,6 +98,19 @@ const CreateAssignment = () => {
           test_code: data.test_code || '',
           max_submissions: data.max_submissions ?? '',
           max_score: data.max_score ?? '',
+        });
+        setFileSettings({
+          submission_type: data.submission_type || 'autograde',
+          essay_content: data.essay_content || '',
+          allowed_mime_types: data.allowed_mime_types || [
+            'application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/jpeg', 'image/png', 'image/webp'
+          ],
+          max_file_size_mb: data.max_file_size_mb || 25,
+          allow_late_submission: Boolean(data.allow_late_submission),
         });
         setType(data.type);
         if (data.category) setCategory(data.category);
@@ -139,6 +167,10 @@ const CreateAssignment = () => {
       setError('Vui lòng nhập tên chủ đề mới');
       return;
     }
+    if (fileSettings.submission_type === 'essay' && !String(fileSettings.essay_content || '').trim()) {
+      setError('Vui lòng nhập đề bài tự luận');
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -153,6 +185,8 @@ const CreateAssignment = () => {
         resolvedTopicId = createdTopic.id;
       }
 
+      const filePayload = buildFileAssignmentPayload(fileSettings);
+
       if (isEdit) {
         const endpoint = isLibraryMode
           ? `/api/assignment-library/${assignmentId}`
@@ -163,20 +197,20 @@ const CreateAssignment = () => {
           category,
           type,
           ...(isLibraryMode ? { topic_id: resolvedTopicId || null } : {}),
-          starter_code: form.starter_code,
-          solution_code: form.solution_code,
-          setup_sql: form.setup_sql,
-          test_code: form.test_code,
+          ...filePayload,
+          starter_code: fileSettings.submission_type === 'autograde' ? form.starter_code : null,
+          solution_code: fileSettings.submission_type === 'autograde' ? form.solution_code : null,
+          setup_sql: fileSettings.submission_type === 'autograde' ? form.setup_sql : null,
+          test_code: fileSettings.submission_type === 'autograde' ? form.test_code : null,
           due_date: form.due_date || null,
           max_submissions: form.max_submissions ? parseInt(form.max_submissions) : null,
           max_score: form.max_score ? parseInt(form.max_score) : 0,
         });
-        if (isLibraryMode) {
-          await api.post(`/api/assignment-library/${assignmentId}/test-cases`, {
-            test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
-          });
-        } else {
-          await api.post(`/api/assignments/${assignmentId}/test-cases`, {
+        if (fileSettings.submission_type === 'autograde') {
+          const tcEndpoint = isLibraryMode
+            ? `/api/assignment-library/${assignmentId}/test-cases`
+            : `/api/assignments/${assignmentId}/test-cases`;
+          await api.post(tcEndpoint, {
             test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
           });
         }
@@ -187,10 +221,11 @@ const CreateAssignment = () => {
           title: form.title,
           description: form.description,
           type,
-          starter_code: form.starter_code,
-          solution_code: form.solution_code,
-          setup_sql: form.setup_sql,
-          test_code: form.test_code,
+          ...filePayload,
+          starter_code: fileSettings.submission_type === 'autograde' ? form.starter_code : null,
+          solution_code: fileSettings.submission_type === 'autograde' ? form.solution_code : null,
+          setup_sql: fileSettings.submission_type === 'autograde' ? form.setup_sql : null,
+          test_code: fileSettings.submission_type === 'autograde' ? form.test_code : null,
           ...(!isLibraryMode && {
             due_date: form.due_date || null,
             max_submissions: form.max_submissions ? parseInt(form.max_submissions) : null,
@@ -198,14 +233,13 @@ const CreateAssignment = () => {
           max_score: form.max_score ? parseInt(form.max_score) : 0,
         });
 
-        if (testCases.some((tc) => tc.expected_output.trim())) {
-          const testEndpoint = isLibraryMode
+        if (fileSettings.submission_type === 'autograde') {
+          const tcEndpoint = isLibraryMode
             ? `/api/assignment-library/${assignment.id}/test-cases`
             : `/api/assignments/${assignment.id}/test-cases`;
-          await api.post(testEndpoint, {
-            test_cases: testCases.filter((tc) => tc.expected_output.trim()),
+          await api.post(tcEndpoint, {
+            test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
           });
-        }
         if (aiSuggestions.length) {
           await api.post(`/api/assignments/${assignment.id}/ai-competencies`, { suggestions: aiSuggestions });
         }
@@ -372,55 +406,61 @@ const CreateAssignment = () => {
           </div>
         </div>
 
-        <SectionCard title="Starter Code" description="Mã khởi tạo học sinh sẽ thấy">
-          <Editor
-            height="250px"
-            language={LANG_MAP[type] || 'python'}
-            value={form.starter_code}
-            onChange={(val) => setForm({ ...form, starter_code: val || '' })}
-            theme="vs-dark"
-            options={{ minimap: { enabled: false }, fontSize: 14 }}
-          />
-        </SectionCard>
+        <FileAssignmentFields value={fileSettings} onChange={setFileSettings} />
 
-        <SectionCard title="Solution Code" description="Ẩn với học sinh">
-          <Editor
-            height="250px"
-            language={LANG_MAP[type] || 'python'}
-            value={form.solution_code}
-            onChange={(val) => setForm({ ...form, solution_code: val || '' })}
-            theme="vs-dark"
-            options={{ minimap: { enabled: false }, fontSize: 14 }}
-          />
-        </SectionCard>
+        {fileSettings.submission_type === 'autograde' && (
+          <>
+            <SectionCard title="Starter Code" description="Mã khởi tạo học sinh sẽ thấy">
+              <Editor
+                height="250px"
+                language={LANG_MAP[type] || 'python'}
+                value={form.starter_code}
+                onChange={(val) => setForm({ ...form, starter_code: val || '' })}
+                theme="vs-dark"
+                options={{ minimap: { enabled: false }, fontSize: 14 }}
+              />
+            </SectionCard>
 
-        {type === 'sql' && (
-          <SectionCard title="Setup SQL" description="Câu lệnh CREATE TABLE và INSERT dữ liệu mẫu cho bài SQL">
-            <Editor
-              height="200px"
-              language="sql"
-              value={form.setup_sql}
-              onChange={(val) => setForm({ ...form, setup_sql: val || '' })}
-              theme="vs-dark"
-              options={{ minimap: { enabled: false }, fontSize: 14 }}
-            />
-          </SectionCard>
+            <SectionCard title="Solution Code" description="Ẩn với học sinh">
+              <Editor
+                height="250px"
+                language={LANG_MAP[type] || 'python'}
+                value={form.solution_code}
+                onChange={(val) => setForm({ ...form, solution_code: val || '' })}
+                theme="vs-dark"
+                options={{ minimap: { enabled: false }, fontSize: 14 }}
+              />
+            </SectionCard>
+
+            {type === 'sql' && (
+              <SectionCard title="Setup SQL" description="Câu lệnh CREATE TABLE và INSERT dữ liệu mẫu cho bài SQL">
+                <Editor
+                  height="200px"
+                  language="sql"
+                  value={form.setup_sql}
+                  onChange={(val) => setForm({ ...form, setup_sql: val || '' })}
+                  theme="vs-dark"
+                  options={{ minimap: { enabled: false }, fontSize: 14 }}
+                />
+              </SectionCard>
+            )}
+
+            {type === 'python' && (
+              <SectionCard title="Test Suites (Python)" description="Viết test cases theo định dạng PythonTestSuite với inputs và expect().with_options(points=X) để đặt điểm từng test" trailing={form.max_score ? `Tổng: ${form.max_score}đ` : 'Nhập "Tổng điểm" bên trên'}>
+                <Editor
+                  height="350px"
+                  language="python"
+                  value={form.test_code}
+                  onChange={(val) => setForm({ ...form, test_code: val || '' })}
+                  theme="vs-dark"
+                  options={{ minimap: { enabled: false }, fontSize: 13 }}
+                />
+              </SectionCard>
+            )}
+          </>
         )}
 
-        {type === 'python' && (
-          <SectionCard title="Test Suites (Python)" description="Viết test cases theo định dạng PythonTestSuite với inputs và expect().with_options(points=X) để đặt điểm từng test" trailing={form.max_score ? `Tổng: ${form.max_score}đ` : 'Nhập "Tổng điểm" bên trên'}>
-            <Editor
-              height="350px"
-              language="python"
-              value={form.test_code}
-              onChange={(val) => setForm({ ...form, test_code: val || '' })}
-              theme="vs-dark"
-              options={{ minimap: { enabled: false }, fontSize: 13 }}
-            />
-          </SectionCard>
-        )}
-
-        {type !== 'python' && (
+        {fileSettings.submission_type === 'autograde' && type !== 'python' && (
           <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-brand-border">
             <div className="mb-4 flex items-center justify-between">
               <div>
