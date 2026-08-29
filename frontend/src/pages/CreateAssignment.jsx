@@ -38,8 +38,9 @@ const CreateAssignment = () => {
     max_submissions: '',
     max_score: '',
   });
+  const querySubmissionType = searchParams.get('submission_type') || (['practice_file', 'essay'].includes(searchParams.get('type')) ? searchParams.get('type') : 'autograde');
   const [fileSettings, setFileSettings] = useState({
-    submission_type: 'autograde',
+    submission_type: querySubmissionType,
     essay_content: '',
     allowed_mime_types: [
       'application/pdf', 'application/msword',

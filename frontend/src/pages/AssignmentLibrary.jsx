@@ -92,8 +92,7 @@ const AssignmentLibrary = () => {
   const visibleAssignments = assignments.filter((a) => {
     if (typeFilter === 'practice_file') return a.submission_type === 'practice_file';
     if (typeFilter === 'essay') return a.submission_type === 'essay';
-    if (typeFilter === 'autograde') return !a.submission_type || a.submission_type === 'autograde';
-    return true;
+    return !a.submission_type || a.submission_type === 'autograde';
   });
 
   const getPageHeader = () => {
@@ -101,17 +100,20 @@ const AssignmentLibrary = () => {
       return {
         title: 'Bài tập Thực hành',
         subtitle: 'Các bài tập nộp file sản phẩm thực hành được giao và quản lý cho từng lớp.',
+        btnLabel: 'Tạo bài thực hành',
       };
     }
     if (typeFilter === 'essay') {
       return {
         title: 'Bài tập Tự luận',
         subtitle: 'Các bài tập tự luận nộp file làm bài được giao và quản lý cho từng lớp.',
+        btnLabel: 'Tạo bài tự luận',
       };
     }
     return {
-      title: 'Kho bài tập',
+      title: 'Kho bài tập (Tự động chấm)',
       subtitle: 'Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.',
+      btnLabel: 'Tạo bài tập',
     };
   };
 
@@ -126,60 +128,30 @@ const AssignmentLibrary = () => {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to={`/assignments/new?category=${activeCategory}${activeTopic !== 'all' ? `&topicId=${activeTopic}` : ''}`}
+            to={`/assignments/new?submission_type=${typeFilter === 'all' ? 'autograde' : typeFilter}&category=${activeCategory}${activeTopic !== 'all' ? `&topicId=${activeTopic}` : ''}`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
           >
             <Plus className="h-4 w-4" />
-            Tạo bài mới
+            {headerInfo.btnLabel}
           </Link>
         </div>
       </div>
 
-      {/* Filter Tabs by Submission Type */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border pb-3">
-        <div className="inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
-          {[
-            { key: 'all', label: 'Tất cả bài tập' },
-            { key: 'autograde', label: '⚡ Tự động chấm' },
-            { key: 'practice_file', label: '📁 Thực hành (File)' },
-            { key: 'essay', label: '📝 Tự luận (File)' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => {
-                const nextParams = new URLSearchParams(searchParams);
-                if (tab.key === 'all') nextParams.delete('type');
-                else nextParams.set('type', tab.key);
-                setSearchParams(nextParams);
-              }}
-              className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                typeFilter === tab.key
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-brand-muted hover:bg-gray-50 hover:text-brand-heading'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category.key}
-              type="button"
-              onClick={() => setActiveCategory(category.key)}
-              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeCategory === category.key
-                  ? 'bg-brand-light text-brand'
-                  : 'text-brand-muted hover:bg-gray-50 hover:text-brand-heading'
-              }`}
-            >
-              {category.label}
-            </button>
-          ))}
-        </div>
+      <div className="inline-flex gap-1 rounded-xl bg-card p-1 shadow-card ring-1 ring-brand-border">
+        {CATEGORIES.map((category) => (
+          <button
+            key={category.key}
+            type="button"
+            onClick={() => setActiveCategory(category.key)}
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeCategory === category.key
+                ? 'bg-brand-light text-brand'
+                : 'text-brand-muted hover:bg-gray-50 hover:text-brand-heading'
+            }`}
+          >
+            {category.label}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

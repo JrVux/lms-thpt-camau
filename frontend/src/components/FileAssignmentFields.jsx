@@ -37,53 +37,12 @@ export default function FileAssignmentFields({ value = {}, onChange }) {
     onChange({ ...value, allowed_mime_types: next });
   };
 
+  if (submissionType === 'autograde') {
+    return null;
+  }
+
   return (
     <div className="space-y-6 bg-slate-800/40 p-6 rounded-xl border border-slate-700/60">
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-3">
-          Hình thức làm bài & nộp bài
-        </label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => handleTypeChange('autograde')}
-            className={`p-3 rounded-lg border text-sm font-medium text-left transition ${
-              submissionType === 'autograde'
-                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
-                : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
-            }`}
-          >
-            <div className="font-semibold mb-1">⚡ Tự động chấm</div>
-            <div className="text-xs opacity-80">Học sinh viết code Python, SQL hoặc HTML, hệ thống chấm điểm tự động.</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTypeChange('practice_file')}
-            className={`p-3 rounded-lg border text-sm font-medium text-left transition ${
-              submissionType === 'practice_file'
-                ? 'bg-blue-500/10 border-blue-500 text-blue-400'
-                : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
-            }`}
-          >
-            <div className="font-semibold mb-1">📁 Thực hành (Nộp File)</div>
-            <div className="text-xs opacity-80">Học sinh nộp sản phẩm/kết quả thực hành dưới dạng file (PDF, Word, Ảnh).</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleTypeChange('essay')}
-            className={`p-3 rounded-lg border text-sm font-medium text-left transition ${
-              submissionType === 'essay'
-                ? 'bg-purple-500/10 border-purple-500 text-purple-400'
-                : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
-            }`}
-          >
-            <div className="font-semibold mb-1">📝 Tự luận (Nộp File)</div>
-            <div className="text-xs opacity-80">Giáo viên soạn đề trên hệ thống, học sinh đọc đề và nộp bài làm bằng file.</div>
-          </button>
-        </div>
-      </div>
 
       {submissionType === 'essay' && (
         <div>

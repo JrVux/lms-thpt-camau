@@ -48,7 +48,7 @@ const MyAssignments = () => {
       const st = d.assignments?.submission_type;
       if (typeFilter === 'practice_file') return st === 'practice_file';
       if (typeFilter === 'essay') return st === 'essay';
-      return true;
+      return !st || st === 'autograde';
     });
   }, [deliveries, typeFilter]);
 
