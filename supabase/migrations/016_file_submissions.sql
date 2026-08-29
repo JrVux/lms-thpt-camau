@@ -100,7 +100,7 @@ DECLARE
   v_inserted RECORD;
 BEGIN
   -- Lock row for concurrency safety
-  PERFORM 1 FROM public.assignment_deliveries WHERE id = p_delivery_id FOR SHARE;
+  PERFORM 1 FROM public.assignment_deliveries ad WHERE ad.id = p_delivery_id FOR SHARE;
 
   SELECT s.id, s.delivery_id, s.user_id, s.object_key, s.file_name, s.mime_type,
          s.file_size, s.submitted_at, s.is_late, s.is_latest, s.score, s.feedback,
@@ -123,9 +123,9 @@ BEGIN
   ) VALUES (
     p_delivery_id, p_user_id, p_object_key, p_file_name, p_mime_type, p_file_size, p_is_late, TRUE, 'submitted'
   )
-  RETURNING s.id, s.delivery_id, s.user_id, s.object_key, s.file_name, s.mime_type,
-            s.file_size, s.submitted_at, s.is_late, s.is_latest, s.score, s.feedback,
-            s.graded_at, s.graded_by
+  RETURNING submissions.id, submissions.delivery_id, submissions.user_id, submissions.object_key, submissions.file_name, submissions.mime_type,
+            submissions.file_size, submissions.submitted_at, submissions.is_late, submissions.is_latest, submissions.score, submissions.feedback,
+            submissions.graded_at, submissions.graded_by
   INTO v_inserted;
 
   RETURN QUERY SELECT v_inserted.id, v_inserted.delivery_id, v_inserted.user_id,
