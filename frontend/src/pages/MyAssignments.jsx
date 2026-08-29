@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
@@ -28,6 +28,9 @@ const editorPath = (delivery) => {
 };
 
 const MyAssignments = () => {
+  const [searchParams] = useSearchParams();
+  const typeFilter = searchParams.get('type') || 'all';
+
   const [deliveries, setDeliveries] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -40,16 +43,32 @@ const MyAssignments = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      const st = d.assignments?.submission_type;
+      if (typeFilter === 'practice_file') return st === 'practice_file';
+      if (typeFilter === 'essay') return st === 'essay';
+      return true;
+    });
+  }, [deliveries, typeFilter]);
+
   const counts = useMemo(() => Object.fromEntries(TABS.map((tab) => [
     tab.key,
-    deliveries.filter((delivery) => delivery.assignment_status === tab.key).length,
-  ])), [deliveries]);
-  const visible = deliveries.filter((delivery) => delivery.assignment_status === activeTab);
+    filteredDeliveries.filter((delivery) => delivery.assignment_status === tab.key).length,
+  ])), [filteredDeliveries]);
+
+  const visible = filteredDeliveries.filter((delivery) => delivery.assignment_status === activeTab);
+
+  const headerTitle = typeFilter === 'practice_file'
+    ? 'Bài tập Thực hành'
+    : typeFilter === 'essay'
+    ? 'Bài tập Tự luận'
+    : 'Bài tập của tôi';
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-brand-heading">Bài tập của tôi</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-brand-heading">{headerTitle}</h1>
         <p className="mt-1 text-sm text-brand-muted">Các bài được giao cho toàn lớp hoặc riêng cho bạn.</p>
       </div>
 

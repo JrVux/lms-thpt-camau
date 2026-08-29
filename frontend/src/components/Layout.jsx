@@ -5,7 +5,7 @@ import api from '../services/api';
 import QuickSearch from './QuickSearch';
 import {
   GraduationCap, Users, Home, Search, Moon, Sun,
-  LogOut, ChevronDown, Menu, X, Trophy, BarChart3, RefreshCw, Library, FileCode2, Code2,
+  LogOut, ChevronDown, Menu, X, Trophy, BarChart3, RefreshCw, Library, FileCode2, Code2, FileText, FileCheck,
 } from 'lucide-react';
 
 const APP_NAME = 'LMS THPT';
@@ -21,9 +21,23 @@ const teacherMenu = [
   },
   {
     label: 'Kho bài tập',
-    subtitle: 'Tạo & giao bài tập',
+    subtitle: 'Tất cả bài tập',
     path: '/assignments',
     icon: Library,
+    section: 'Quản lý',
+  },
+  {
+    label: 'Bài tập Thực hành',
+    subtitle: 'Bài nộp file sản phẩm',
+    path: '/assignments?type=practice_file',
+    icon: FileCheck,
+    section: 'Quản lý',
+  },
+  {
+    label: 'Bài tập Tự luận',
+    subtitle: 'Bài tự luận nộp file',
+    path: '/assignments?type=essay',
+    icon: FileText,
     section: 'Quản lý',
   },
 ];
@@ -38,9 +52,23 @@ const studentMenu = [
   },
   {
     label: 'Bài tập của tôi',
-    subtitle: 'Bài được giao cho bạn',
+    subtitle: 'Tất cả bài tập được giao',
     path: '/assignments',
     icon: FileCode2,
+    section: 'Học tập',
+  },
+  {
+    label: 'Bài tập Thực hành',
+    subtitle: 'Bài thực hành nộp file',
+    path: '/assignments?type=practice_file',
+    icon: FileCheck,
+    section: 'Học tập',
+  },
+  {
+    label: 'Bài tập Tự luận',
+    subtitle: 'Bài tự luận nộp file',
+    path: '/assignments?type=essay',
+    icon: FileText,
     section: 'Học tập',
   },
 ];
@@ -186,34 +214,35 @@ const Layout = () => {
               </p>
               {menu
                 .filter((item) => item.section === section)
-                .map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.path === '/classes'}
-                    className={({ isActive }) =>
-                      `relative mx-3 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
-                        isActive ? 'bg-brand-light dark:bg-brand/15' : 'hover:bg-gray-50 dark:hover:bg-white/5'
-                      }`
-                    }
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-brand" />}
-                        <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white text-brand dark:bg-brand/20' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
-                          <item.icon className="h-4 w-4" />
+                .map((item) => {
+                  const currentFull = location.pathname + location.search;
+                  const isActive = item.path.includes('?')
+                    ? currentFull === item.path
+                    : location.pathname === item.path && !location.search;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={
+                        `relative mx-3 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                          isActive ? 'bg-brand-light dark:bg-brand/15' : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                        }`
+                      }
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      {isActive && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-brand" />}
+                      <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white text-brand dark:bg-brand/20' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                        <item.icon className="h-4 w-4" />
+                      </span>
+                      <span className="flex min-w-0 flex-col">
+                        <span className={`text-sm font-medium ${isActive ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {item.label}
                         </span>
-                        <span className="flex min-w-0 flex-col">
-                          <span className={`text-sm font-medium ${isActive ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>
-                            {item.label}
-                          </span>
-                          <span className="truncate text-xs text-gray-400 dark:text-gray-500">{item.subtitle}</span>
-                        </span>
-                      </>
-                    )}
-                  </NavLink>
-                ))}
+                        <span className="truncate text-xs text-gray-400 dark:text-gray-500">{item.subtitle}</span>
+                      </span>
+                    </NavLink>
+                  );
+                })}
             </div>
           ))}
 
