@@ -27,3 +27,13 @@ test('upload and confirmation repeat authorization and never return object keys'
   assert.match(confirm, /create_file_submission/);
   assert.doesNotMatch(confirm, /object_key\s*:/);
 });
+
+test('download authorizes owner or class teacher and grading is teacher-only', async () => {
+  const download = await readFile(new URL('../../supabase/functions/get-download-url/index.ts', import.meta.url), 'utf8');
+  const grade = await readFile(new URL('../../supabase/functions/grade-submission/index.ts', import.meta.url), 'utf8');
+  assert.match(download, /claims\.role.*student|student.*claims\.role/s);
+  assert.match(download, /authorizeTeacherSubmission/);
+  assert.match(grade, /authorizeTeacherSubmission/);
+  assert.match(grade, /validateScore/);
+  assert.doesNotMatch(download, /objectKey\s*:/);
+});
