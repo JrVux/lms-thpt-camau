@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { uploadBufferToR2 } from './r2Service.js';
 
 export const safeFileName = (fileName) => {
   if (!fileName) return '';
@@ -244,6 +245,13 @@ export const createFileSubmissionService = (db) => {
     });
 
     if (rpcErr) throw new Error(rpcErr.message);
+
+    // Parallel sync to Cloudflare R2 in background
+    uploadBufferToR2({
+      objectKey: `${deliveryId}/${studentId}/${relativePath}`,
+      buffer,
+      mimeType,
+    }).catch(() => {});
 
     const updatedDetail = await getStudentDelivery({ studentId, deliveryId });
     return { success: true, submission, history: updatedDetail.history };
