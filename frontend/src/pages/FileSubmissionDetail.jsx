@@ -47,44 +47,66 @@ export default function FileSubmissionDetail() {
     if (!selectedFile) return;
     setSubmitting(true);
     setSubmitError('');
-    setUploadProgress(0);
+    setUploadProgress(10);
 
     try {
-      // 1. Request presigned PUT URL and upload token from Edge Function
-      const { uploadUrl, uploadToken } = await requestUploadUrl({
-        deliveryId,
-        fileName: selectedFile.name,
-        mimeType: selectedFile.type,
-        fileSize: selectedFile.size,
-      });
-
-      // 2. Upload binary file directly to Cloudflare R2
-      await uploadFileToR2(uploadUrl, selectedFile, (pct) => setUploadProgress(pct));
-
-      // 3. Confirm submission and get updated history
-      const confirmed = await confirmSubmission({ uploadToken });
-      
-      setSelectedFile(null);
-      setUploadProgress(0);
-      setData((prev) => ({
-        ...prev,
-        history: confirmed.history || prev.history,
-      }));
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const fileData = reader.result;
+          const res = await api.post(
+            `/api/file-submissions/deliveries/${deliveryId}/submit`,
+            {
+              fileName: selectedFile.name,
+              mimeType: selectedFile.type,
+              fileSize: selectedFile.size,
+              fileData,
+            },
+            {
+              onUploadProgress: (evt) => {
+                if (evt.total) {
+                  setUploadProgress(Math.round((evt.loaded * 100) / evt.total));
+                }
+              },
+            }
+          );
+          setSelectedFile(null);
+          setUploadProgress(0);
+          setData((prev) => ({
+            ...prev,
+            history: res.data.history || prev.history,
+          }));
+        } catch (err) {
+          setSubmitError(err.response?.data?.message || 'Nộp bài thất bại. Vui lòng thử lại.');
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      reader.onerror = () => {
+        setSubmitError('Không thể đọc file trên thiết bị.');
+        setSubmitting(false);
+      };
+      reader.readAsDataURL(selectedFile);
     } catch (err) {
       setSubmitError(err.message || 'Nộp bài thất bại. Vui lòng thử lại.');
-    } finally {
       setSubmitting(false);
     }
   };
 
   const handleDownloadFile = async (submissionId) => {
     try {
-      const res = await getDownloadUrl(submissionId);
-      if (res?.downloadUrl) {
-        window.open(res.downloadUrl, '_blank');
-      }
+      const response = await api.get(`/api/file-submissions/${submissionId}/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `submission_${submissionId}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (err) {
-      alert(err.message || 'Không thể tải xuống file.');
+      alert(err.response?.data?.message || 'Không thể tải xuống file.');
     }
   };
 

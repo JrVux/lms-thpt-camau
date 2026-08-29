@@ -65,3 +65,43 @@ export const exportReport = async (req, res) => {
     return failure(res, error);
   }
 };
+
+export const submitFile = async (req, res) => {
+  try {
+    const { deliveryId } = req.params;
+    const { fileName, mimeType, fileSize, fileData } = req.body;
+    if (!fileName || !fileData) {
+      return res.status(400).json({ message: 'Thiếu thông tin file nộp.' });
+    }
+    const result = await service.submitStudentFile({
+      studentId: req.user.id,
+      deliveryId,
+      fileName,
+      mimeType,
+      fileSize,
+      fileData,
+    });
+    return res.json(result);
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const downloadFile = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const fileInfo = await service.getSubmissionDownload({
+      userId: req.user.id,
+      userRole: req.user.role,
+      submissionId,
+    });
+    if (fileInfo.type === 'local') {
+      res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileInfo.fileName)}"`);
+      return res.sendFile(fileInfo.filePath);
+    }
+    return res.status(404).json({ message: 'Không tìm thấy file' });
+  } catch (error) {
+    return failure(res, error);
+  }
+};

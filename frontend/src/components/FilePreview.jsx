@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getDownloadUrl } from '../services/edgeFunctions';
+import api from '../services/api';
 import { previewKind } from '../utils/fileSubmission';
 import { Download, ExternalLink, RefreshCw, FileText, Image as ImageIcon } from 'lucide-react';
 
@@ -13,14 +13,11 @@ export default function FilePreview({ submissionId, fileName, mimeType }) {
     try {
       setLoading(true);
       setError('');
-      const res = await getDownloadUrl(submissionId);
-      if (res?.downloadUrl) {
-        setDownloadUrl(res.downloadUrl);
-      } else {
-        setError('Không thể lấy liên kết tải file.');
-      }
+      const res = await api.get(`/api/file-submissions/${submissionId}/download`, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(res.data);
+      setDownloadUrl(blobUrl);
     } catch (err) {
-      setError(err.message || 'Lỗi lấy liên kết xem file.');
+      setError(err.response?.data?.message || err.message || 'Lỗi lấy liên kết xem file.');
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,14 @@
+import fs from 'fs';
+import path from 'path';
+
+export const safeFileName = (fileName) => {
+  if (!fileName) return '';
+  const basename = path.basename(fileName);
+  const normalized = basename.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  const safe = normalized.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return safe.slice(0, 100);
+};
+
 export const safeFileSubmission = (submission) => {
   if (!submission) return null;
   const { object_key, ...safe } = submission;
@@ -181,9 +192,94 @@ export const createFileSubmissionService = (db) => {
     return toExportRows(roster);
   };
 
+  const submitStudentFile = async ({ studentId, deliveryId, fileName, mimeType, fileSize, fileData }) => {
+    const detail = await getStudentDelivery({ studentId, deliveryId });
+    const { delivery, assignment } = detail;
+
+    if (delivery.due_date && new Date() > new Date(delivery.due_date) && !assignment.allow_late_submission) {
+      const err = new Error('Bài tập đã quá hạn nộp.');
+      err.code = 'DEADLINE_PASSED';
+      throw err;
+    }
+
+    if (delivery.max_submissions !== null) {
+      const { count } = await db
+        .from('submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('delivery_id', deliveryId)
+        .eq('user_id', studentId)
+        .not('object_key', 'is', null);
+
+      if (count !== null && count >= delivery.max_submissions) {
+        const err = new Error(`Bạn đã nộp tối đa ${delivery.max_submissions} lần cho phép.`);
+        err.code = 'MAX_SUBMISSIONS_EXCEEDED';
+        throw err;
+      }
+    }
+
+    const safeName = safeFileName(fileName) || 'file.bin';
+    const relativePath = `${deliveryId}_${studentId}_${Date.now()}_${safeName}`;
+    const UPLOADS_DIR = path.join(process.cwd(), 'uploads/submissions');
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+    const filePath = path.join(UPLOADS_DIR, relativePath);
+
+    const base64Clean = (fileData || '').replace(/^data:.*?;base64,/, '');
+    const buffer = Buffer.from(base64Clean, 'base64');
+    fs.writeFileSync(filePath, buffer);
+
+    const isLate = delivery.due_date ? new Date() > new Date(delivery.due_date) : false;
+
+    const { data: submission, error: rpcErr } = await db.rpc('create_file_submission', {
+      p_user_id: studentId,
+      p_assignment_id: assignment.id,
+      p_delivery_id: deliveryId,
+      p_object_key: `local://${relativePath}`,
+      p_file_name: safeName,
+      p_mime_type: mimeType || 'application/octet-stream',
+      p_file_size: buffer.length,
+      p_is_late: isLate,
+      p_max_score: assignment.max_score || 10,
+    });
+
+    if (rpcErr) throw new Error(rpcErr.message);
+
+    const updatedDetail = await getStudentDelivery({ studentId, deliveryId });
+    return { success: true, submission, history: updatedDetail.history };
+  };
+
+  const getSubmissionDownload = async ({ userId, userRole, submissionId }) => {
+    const { data: sub, error: subErr } = await db
+      .from('submissions')
+      .select('*, assignment_deliveries!inner(class_id, teacher_id)')
+      .eq('id', submissionId)
+      .maybeSingle();
+
+    if (subErr || !sub) throwNotFound('Không tìm thấy bài nộp.');
+
+    if (userRole === 'student' && sub.user_id !== userId) {
+      throwForbidden();
+    }
+
+    if (sub.object_key && sub.object_key.startsWith('local://')) {
+      const relativePath = sub.object_key.replace('local://', '');
+      const UPLOADS_DIR = path.join(process.cwd(), 'uploads/submissions');
+      const filePath = path.join(UPLOADS_DIR, relativePath);
+      if (!fs.existsSync(filePath)) {
+        throwNotFound('File không còn tồn tại trên server.');
+      }
+      return { type: 'local', filePath, fileName: sub.file_name, mimeType: sub.mime_type };
+    }
+
+    throwNotFound('Không tìm thấy file bài nộp.');
+  };
+
   return {
     getStudentDelivery,
     getTeacherRoster,
     exportRows,
+    submitStudentFile,
+    getSubmissionDownload,
   };
 };
