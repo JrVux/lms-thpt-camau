@@ -128,16 +128,19 @@ export const createStudentAssignmentService = (db) => {
 
       const { data: deliveries, error } = await db
         .from('assignment_deliveries')
-        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,submission_type,essay_content,allowed_mime_types,max_file_size_mb,allow_late_submission,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)), assignment_recipients(user_id), submissions(id,score,max_score,regrade_status,object_key,file_name,mime_type,file_size,is_late,is_latest,feedback,graded_at,submitted_at)')
+        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,submission_type,essay_content,allowed_mime_types,max_file_size_mb,allow_late_submission,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)), assignment_recipients(user_id), submissions(id,user_id,score,max_score,regrade_status,object_key,file_name,mime_type,file_size,is_late,is_latest,feedback,graded_at,submitted_at)')
         .in('class_id', classIds)
         .eq('is_published', true)
-        .eq('submissions.user_id', userId)
         .order('due_date');
       throwDbError(error);
 
       const visible = (deliveries ?? [])
         .filter((delivery) => canReceive(delivery, userId))
-        .map((delivery) => ({ ...delivery, assignment_status: assignmentStatus(delivery) }));
+        .map((delivery) => {
+          const studentSubmissions = (delivery.submissions ?? []).filter((s) => s.user_id === userId);
+          const deliveryForUser = { ...delivery, submissions: studentSubmissions };
+          return { ...deliveryForUser, assignment_status: assignmentStatus(deliveryForUser) };
+        });
       return status ? visible.filter((delivery) => delivery.assignment_status === status) : visible;
     },
 
