@@ -41,13 +41,17 @@ export const createFileSubmissionService = (db) => {
       .from('assignment_deliveries')
       .select('*, assignments(*), classes(*)')
       .eq('id', deliveryId)
-      .single();
+      .maybeSingle();
 
     if (delErr || !delivery || !delivery.is_published) {
       throwNotFound();
     }
 
     const assignment = delivery.assignments;
+    if (!assignment) {
+      throwNotFound();
+    }
+
     if (!['practice_file', 'essay'].includes(assignment.submission_type)) {
       const err = new Error('Bài tập này không phải dạng nộp file');
       err.code = 'BAD_REQUEST';
@@ -55,23 +59,23 @@ export const createFileSubmissionService = (db) => {
     }
 
     // 2. Check enrollment
-    const { data: enrollment } = await db
+    const { data: enrollment, error: enrollErr } = await db
       .from('enrollments')
       .select('*')
       .eq('class_id', delivery.class_id)
       .eq('user_id', studentId)
-      .single();
+      .maybeSingle();
 
-    if (!enrollment) throwForbidden();
+    if (enrollErr || !enrollment) throwForbidden();
 
     if (delivery.recipient_mode === 'selected') {
-      const { data: recipient } = await db
+      const { data: recipient, error: recErr } = await db
         .from('assignment_recipients')
         .select('*')
         .eq('delivery_id', deliveryId)
         .eq('user_id', studentId)
-        .single();
-      if (!recipient) throwForbidden();
+        .maybeSingle();
+      if (recErr || !recipient) throwForbidden();
     }
 
     // 3. Fetch submissions history
@@ -97,7 +101,7 @@ export const createFileSubmissionService = (db) => {
       .select('*')
       .eq('id', assignmentId)
       .eq('teacher_id', teacherId)
-      .single();
+      .maybeSingle();
 
     if (assignErr || !assignment) throwForbidden('Bạn không có quyền quản lý bài tập này');
 
