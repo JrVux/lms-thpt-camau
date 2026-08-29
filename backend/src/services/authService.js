@@ -72,14 +72,28 @@ export const register = async ({ username, email, password, full_name, role, tea
 
 // Đăng nhập
 export const login = async (credential, password) => {
-  // Tìm user theo email hoặc username
-  const { data: user, error } = await supabase
+  // Tìm user theo email hoặc username với query an toàn
+  let user = null;
+  const { data: userByEmail } = await supabase
     .from('users')
     .select('*')
-    .or(`email.eq.${credential},username.eq.${credential}`)
-    .single();
+    .eq('email', credential)
+    .maybeSingle();
 
-  if (error || !user) {
+  if (userByEmail) {
+    user = userByEmail;
+  } else {
+    const { data: userByUsername } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', credential)
+      .maybeSingle();
+    if (userByUsername) {
+      user = userByUsername;
+    }
+  }
+
+  if (!user) {
     throw new Error('Email/tên đăng nhập hoặc mật khẩu không đúng');
   }
 
