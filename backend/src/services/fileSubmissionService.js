@@ -51,15 +51,15 @@ export const createFileSubmissionService = (db) => {
     // 1. Fetch delivery & assignment
     const { data: delivery, error: delErr } = await db
       .from('assignment_deliveries')
-      .select('*, assignments(*), classes(*)')
+      .select('*, assignments:assignment_id(*), classes:class_id(*)')
       .eq('id', deliveryId)
       .maybeSingle();
 
-    if (delErr || !delivery || !delivery.is_published) {
+    if (delErr || !delivery) {
       throwNotFound();
     }
 
-    const assignment = delivery.assignments;
+    const assignment = delivery.assignments || delivery.assignment;
     if (!assignment) {
       throwNotFound();
     }

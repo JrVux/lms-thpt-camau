@@ -11,7 +11,7 @@ export const buildDeliveryPayload = (classSelections) => {
         recipient_mode: selection.recipient_mode || 'all',
         student_ids: selection.recipient_mode === 'selected' ? studentIds : [],
         due_date: selection.due_date || null,
-        is_published: Boolean(selection.is_published),
+        is_published: selection.is_published !== undefined ? Boolean(selection.is_published) : true,
         max_submissions: selection.max_submissions
           ? Number(selection.max_submissions)
           : null,

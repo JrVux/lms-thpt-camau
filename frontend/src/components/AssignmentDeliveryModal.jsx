@@ -11,7 +11,7 @@ const emptySelection = {
   recipient_mode: 'all',
   student_ids: [],
   due_date: '',
-  is_published: false,
+  is_published: true,
   max_submissions: '',
 };
 
