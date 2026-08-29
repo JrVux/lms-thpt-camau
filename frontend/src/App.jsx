@@ -18,6 +18,7 @@ import HTMLPractice from './pages/HTMLPractice';
 import SQLPractice from './pages/SQLPractice';
 import PythonPractice from './pages/PythonPractice';
 import FileSubmissionDetail from './pages/FileSubmissionDetail';
+import FileSubmissionManager from './pages/FileSubmissionManager';
 import OmniDashboard from './pages/OmniDashboard';
 
 const HomeRedirect = () => {
@@ -48,6 +49,7 @@ const App = () => {
         <Route path="/assignments" element={<AssignmentHome />} />
         <Route path="/assignments/new" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
         <Route path="/assignments/:assignmentId/edit" element={<PrivateRoute role="teacher"><CreateAssignment /></PrivateRoute>} />
+        <Route path="/assignments/:assignmentId/file-submissions" element={<PrivateRoute role="teacher"><FileSubmissionManager /></PrivateRoute>} />
         <Route path="/coding/:id" element={<PrivateRoute><CodingEditor /></PrivateRoute>} />
         <Route path="/python-practice/:id" element={<PrivateRoute><PythonPractice /></PrivateRoute>} />
         <Route path="/sql-editor/:id" element={<PrivateRoute><SqlEditor /></PrivateRoute>} />
