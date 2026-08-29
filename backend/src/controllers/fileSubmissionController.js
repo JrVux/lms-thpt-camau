@@ -8,7 +8,7 @@ const failure = (res, error) => {
     : error.code === 'FORBIDDEN' ? 403
     : error.code === 'BAD_REQUEST' ? 400
     : 500;
-  return res.status(status).json({ message: error.message });
+  return res.status(status).json({ success: false, message: error.message || 'Thao tác không thành công', code: error.code || 'ERROR' });
 };
 
 export const getStudentDelivery = async (req, res) => {

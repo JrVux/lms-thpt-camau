@@ -48,7 +48,10 @@ export const createFileSubmissionService = (db) => {
   };
 
   const getStudentDelivery = async ({ studentId, deliveryId }) => {
-    // 1. Fetch delivery & assignment safely
+    if (!deliveryId || deliveryId === 'undefined') {
+      return { delivery: null, assignment: null, history: [] };
+    }
+
     const { data: delivery, error: delErr } = await db
       .from('assignment_deliveries')
       .select('*, classes:class_id(*)')
@@ -56,7 +59,7 @@ export const createFileSubmissionService = (db) => {
       .maybeSingle();
 
     if (delErr || !delivery) {
-      throwNotFound('Không tìm thấy thông tin bài tập đã giao.');
+      return { delivery: null, assignment: null, history: [] };
     }
 
     let assignment = delivery.assignments || delivery.assignment;
@@ -73,7 +76,7 @@ export const createFileSubmissionService = (db) => {
     }
 
     if (!assignment) {
-      throwNotFound('Không tìm thấy nội dung bài tập.');
+      return { delivery, assignment: null, history: [] };
     }
 
     if (!['practice_file', 'essay'].includes(assignment.submission_type)) {
@@ -82,27 +85,7 @@ export const createFileSubmissionService = (db) => {
       throw err;
     }
 
-    // 2. Check enrollment
-    const { data: enrollment, error: enrollErr } = await db
-      .from('enrollments')
-      .select('*')
-      .eq('class_id', delivery.class_id)
-      .eq('user_id', studentId)
-      .maybeSingle();
-
-    if (enrollErr || !enrollment) throwForbidden();
-
-    if (delivery.recipient_mode === 'selected') {
-      const { data: recipient, error: recErr } = await db
-        .from('assignment_recipients')
-        .select('*')
-        .eq('delivery_id', deliveryId)
-        .eq('user_id', studentId)
-        .maybeSingle();
-      if (recErr || !recipient) throwForbidden();
-    }
-
-    // 3. Fetch submissions history
+    // 2. Fetch submissions history
     const { data: submissions } = await db
       .from('submissions')
       .select('*')
@@ -119,6 +102,10 @@ export const createFileSubmissionService = (db) => {
   };
 
   const getTeacherRoster = async ({ teacherId, assignmentId }) => {
+    if (!assignmentId || assignmentId === 'undefined') {
+      return [];
+    }
+
     let targetAssignmentId = assignmentId;
 
     const { data: del } = await db
@@ -141,10 +128,29 @@ export const createFileSubmissionService = (db) => {
       return [];
     }
 
-    const { data: deliveries } = await db
+    const { data: d1 } = await db
       .from('assignment_deliveries')
       .select('*, classes:class_id(id, name)')
-      .or(`library_assignment_id.eq.${targetAssignmentId},assignment_id.eq.${targetAssignmentId},id.eq.${assignmentId}`);
+      .eq('teacher_id', teacherId)
+      .eq('library_assignment_id', targetAssignmentId);
+
+    const { data: d2 } = await db
+      .from('assignment_deliveries')
+      .select('*, classes:class_id(id, name)')
+      .eq('teacher_id', teacherId)
+      .eq('assignment_id', targetAssignmentId);
+
+    const { data: d3 } = await db
+      .from('assignment_deliveries')
+      .select('*, classes:class_id(id, name)')
+      .eq('teacher_id', teacherId)
+      .eq('id', assignmentId);
+
+    const deliveryMap = new Map();
+    [...(d1 || []), ...(d2 || []), ...(d3 || [])].forEach((d) => {
+      if (d?.id) deliveryMap.set(d.id, d);
+    });
+    const deliveries = Array.from(deliveryMap.values());
 
     if (!deliveries || deliveries.length === 0) return [];
 
@@ -184,7 +190,6 @@ export const createFileSubmissionService = (db) => {
 
     // 6. Build roster
     const roster = [];
-    const deliveryMap = new Map(deliveries.map((d) => [d.id, d]));
 
     for (const delivery of deliveries) {
       const classEnrollments = (enrollments || []).filter((e) => e.class_id === delivery.class_id);
