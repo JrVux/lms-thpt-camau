@@ -107,21 +107,33 @@ export const createFileSubmissionService = (db) => {
   };
 
   const getTeacherRoster = async ({ teacherId, assignmentId }) => {
-    // 1. Check teacher owns library assignment
-    const { data: assignment, error: assignErr } = await db
-      .from('assignments')
+    let targetAssignmentId = assignmentId;
+
+    const { data: del } = await db
+      .from('assignment_deliveries')
       .select('*')
       .eq('id', assignmentId)
-      .eq('teacher_id', teacherId)
       .maybeSingle();
 
-    if (assignErr || !assignment) throwForbidden('Bạn không có quyền quản lý bài tập này');
+    if (del) {
+      targetAssignmentId = del.library_assignment_id || del.assignment_id;
+    }
 
-    // 2. Get all deliveries
+    const { data: assignment } = await db
+      .from('assignments')
+      .select('*')
+      .eq('id', targetAssignmentId)
+      .maybeSingle();
+
+    if (!assignment) {
+      throwNotFound('Không tìm thấy bài tập.');
+    }
+
     const { data: deliveries } = await db
       .from('assignment_deliveries')
-      .select('*, classes(id, name)')
-      .eq('library_assignment_id', assignmentId);
+      .select('*, classes:class_id(id, name)')
+      .eq('teacher_id', teacherId)
+      .or(`library_assignment_id.eq.${targetAssignmentId},assignment_id.eq.${targetAssignmentId}`);
 
     if (!deliveries || deliveries.length === 0) return [];
 
