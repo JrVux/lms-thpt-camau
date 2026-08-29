@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import api from '../services/api';
 import Modal from './Modal';
 import Button from './Button';
@@ -71,12 +72,12 @@ const AssignmentDeliveryList = ({ assignment, open, onClose }) => {
               </div>
               <div className="flex gap-2 text-sm">
                 {['practice_file', 'essay'].includes(assignment.submission_type) && (
-                  <a
-                    href={`/assignments/${assignment.id}/file-submissions`}
+                  <RouterLink
+                    to={`/assignments/${assignment.id}/file-submissions`}
                     className="inline-flex items-center gap-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 text-xs font-medium transition"
                   >
                     Quản lý bài nộp
-                  </a>
+                  </RouterLink>
                 )}
                 <Button size="sm" variant="blue" icon={Link} onClick={() => togglePublish(delivery)}>
                   {delivery.is_published ? 'Thu hồi' : 'Giao ngay'}
