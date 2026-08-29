@@ -233,15 +233,13 @@ export const createFileSubmissionService = (db) => {
     const isLate = delivery.due_date ? new Date() > new Date(delivery.due_date) : false;
 
     const { data: submission, error: rpcErr } = await db.rpc('create_file_submission', {
-      p_user_id: studentId,
-      p_assignment_id: assignment.id,
       p_delivery_id: deliveryId,
+      p_user_id: studentId,
       p_object_key: `local://${relativePath}`,
       p_file_name: safeName,
       p_mime_type: mimeType || 'application/octet-stream',
       p_file_size: buffer.length,
       p_is_late: isLate,
-      p_max_score: assignment.max_score || 10,
     });
 
     if (rpcErr) throw new Error(rpcErr.message);
