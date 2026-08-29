@@ -1,4 +1,4 @@
--- Fix PL/pgSQL parameter ambiguity in create_file_submission function
+-- Fix PL/pgSQL return query structure match in create_file_submission
 CREATE OR REPLACE FUNCTION create_file_submission(
   p_delivery_id UUID,
   p_user_id UUID,
@@ -25,7 +25,7 @@ RETURNS TABLE (
   graded_by UUID
 ) AS $$
 BEGIN
-  -- Lock row for concurrency safety with explicit alias ad.id
+  -- Lock row for concurrency safety
   PERFORM 1 FROM public.assignment_deliveries ad WHERE ad.id = p_delivery_id FOR SHARE;
 
   RETURN QUERY
