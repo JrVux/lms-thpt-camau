@@ -1,5 +1,6 @@
 import { supabase } from '../services/supabaseClient.js';
 import { createAssignmentLibraryService } from '../services/assignmentLibraryService.js';
+import { validateFileAssignment } from '../services/fileAssignmentRules.js';
 
 const service = createAssignmentLibraryService(supabase);
 const CATEGORIES = ['grade_10', 'grade_11', 'grade_12', 'advanced'];
@@ -8,6 +9,9 @@ const TOPIC_NAME_MAX = 100;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const validationMessage = (input, requireAll = false) => {
+  const fileError = validateFileAssignment(input);
+  if (fileError) return fileError;
+
   if ((requireAll || input.category !== undefined) && !CATEGORIES.includes(input.category)) {
     return 'Nhóm bài tập không hợp lệ.';
   }

@@ -1,3 +1,5 @@
+import { normalizeFileAssignment } from './fileAssignmentRules.js';
+
 const SCORING_FIELDS = new Set([
   'starter_code',
   'setup_sql',
@@ -17,6 +19,11 @@ const WRITABLE_FIELDS = new Set([
   'setup_sql',
   'test_code',
   'max_score',
+  'submission_type',
+  'essay_content',
+  'allowed_mime_types',
+  'max_file_size_mb',
+  'allow_late_submission',
 ]);
 
 const throwDbError = (error) => {
@@ -50,7 +57,11 @@ const normalizePayload = (input) => {
   if ('topic_id' in payload && (payload.topic_id === '' || payload.topic_id === null)) {
     payload.topic_id = null;
   }
-  return payload;
+  const fileSettings = normalizeFileAssignment(input);
+  return {
+    ...payload,
+    ...fileSettings,
+  };
 };
 
 const ownedAssignment = async (db, teacherId, assignmentId) => {
