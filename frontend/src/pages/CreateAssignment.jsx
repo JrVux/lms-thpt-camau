@@ -240,6 +240,7 @@ const CreateAssignment = () => {
           await api.post(tcEndpoint, {
             test_cases: testCases.filter((testCase) => testCase.expected_output.trim()),
           });
+        }
         if (aiSuggestions.length) {
           await api.post(`/api/assignments/${assignment.id}/ai-competencies`, { suggestions: aiSuggestions });
         }
