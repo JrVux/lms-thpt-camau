@@ -48,20 +48,32 @@ export const createFileSubmissionService = (db) => {
   };
 
   const getStudentDelivery = async ({ studentId, deliveryId }) => {
-    // 1. Fetch delivery & assignment
+    // 1. Fetch delivery & assignment safely
     const { data: delivery, error: delErr } = await db
       .from('assignment_deliveries')
-      .select('*, assignments:assignment_id(*), classes:class_id(*)')
+      .select('*, classes:class_id(*)')
       .eq('id', deliveryId)
       .maybeSingle();
 
     if (delErr || !delivery) {
-      throwNotFound();
+      throwNotFound('Không tìm thấy thông tin bài tập đã giao.');
     }
 
-    const assignment = delivery.assignments || delivery.assignment;
+    let assignment = delivery.assignments || delivery.assignment;
     if (!assignment) {
-      throwNotFound();
+      const targetId = delivery.assignment_id || delivery.library_assignment_id;
+      if (targetId) {
+        const { data: fetchAssign } = await db
+          .from('assignments')
+          .select('*')
+          .eq('id', targetId)
+          .maybeSingle();
+        assignment = fetchAssign;
+      }
+    }
+
+    if (!assignment) {
+      throwNotFound('Không tìm thấy nội dung bài tập.');
     }
 
     if (!['practice_file', 'essay'].includes(assignment.submission_type)) {
@@ -116,7 +128,7 @@ export const createFileSubmissionService = (db) => {
       .maybeSingle();
 
     if (del) {
-      targetAssignmentId = del.library_assignment_id || del.assignment_id;
+      targetAssignmentId = del.library_assignment_id || del.assignment_id || assignmentId;
     }
 
     const { data: assignment } = await db
@@ -126,14 +138,13 @@ export const createFileSubmissionService = (db) => {
       .maybeSingle();
 
     if (!assignment) {
-      throwNotFound('Không tìm thấy bài tập.');
+      return [];
     }
 
     const { data: deliveries } = await db
       .from('assignment_deliveries')
       .select('*, classes:class_id(id, name)')
-      .eq('teacher_id', teacherId)
-      .or(`library_assignment_id.eq.${targetAssignmentId},assignment_id.eq.${targetAssignmentId}`);
+      .or(`library_assignment_id.eq.${targetAssignmentId},assignment_id.eq.${targetAssignmentId},id.eq.${assignmentId}`);
 
     if (!deliveries || deliveries.length === 0) return [];
 
