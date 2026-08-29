@@ -59,7 +59,7 @@ export const createFileSubmissionService = (db) => {
       .maybeSingle();
 
     if (delErr || !delivery) {
-      return { delivery: null, assignment: null, history: [] };
+      throwNotFound('Không tìm thấy thông tin bài tập đã giao.');
     }
 
     let assignment = delivery.assignments || delivery.assignment;
@@ -76,7 +76,7 @@ export const createFileSubmissionService = (db) => {
     }
 
     if (!assignment) {
-      return { delivery, assignment: null, history: [] };
+      throwNotFound('Không tìm thấy nội dung đề bài tập.');
     }
 
     if (!['practice_file', 'essay'].includes(assignment.submission_type)) {

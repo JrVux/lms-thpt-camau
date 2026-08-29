@@ -118,7 +118,7 @@ export default function FileSubmissionDetail() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.assignment) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <button
@@ -129,16 +129,16 @@ export default function FileSubmissionDetail() {
           <span>Quay lại bài tập của tôi</span>
         </button>
         <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-xl">
-          {error || 'Không tìm thấy bài tập.'}
+          {error || 'Không tìm thấy thông tin chi tiết bài tập.'}
         </div>
       </div>
     );
   }
 
   const { delivery, assignment, history = [] } = data;
-  const isEssay = assignment.submission_type === 'essay';
-  const isOverdue = delivery.due_date && new Date() > new Date(delivery.due_date);
-  const allowLate = assignment.allow_late_submission;
+  const isEssay = assignment?.submission_type === 'essay';
+  const isOverdue = delivery?.due_date && new Date() > new Date(delivery.due_date);
+  const allowLate = assignment?.allow_late_submission;
   const isFormLocked = isOverdue && !allowLate;
 
   const sanitizedEssayHtml = isEssay && assignment.essay_content
