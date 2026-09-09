@@ -171,3 +171,35 @@ const startStudentAnalysisWorker = async () => {
 };
 
 startStudentAnalysisWorker().catch((error) => logger.error({ message: 'Student AI analysis worker failed to start', error: error.message }));
+
+const startEssayGradingWorker = async () => {
+  if (process.env.AI_ESSAY_GRADING_WORKER_ENABLED === 'false' || !process.env.GEMINI_API_KEY) return;
+  const [
+    { supabase },
+    { createSubmissionFileReader },
+    { createEssayGradingGateway },
+    { createEssayGradingWorker },
+    { createGeminiEssayProvider },
+  ] = await Promise.all([
+    import('./services/supabaseClient.js'),
+    import('./services/submissionFileReader.js'),
+    import('./services/essayGradingGateway.js'),
+    import('./services/essayGradingWorker.js'),
+    import('./ai/providers/geminiEssayProvider.js'),
+  ]);
+  const worker = createEssayGradingWorker({
+    db: supabase,
+    fileReader: createSubmissionFileReader(),
+    gateway: createEssayGradingGateway({
+      gemini: createGeminiEssayProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_ESSAY_MODEL }),
+      timeoutMs: Number(process.env.AI_ESSAY_GRADING_TIMEOUT_MS) || 90000,
+    }),
+    workerId: `essay-${process.pid}`,
+    leaseSeconds: Number(process.env.AI_ESSAY_GRADING_LEASE_SECONDS) || 120,
+    maxAttempts: Number(process.env.AI_ESSAY_GRADING_MAX_ATTEMPTS) || 3,
+  });
+  worker.start({ intervalMs: Number(process.env.AI_ESSAY_GRADING_POLL_MS) || 5000 });
+  logger.info('Gemini essay grading worker started');
+};
+
+startEssayGradingWorker().catch((error) => logger.error({ message: 'Essay grading worker failed to start', error: error.message }));

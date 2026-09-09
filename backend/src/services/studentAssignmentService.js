@@ -69,8 +69,21 @@ const throwDbError = (error) => {
 
 const withoutSolution = (assignment) => {
   if (!assignment) return assignment;
-  const { solution_code, ...safe } = assignment;
+  const { solution_code, essay_model_answer, essay_rubric, ...safe } = assignment;
   return safe;
+};
+
+export const redactEssayDelivery = (delivery, publishedReports = new Map()) => {
+  const assignment = delivery?.assignments;
+  if (!assignment) return delivery;
+  const safeAssignment = withoutSolution(assignment);
+  if (!assignment.ai_grading_enabled) return { ...delivery, assignments: safeAssignment };
+  return {
+    ...delivery,
+    assignments: safeAssignment,
+    submissions: (delivery.submissions || []).map((submission) =>
+      toStudentEssaySubmission(submission, publishedReports.get(submission.id), assignment.essay_model_answer)),
+  };
 };
 
 export const createStudentAssignmentService = (db) => {
@@ -109,11 +122,16 @@ export const createStudentAssignmentService = (db) => {
       .eq('user_id', userId)
       .order('submitted_at', { ascending: false });
     throwDbError(submissionError);
-    return {
+    let publishedReports = new Map();
+    if (delivery.assignments?.ai_grading_enabled && submissions?.length) {
+      const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*').in('submission_id', submissions.map((item) => item.id)).not('published_at', 'is', null).order('published_at', { ascending: false });
+      throwDbError(reportsError);
+      publishedReports = new Map((reports || []).map((report) => [report.submission_id, report]));
+    }
+    return redactEssayDelivery({
       ...delivery,
-      assignments: withoutSolution(delivery.assignments),
       submissions: submissions ?? [],
-    };
+    }, publishedReports);
   };
 
   return {
@@ -128,17 +146,24 @@ export const createStudentAssignmentService = (db) => {
 
       const { data: deliveries, error } = await db
         .from('assignment_deliveries')
-        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,submission_type,essay_content,allowed_mime_types,max_file_size_mb,allow_late_submission,starter_code,setup_sql,test_code,max_score,content_version,test_cases(*)), assignment_recipients(user_id), submissions(id,user_id,score,max_score,regrade_status,object_key,file_name,mime_type,file_size,is_late,is_latest,feedback,graded_at,submitted_at)')
+        .select('*, classes(id,name,grade,subject), assignments:assignment_id(id,title,description,type,submission_type,essay_content,allowed_mime_types,max_file_size_mb,allow_late_submission,starter_code,setup_sql,test_code,max_score,content_version,ai_grading_enabled,essay_model_answer,essay_rubric,test_cases(*)), assignment_recipients(user_id), submissions(id,user_id,score,max_score,regrade_status,object_key,file_name,mime_type,file_size,is_late,is_latest,feedback,graded_at,submitted_at)')
         .in('class_id', classIds)
         .eq('is_published', true)
         .order('due_date');
       throwDbError(error);
 
+      const studentSubmissionIds = (deliveries || []).flatMap((delivery) => (delivery.submissions || []).filter((s) => s.user_id === userId).map((s) => s.id));
+      let publishedReports = new Map();
+      if (studentSubmissionIds.length) {
+        const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*').in('submission_id', studentSubmissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
+        throwDbError(reportsError);
+        for (const report of reports || []) if (!publishedReports.has(report.submission_id)) publishedReports.set(report.submission_id, report);
+      }
       const visible = (deliveries ?? [])
         .filter((delivery) => canReceive(delivery, userId))
         .map((delivery) => {
           const studentSubmissions = (delivery.submissions ?? []).filter((s) => s.user_id === userId);
-          const deliveryForUser = { ...delivery, submissions: studentSubmissions };
+          const deliveryForUser = redactEssayDelivery({ ...delivery, submissions: studentSubmissions }, publishedReports);
           return { ...deliveryForUser, assignment_status: assignmentStatus(deliveryForUser) };
         });
       return status ? visible.filter((delivery) => delivery.assignment_status === status) : visible;
@@ -233,3 +258,4 @@ export const createStudentAssignmentService = (db) => {
     },
   };
 };
+import { toStudentEssaySubmission } from './essayGradingService.js';

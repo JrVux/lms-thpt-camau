@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { uploadBufferToR2 } from './r2Service.js';
+import { createEssayGradingService, toStudentEssaySubmission } from './essayGradingService.js';
 
 export const safeFileName = (fileName) => {
   if (!fileName) return '';
@@ -35,6 +36,7 @@ export const toExportRows = (rows) => rows.map((row) => ({
 }));
 
 export const createFileSubmissionService = (db) => {
+  const essayGrading = createEssayGradingService(db);
   const throwNotFound = (msg = 'Không tìm thấy thông tin bài tập') => {
     const err = new Error(msg);
     err.code = 'NOT_FOUND';
@@ -94,10 +96,16 @@ export const createFileSubmissionService = (db) => {
       .not('object_key', 'is', null)
       .order('submitted_at', { ascending: false });
 
+    let history = (submissions || []).map(safeFileSubmission);
+    if (assignment.ai_grading_enabled) {
+      const reports = await essayGrading.publishedReportsBySubmission(history.map((item) => item.id));
+      history = history.map((item) => toStudentEssaySubmission(item, reports.get(item.id), assignment.essay_model_answer));
+    }
+    const { essay_model_answer: _modelAnswer, essay_rubric: _rubric, ...studentAssignment } = assignment;
     return {
       delivery,
-      assignment,
-      history: (submissions || []).map(safeFileSubmission),
+      assignment: studentAssignment,
+      history,
     };
   };
 
@@ -188,6 +196,19 @@ export const createFileSubmissionService = (db) => {
       submissionMap.set(`${s.delivery_id}_${s.user_id}`, safeFileSubmission(s));
     });
 
+    const gradingMap = new Map();
+    if (assignment.ai_grading_enabled && (latestSubmissions || []).length) {
+      const submissionIds = latestSubmissions.map((item) => item.id);
+      const { data: jobs } = await db.from('essay_grading_jobs').select('*').in('submission_id', submissionIds).order('created_at', { ascending: false });
+      const latestJobs = new Map();
+      for (const job of jobs || []) if (!latestJobs.has(job.submission_id)) latestJobs.set(job.submission_id, job);
+      const jobIds = [...latestJobs.values()].map((job) => job.id);
+      let reports = [];
+      if (jobIds.length) ({ data: reports = [] } = await db.from('essay_grading_reports').select('*').in('job_id', jobIds));
+      const reportsByJob = new Map((reports || []).map((report) => [report.job_id, report]));
+      for (const [submissionId, job] of latestJobs) gradingMap.set(submissionId, { job, report: reportsByJob.get(job.id) || null });
+    }
+
     // 6. Build roster
     const roster = [];
 
@@ -209,6 +230,7 @@ export const createFileSubmissionService = (db) => {
           delivery_id: delivery.id,
           status: fileRosterStatus(latest),
           latest,
+          essay_grading: latest ? gradingMap.get(latest.id) || null : null,
         });
       }
     }
@@ -271,6 +293,18 @@ export const createFileSubmissionService = (db) => {
     });
 
     if (rpcErr) throw new Error(rpcErr.message);
+
+    const createdSubmission = Array.isArray(submission) ? submission[0] : submission;
+    if (assignment.ai_grading_enabled && createdSubmission?.id) {
+      const { data: prepared, error: prepareError } = await db
+        .from('submissions')
+        .update({ assignment_id: assignment.id, max_score: assignment.max_score })
+        .eq('id', createdSubmission.id)
+        .select()
+        .maybeSingle();
+      if (prepareError) throw new Error(prepareError.message);
+      await essayGrading.enqueue({ submission: prepared || createdSubmission, assignment, studentId });
+    }
 
     // Parallel sync to Cloudflare R2 in background
     uploadBufferToR2({

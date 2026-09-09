@@ -15,6 +15,7 @@ import * as studentAnalysisController from '../controllers/studentAnalysisContro
 import * as aiAssignmentController from '../controllers/aiAssignmentController.js';
 import * as searchController from '../controllers/searchController.js';
 import * as fileSubmissionController from '../controllers/fileSubmissionController.js';
+import * as essayGradingController from '../controllers/essayGradingController.js';
 
 const router = Router();
 
@@ -84,6 +85,7 @@ router.post('/api/assignment-library/:id/deliver', authenticate, requireRole('te
 router.get('/api/assignment-library/:id/deliveries', authenticate, requireRole('teacher'), assignmentDeliveryController.listForTemplate);
 router.get('/api/assignment-library/:assignmentId/file-submissions', authenticate, requireRole('teacher'), fileSubmissionController.getTeacherRoster);
 router.get('/api/assignment-library/:assignmentId/file-submissions/export', authenticate, requireRole('teacher'), fileSubmissionController.exportReport);
+router.post('/api/assignment-library/:assignmentId/essay-results/publish', authenticate, requireRole('teacher'), essayGradingController.publishEssayResults);
 router.patch('/api/assignment-deliveries/:id', authenticate, requireRole('teacher'), assignmentDeliveryController.update);
 router.post('/api/assignment-deliveries/:id/detach', authenticate, requireRole('teacher'), assignmentDeliveryController.detach);
 router.get('/api/my-assignments', authenticate, requireRole('student'), studentAssignmentController.listMine);
@@ -91,6 +93,9 @@ router.get('/api/file-submissions/deliveries/:deliveryId', authenticate, require
 router.post('/api/file-submissions/deliveries/:deliveryId/submit', authenticate, requireRole('student'), fileSubmissionController.submitFile);
 router.get('/api/file-submissions/:submissionId/download', authenticate, fileSubmissionController.downloadFile);
 router.post('/api/file-submissions/:submissionId/grade', authenticate, requireRole('teacher'), fileSubmissionController.gradeFileSubmission);
+router.get('/api/file-submissions/:submissionId/ai-grading', authenticate, requireRole('teacher'), essayGradingController.getEssayGrading);
+router.patch('/api/file-submissions/:submissionId/ai-grading', authenticate, requireRole('teacher'), essayGradingController.reviewEssayGrading);
+router.post('/api/file-submissions/:submissionId/ai-grading/retry', authenticate, requireRole('teacher'), essayGradingController.retryEssayGrading);
 router.get('/api/assignment-deliveries/:id', authenticate, requireRole('student'), studentAssignmentController.getDelivery);
 router.post('/api/assignment-deliveries/:id/submit', authenticate, requireRole('student'), studentAssignmentController.submit);
 router.get('/api/submissions/:id/regrade', authenticate, requireRole('student'), studentAssignmentController.prepareRegrade);
