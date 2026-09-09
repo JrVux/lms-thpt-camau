@@ -44,6 +44,8 @@ export const validateSubmissionBuffer = (buffer, mimeType, assignment = {}) => {
   return null;
 };
 
+export const singleRelation = (value) => Array.isArray(value) ? value[0] ?? null : value ?? null;
+
 export const studentMayAccessDelivery = (delivery, enrolled, recipients, studentId) => Boolean(enrolled)
   && (delivery?.recipient_mode === 'all' || (recipients || []).some((recipient) => recipient.user_id === studentId));
 
@@ -119,8 +121,9 @@ export const createFileSubmissionService = (db) => {
       .order('submitted_at', { ascending: false });
 
     let history = (submissions || []).map(safeFileSubmission);
-    if (assignment.ai_grading_enabled) {
-      const reports = await essayGrading.publishedReportsBySubmission(history.map((item) => item.id));
+    if (assignment.submission_type === 'essay') {
+      let reports = new Map();
+      try { reports = await essayGrading.publishedReportsBySubmission(history.map((item) => item.id)); } catch { /* Status decoration must not block file access/upload. */ }
       history = history.map((item) => toStudentEssaySubmission(item, reports.get(item.id), assignment.essay_model_answer, assignment.essay_rubric));
     }
     const { essay_model_answer: _modelAnswer, essay_rubric: _rubric, ...studentAssignment } = assignment;
@@ -219,7 +222,7 @@ export const createFileSubmissionService = (db) => {
     });
 
     const gradingMap = new Map();
-    if (assignment.ai_grading_enabled && (latestSubmissions || []).length) {
+    if (assignment.submission_type === 'essay' && (latestSubmissions || []).length) {
       const submissionIds = latestSubmissions.map((item) => item.id);
       const { data: jobs } = await db.from('essay_grading_jobs').select('*').in('submission_id', submissionIds).order('created_at', { ascending: false });
       const latestJobs = new Map();
@@ -244,10 +247,11 @@ export const createFileSubmissionService = (db) => {
         }
 
         const latest = submissionMap.get(`${delivery.id}_${studentId}`) || null;
-        const grading = latest && assignment.ai_grading_enabled ? gradingMap.get(latest.id) || {
-          job: { status: 'not_queued', assignment_id: assignment.id, rubric_snapshot: assignment.essay_rubric || [] },
-          report: null,
-        } : null;
+        const storedGrading = latest ? gradingMap.get(latest.id) || null : null;
+        const grading = storedGrading || (latest && assignment.ai_grading_enabled ? {
+            job: { status: 'not_queued', assignment_id: assignment.id, rubric_snapshot: assignment.essay_rubric || [] },
+            report: null,
+          } : null);
         const latestForTeacher = grading?.report?.published_at ? {
           ...latest,
           score: grading.report.reviewed_score,
@@ -357,8 +361,16 @@ export const createFileSubmissionService = (db) => {
       mimeType,
     }).catch(() => {});
 
-    const updatedDetail = await getStudentDelivery({ studentId, deliveryId });
-    return { success: true, submission, history: updatedDetail.history, ...(assignment.ai_grading_enabled ? { grading_queued: gradingQueued } : {}) };
+    let updatedHistory;
+    try {
+      updatedHistory = (await getStudentDelivery({ studentId, deliveryId })).history;
+    } catch {
+      const createdSafe = assignment.ai_grading_enabled
+        ? toStudentEssaySubmission(createdSubmission, null, null, [])
+        : safeFileSubmission(createdSubmission);
+      updatedHistory = [createdSafe, ...detail.history.filter((item) => item.id !== createdSafe?.id)];
+    }
+    return { success: true, submission: safeFileSubmission(createdSubmission), history: updatedHistory, ...(assignment.ai_grading_enabled ? { grading_queued: gradingQueued } : {}) };
   };
 
   const getSubmissionDownload = async ({ userId, userRole, submissionId }) => {
@@ -394,13 +406,28 @@ export const createFileSubmissionService = (db) => {
   const gradeStudentSubmission = async ({ teacherId, submissionId, score, feedback }) => {
     const { data: sub, error: subErr } = await db
       .from('submissions')
-      .select('*, assignment_deliveries!inner(teacher_id)')
+      .select('*, assignments:assignment_id(submission_type,ai_grading_enabled), assignment_deliveries!inner(teacher_id,assignment_id,library_assignment_id)')
       .eq('id', submissionId)
       .maybeSingle();
 
     if (subErr || !sub) throwNotFound('Không tìm thấy bài nộp.');
-    if (sub.assignment_deliveries?.teacher_id !== teacherId) {
+    const delivery = singleRelation(sub.assignment_deliveries);
+    if (delivery?.teacher_id !== teacherId) {
       throwForbidden('Bạn không có quyền chấm bài nộp này.');
+    }
+    let gradingAssignment = singleRelation(sub.assignments);
+    if (!gradingAssignment) {
+      const targetId = sub.assignment_id || delivery?.library_assignment_id || delivery?.assignment_id;
+      if (targetId) ({ data: gradingAssignment } = await db.from('assignments').select('*').eq('id', targetId).maybeSingle());
+    }
+    if (gradingAssignment?.ai_grading_enabled) {
+      const err = new Error('Bài tự luận AI phải được duyệt và công bố qua quy trình chấm AI.');
+      err.code = 'BAD_REQUEST';
+      throw err;
+    }
+    if (gradingAssignment?.submission_type === 'essay') {
+      const report = await essayGrading.createManualReview({ teacherId, submission: sub, assignment: gradingAssignment, score, feedback });
+      return { ...safeFileSubmission(sub), publication_required: true, essay_grading_report: report };
     }
 
     const now = new Date().toISOString();

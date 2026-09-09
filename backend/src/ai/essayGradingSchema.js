@@ -24,9 +24,15 @@ export class EssayGradeValidationError extends Error {
 }
 
 const nonEmpty = (value) => typeof value === 'string' && value.trim().length > 0;
+const validTextArray = (value, maxItems, maxLength) => Array.isArray(value) && value.length <= maxItems
+  && value.every((item) => nonEmpty(item) && item.length <= maxLength);
 
 export const validateEssayGrade = (value, rubric, maxScore) => {
   if (!value || !Array.isArray(value.criteria_results)) throw new EssayGradeValidationError('Kết quả AI thiếu tiêu chí rubric.');
+  if (!nonEmpty(value.extracted_text) || value.extracted_text.length > 100000 || value.extraction_quality === 'empty') throw new EssayGradeValidationError('Không trích xuất được nội dung bài làm để chấm.');
+  if (!validTextArray(value.extraction_warnings || [], 20, 1000)) throw new EssayGradeValidationError('Cảnh báo trích xuất không hợp lệ.');
+  if (!nonEmpty(value.overall_feedback) || value.overall_feedback.length > 10000) throw new EssayGradeValidationError('Nhận xét tổng hợp không hợp lệ.');
+  if (!validTextArray(value.strengths || [], 20, 2000) || !validTextArray(value.improvements || [], 20, 2000)) throw new EssayGradeValidationError('Danh sách nhận xét không hợp lệ.');
   const expected = new Map(rubric.map((item) => [item.id, Number(item.max_points)]));
   const seen = new Set();
   for (const item of value.criteria_results) {
@@ -37,6 +43,7 @@ export const validateEssayGrade = (value, rubric, maxScore) => {
     if (!Number.isFinite(points) || points < 0 || points > expected.get(item.rubric_item_id)) throw new EssayGradeValidationError('Điểm AI vượt giới hạn rubric.');
     if (!['met', 'partial', 'not_met', 'uncertain'].includes(item.status)) throw new EssayGradeValidationError('Trạng thái tiêu chí không hợp lệ.');
     if (!nonEmpty(item.explanation)) throw new EssayGradeValidationError('Thiếu giải thích tiêu chí.');
+    if (item.explanation.length > 5000 || !Array.isArray(item.evidence_snippets) || item.evidence_snippets.length > 10 || item.evidence_snippets.some((text) => typeof text !== 'string' || text.length > 2000)) throw new EssayGradeValidationError('Giải thích hoặc dẫn chứng tiêu chí không hợp lệ.');
     if (!Number.isFinite(Number(item.confidence)) || item.confidence < 0 || item.confidence > 1) throw new EssayGradeValidationError('Độ tin cậy không hợp lệ.');
   }
   if (seen.size !== expected.size) throw new EssayGradeValidationError('Kết quả AI chưa đủ rubric.');

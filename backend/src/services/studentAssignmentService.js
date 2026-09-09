@@ -78,7 +78,7 @@ export const redactEssayDelivery = (delivery, publishedReports = new Map()) => {
   const assignment = delivery?.assignments;
   if (!assignment) return delivery;
   const safeAssignment = withoutSolution(assignment);
-  if (!assignment.ai_grading_enabled) return { ...delivery, assignments: safeAssignment };
+  if (assignment.submission_type !== 'essay' && !assignment.ai_grading_enabled) return { ...delivery, assignments: safeAssignment };
   return {
     ...delivery,
     assignments: safeAssignment,
@@ -124,7 +124,7 @@ export const createStudentAssignmentService = (db) => {
       .order('submitted_at', { ascending: false });
     throwDbError(submissionError);
     let publishedReports = new Map();
-    if (delivery.assignments?.ai_grading_enabled && submissions?.length) {
+    if (delivery.assignments?.submission_type === 'essay' && submissions?.length) {
       const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot)').in('submission_id', submissions.map((item) => item.id)).not('published_at', 'is', null).order('published_at', { ascending: false });
       throwDbError(reportsError);
       publishedReports = new Map((reports || []).map((report) => [report.submission_id, report]));

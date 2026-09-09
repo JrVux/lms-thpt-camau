@@ -14,3 +14,18 @@ test('report rows contain no private URL fields', () => {
   assert.equal(JSON.stringify(row).includes('url'), false);
   assert.equal(JSON.stringify(row).includes('object_key'), false);
 });
+
+test('filters the teacher roster by AI review and publication states', () => {
+  const aiRows = [
+    { essay_grading: { job: { status: 'grading' }, report: null } },
+    { essay_grading: { job: { status: 'awaiting_review' }, report: { review_status: 'pending' } } },
+    { essay_grading: { job: { status: 'awaiting_review' }, report: { review_status: 'approved', published_at: null } } },
+    { essay_grading: { job: { status: 'awaiting_review' }, report: { review_status: 'approved', published_at: 'now' } } },
+    { essay_grading: { job: { status: 'failed' }, report: null } },
+  ];
+  assert.equal(filterRoster(aiRows, 'ai_processing').length, 1);
+  assert.equal(filterRoster(aiRows, 'ai_review').length, 1);
+  assert.equal(filterRoster(aiRows, 'ai_approved').length, 1);
+  assert.equal(filterRoster(aiRows, 'ai_published').length, 1);
+  assert.equal(filterRoster(aiRows, 'ai_failed').length, 1);
+});

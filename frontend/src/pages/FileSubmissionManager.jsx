@@ -97,10 +97,15 @@ export default function FileSubmissionManager() {
       setSavingGrade(true);
       setGradeError('');
 
-      await api.post(`/api/file-submissions/${selectedItem.latest.id}/grade`, {
+      const response = await api.post(`/api/file-submissions/${selectedItem.latest.id}/grade`, {
         score: numScore,
         feedback,
       });
+
+      if (response.data?.submission?.publication_required) {
+        await loadRoster();
+        return;
+      }
 
       // Update in place
       setRoster((prev) =>
@@ -132,7 +137,7 @@ export default function FileSubmissionManager() {
     }
   };
 
-  const handleAiReview = async (approved) => {
+  const handleAiReview = async (approved, rejected = false) => {
     if (!selectedItem?.latest?.id) return;
     try {
       setSavingGrade(true);
@@ -141,6 +146,7 @@ export default function FileSubmissionManager() {
         criteria_results: criteriaResults,
         feedback,
         approved,
+        rejected,
         show_model_answer: showModelAnswer,
       });
       await loadRoster();
@@ -257,6 +263,13 @@ export default function FileSubmissionManager() {
       <div className="flex items-center space-x-2 overflow-x-auto pb-2">
         {[
           { key: 'all', label: `Tất cả (${roster.length})` },
+          ...(roster.some((item) => item.essay_grading) ? [
+            { key: 'ai_processing', label: `AI đang xử lý (${filterRoster(roster, 'ai_processing').length})` },
+            { key: 'ai_review', label: `Chờ duyệt (${filterRoster(roster, 'ai_review').length})` },
+            { key: 'ai_approved', label: `Đã duyệt (${filterRoster(roster, 'ai_approved').length})` },
+            { key: 'ai_published', label: `Đã công bố (${filterRoster(roster, 'ai_published').length})` },
+            { key: 'ai_failed', label: `Cần xử lý (${filterRoster(roster, 'ai_failed').length})` },
+          ] : []),
           { key: 'submitted', label: `Đã nộp đúng hạn (${roster.filter((r) => r.status === 'submitted').length})` },
           { key: 'late', label: `Nộp trễ (${roster.filter((r) => r.status === 'late').length})` },
           { key: 'graded', label: `Đã chấm (${roster.filter((r) => r.status === 'graded').length})` },
@@ -393,6 +406,7 @@ export default function FileSubmissionManager() {
                   {selectedItem.essay_grading?.job?.status === 'failed' && <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">AI chưa chấm được bài này ({selectedItem.essay_grading.job.error_code || 'AI_ESSAY_FAILED'}). Bài không bị cho 0 điểm.<button type="button" onClick={handleRetryAi} className="ml-2 underline">Chấm lại</button></div>}
                   {selectedItem.essay_grading?.job?.status === 'not_queued' && <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">Bài đã nộp nhưng chưa vào hàng chờ AI. Bài không bị cho 0 điểm.<button type="button" onClick={handleRetryAi} className="ml-2 underline">Đưa vào hàng chờ</button></div>}
                   {selectedItem.essay_grading?.report?.extraction_warnings?.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">Cần kiểm tra bản chụp: {selectedItem.essay_grading.report.extraction_warnings.join('; ')}</div>}
+                  {selectedItem.essay_grading?.report?.extracted_text && <details className="rounded-lg border border-slate-700 bg-slate-950/50 p-3"><summary className="cursor-pointer text-xs font-semibold text-slate-300">Xem nội dung AI đã đọc từ bài làm</summary><div className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-400">{selectedItem.essay_grading.report.extracted_text}</div></details>}
 
                   {gradeError && (
                     <div className="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
@@ -405,7 +419,9 @@ export default function FileSubmissionManager() {
                       const rule = selectedItem.essay_grading.job.rubric_snapshot?.find((item) => item.id === criterion.rubric_item_id);
                       return <div key={criterion.rubric_item_id} className="rounded-lg border border-slate-700 p-3">
                         <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-200">{rule?.title || criterion.rubric_item_id}</span><label className="text-xs text-slate-400"><input type="number" min="0" max={rule?.max_points} step="0.25" value={criterion.awarded_points} onChange={(event) => setCriteriaResults((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, awarded_points: Number(event.target.value) } : item))} className="mr-1 w-20 rounded border border-slate-700 bg-slate-950 p-1 text-right text-slate-100" />/{rule?.max_points}</label></div>
-                        {criterion.feedback && <p className="mt-1 text-xs text-slate-400">{criterion.feedback}</p>}
+                        {(criterion.explanation || criterion.feedback) && <p className="mt-1 text-xs text-slate-400">{criterion.explanation || criterion.feedback}</p>}
+                        {criterion.evidence_snippets?.length > 0 && <p className="mt-1 text-[11px] italic text-slate-500">Dẫn chứng: {criterion.evidence_snippets.join(' · ')}</p>}
+                        {criterion.confidence !== undefined && <p className="mt-1 text-[11px] text-slate-500">Độ tin cậy AI: {Math.round(Number(criterion.confidence) * 100)}%</p>}
                       </div>;
                     })}
                   </div>}
@@ -447,6 +463,7 @@ export default function FileSubmissionManager() {
                     {selectedItem.essay_grading?.job && selectedItem.essay_grading.job.status !== 'not_queued' ? <>
                       {selectedItem.essay_grading.report?.published_at && <button type="button" onClick={() => handlePublish('selected', false, [selectedItem.latest.id])} disabled={savingGrade} className="rounded-xl border border-amber-500/40 px-4 py-2 text-xs font-medium text-amber-200">Thu hồi kết quả</button>}
                       <button type="button" onClick={() => handleAiReview(false)} disabled={savingGrade} className="rounded-xl bg-slate-700 px-4 py-2 text-xs font-medium text-slate-200">Lưu bản duyệt</button>
+                      <button type="button" onClick={() => handleAiReview(false, true)} disabled={savingGrade} className="rounded-xl border border-rose-500/40 px-4 py-2 text-xs font-medium text-rose-200">Từ chối bản chấm</button>
                       <button type="button" onClick={() => handleAiReview(true)} disabled={savingGrade} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-medium text-white">Phê duyệt</button>
                       <button type="button" onClick={() => handlePublish('selected', true, [selectedItem.latest.id])} disabled={savingGrade || selectedItem.essay_grading.report?.review_status !== 'approved'} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white disabled:opacity-40">Công bố bài này</button>
                     </> : selectedItem.essay_grading ? null : <>

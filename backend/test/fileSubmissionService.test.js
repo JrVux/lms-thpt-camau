@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeFileSubmission, fileRosterStatus, toExportRows, validateSubmissionBuffer, studentMayAccessDelivery } from '../src/services/fileSubmissionService.js';
+import { safeFileSubmission, fileRosterStatus, singleRelation, toExportRows, validateSubmissionBuffer, studentMayAccessDelivery } from '../src/services/fileSubmissionService.js';
 
 test('safe projection removes the object key', () => {
   const result = safeFileSubmission({ id: 's1', object_key: 'private/key', file_name: 'a.pdf', score: 8 });
   assert.equal(result.object_key, undefined);
   assert.equal(result.file_name, 'a.pdf');
+});
+
+test('normalizes Supabase many-to-one embeds returned as an object or array', () => {
+  assert.deepEqual(singleRelation({ id: 'a1' }), { id: 'a1' });
+  assert.deepEqual(singleRelation([{ id: 'a1' }]), { id: 'a1' });
+  assert.equal(singleRelation([]), null);
 });
 
 test('student delivery access requires enrollment and selected-recipient membership', () => {

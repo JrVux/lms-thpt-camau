@@ -7,6 +7,7 @@ const CATEGORIES = ['grade_10', 'grade_11', 'grade_12', 'advanced'];
 const TYPES = ['python', 'sql', 'html'];
 const TOPIC_NAME_MAX = 100;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FILE_STATE_FIELDS = new Set(['submission_type', 'essay_content', 'allowed_mime_types', 'max_file_size_mb', 'allow_late_submission', 'ai_grading_enabled', 'essay_model_answer', 'essay_rubric', 'show_model_answer_after_publish', 'max_score']);
 
 const validationMessage = (input, requireAll = false) => {
   const fileError = validateFileAssignment(input);
@@ -73,13 +74,29 @@ export const get = async (req, res) => {
 };
 
 export const update = async (req, res) => {
-  const message = validationMessage(req.body);
-  if (message) return res.status(400).json({ message });
   try {
+    const current = await service.get({ teacherId: req.user.id, assignmentId: req.params.id });
+    const merged = { ...current, ...req.body };
+    const message = validationMessage(merged);
+    if (message) return res.status(400).json({ message });
+    const touchesFileState = Object.keys(req.body).some((field) => FILE_STATE_FIELDS.has(field));
+    const input = touchesFileState ? {
+      ...req.body,
+      submission_type: merged.submission_type,
+      essay_content: merged.essay_content,
+      allowed_mime_types: merged.allowed_mime_types,
+      max_file_size_mb: merged.max_file_size_mb,
+      allow_late_submission: merged.allow_late_submission,
+      ai_grading_enabled: merged.ai_grading_enabled,
+      essay_model_answer: merged.essay_model_answer,
+      essay_rubric: merged.essay_rubric,
+      show_model_answer_after_publish: merged.show_model_answer_after_publish,
+      max_score: merged.max_score,
+    } : req.body;
     return res.json(await service.update({
       teacherId: req.user.id,
       assignmentId: req.params.id,
-      input: req.body,
+      input,
     }));
   } catch (error) {
     return failure(res, error);

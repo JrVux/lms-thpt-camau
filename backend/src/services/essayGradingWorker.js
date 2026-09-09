@@ -37,28 +37,51 @@ export const processEssayJob = async ({ job, assignment, submission, fileReader,
 };
 
 export const createEssayGradingWorker = ({ db, fileReader, gateway, workerId = 'essay-worker', leaseSeconds = 120, maxAttempts = 3, now = () => Date.now() }) => {
-  const updateJob = (id, patch) => db.from('essay_grading_jobs').update(patch).eq('id', id);
+  const updateJob = async (id, patch) => {
+    const { data, error } = await db.from('essay_grading_jobs').update(patch).eq('id', id).eq('lease_owner', workerId).select('id').maybeSingle();
+    if (error) throw new Error(error.message);
+    return Boolean(data);
+  };
   const runOnce = async () => {
     const { data: job, error } = await db.rpc('claim_essay_grading_job', { p_worker_id: workerId, p_lease_seconds: leaseSeconds });
     if (error) throw new Error(error.message);
     if (!job) return { claimed: false };
     try {
-      const [{ data: submission }, { data: assignment }] = await Promise.all([
+      const [submissionResult, assignmentResult] = await Promise.all([
         db.from('submissions').select('*').eq('id', job.submission_id).single(),
         db.from('assignments').select('id,essay_content,max_score,max_file_size_mb,show_model_answer_after_publish').eq('id', job.assignment_id).single(),
       ]);
-      await updateJob(job.id, { status: 'grading', updated_at: new Date(now()).toISOString() });
+      if (submissionResult.error || !submissionResult.data) {
+        const unavailable = new Error('Submission file is unavailable.'); unavailable.code = 'FILE_NOT_AVAILABLE'; throw unavailable;
+      }
+      if (assignmentResult.error || !assignmentResult.data) {
+        const invalid = new Error('Essay grading configuration is unavailable.'); invalid.code = 'AI_CONFIGURATION_ERROR'; throw invalid;
+      }
+      const submission = submissionResult.data;
+      const assignment = assignmentResult.data;
+      const leaseExpiresAt = () => new Date(now() + leaseSeconds * 1000).toISOString();
+      if (!await updateJob(job.id, { status: 'grading', lease_expires_at: leaseExpiresAt(), updated_at: new Date(now()).toISOString() })) {
+        return { claimed: true, jobId: job.id, status: 'lease_lost' };
+      }
       const result = await processEssayJob({ job, assignment, submission, fileReader, gateway });
-      await db.from('essay_grading_reports').upsert(result.report, { onConflict: 'job_id' });
+      if (!await updateJob(job.id, { status: 'grading', lease_expires_at: leaseExpiresAt(), updated_at: new Date(now()).toISOString() })) {
+        return { claimed: true, jobId: job.id, status: 'lease_lost' };
+      }
+      const { error: reportError } = await db.from('essay_grading_reports').upsert(result.report, { onConflict: 'job_id' });
+      if (reportError) throw new Error(reportError.message);
       const completedAt = new Date(now()).toISOString();
-      await updateJob(job.id, { status: 'awaiting_review', provider: result.provider, model: result.model, input_tokens: result.usage?.input_tokens ?? null, output_tokens: result.usage?.output_tokens ?? null, error_code: null, completed_at: completedAt, updated_at: completedAt, lease_owner: null, lease_expires_at: null });
+      if (!await updateJob(job.id, { status: 'awaiting_review', provider: result.provider, model: result.model, input_tokens: result.usage?.input_tokens ?? null, output_tokens: result.usage?.output_tokens ?? null, error_code: null, completed_at: completedAt, updated_at: completedAt, lease_owner: null, lease_expires_at: null })) {
+        return { claimed: true, jobId: job.id, status: 'lease_lost' };
+      }
       await db.from('essay_grading_events').insert({ job_id: job.id, event_type: 'analysis_completed', metadata: { provider: result.provider, model: result.model } });
       return { claimed: true, jobId: job.id, status: 'awaiting_review' };
     } catch (error) {
       const attempt = Number(job.attempt_count || 1);
       const code = safeEssayErrorCode(error);
       const retry = RETRYABLE.has(code) && attempt < maxAttempts;
-      await updateJob(job.id, { status: retry ? 'queued' : 'failed', error_code: code, next_attempt_at: new Date(now() + (retry ? backoffMs(attempt) : 0)).toISOString(), updated_at: new Date(now()).toISOString(), lease_owner: null, lease_expires_at: null });
+      if (!await updateJob(job.id, { status: retry ? 'queued' : 'failed', error_code: code, next_attempt_at: new Date(now() + (retry ? backoffMs(attempt) : 0)).toISOString(), updated_at: new Date(now()).toISOString(), lease_owner: null, lease_expires_at: null })) {
+        return { claimed: true, jobId: job.id, status: 'lease_lost' };
+      }
       await db.from('essay_grading_events').insert({ job_id: job.id, event_type: retry ? 'retry_scheduled' : 'analysis_failed', metadata: { error_code: code } });
       return { claimed: true, jobId: job.id, status: retry ? 'queued' : 'failed', retrying: retry };
     }

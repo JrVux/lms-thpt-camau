@@ -144,6 +144,11 @@ export const studentFileCard = (delivery = {}) => {
 
 export const filterRoster = (roster = [], filterKey = 'all') => {
   if (filterKey === 'all') return roster;
+  if (filterKey === 'ai_processing') return roster.filter((row) => ['queued', 'extracting', 'grading'].includes(row.essay_grading?.job?.status));
+  if (filterKey === 'ai_review') return roster.filter((row) => row.essay_grading?.report?.review_status === 'pending' && !row.essay_grading.report.published_at);
+  if (filterKey === 'ai_approved') return roster.filter((row) => row.essay_grading?.report?.review_status === 'approved' && !row.essay_grading.report.published_at);
+  if (filterKey === 'ai_published') return roster.filter((row) => Boolean(row.essay_grading?.report?.published_at));
+  if (filterKey === 'ai_failed') return roster.filter((row) => ['failed', 'not_queued'].includes(row.essay_grading?.job?.status) || row.essay_grading?.report?.review_status === 'rejected');
   return roster.filter((r) => r.status === filterKey);
 };
 

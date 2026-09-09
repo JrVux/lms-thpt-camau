@@ -93,8 +93,9 @@ ALTER TABLE public.essay_grading_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.essay_grading_jobs, public.essay_grading_reports, public.essay_grading_events
   FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE
-  ON public.essay_grading_jobs, public.essay_grading_reports, public.essay_grading_events
+  ON public.essay_grading_jobs, public.essay_grading_reports
   TO service_role;
+GRANT SELECT, INSERT ON public.essay_grading_events TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_essay_grading_job(
   p_worker_id TEXT,
