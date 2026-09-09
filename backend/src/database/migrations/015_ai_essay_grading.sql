@@ -156,11 +156,27 @@ BEGIN
     description = CASE WHEN p_updates ? 'description' THEN p_updates->>'description' ELSE assignment.description END,
     category = CASE WHEN p_updates ? 'category' THEN p_updates->>'category' ELSE assignment.category END,
     type = CASE WHEN p_updates ? 'type' THEN p_updates->>'type' ELSE assignment.type END,
+    topic_id = CASE
+      WHEN NOT (p_updates ? 'topic_id') THEN assignment.topic_id
+      WHEN p_updates->'topic_id' = 'null'::JSONB THEN NULL
+      ELSE (p_updates->>'topic_id')::UUID
+    END,
     starter_code = CASE WHEN p_updates ? 'starter_code' THEN p_updates->>'starter_code' ELSE assignment.starter_code END,
     solution_code = CASE WHEN p_updates ? 'solution_code' THEN p_updates->>'solution_code' ELSE assignment.solution_code END,
     setup_sql = CASE WHEN p_updates ? 'setup_sql' THEN p_updates->>'setup_sql' ELSE assignment.setup_sql END,
     test_code = CASE WHEN p_updates ? 'test_code' THEN p_updates->>'test_code' ELSE assignment.test_code END,
     max_score = CASE WHEN p_updates ? 'max_score' THEN (p_updates->>'max_score')::INTEGER ELSE assignment.max_score END,
+    due_date = CASE WHEN p_updates ? 'due_date' THEN (p_updates->>'due_date')::TIMESTAMPTZ ELSE assignment.due_date END,
+    max_submissions = CASE
+      WHEN NOT (p_updates ? 'max_submissions') THEN assignment.max_submissions
+      WHEN p_updates->'max_submissions' = 'null'::JSONB THEN NULL
+      ELSE (p_updates->>'max_submissions')::INTEGER
+    END,
+    submission_type = CASE WHEN p_updates ? 'submission_type' THEN p_updates->>'submission_type' ELSE assignment.submission_type END,
+    essay_content = CASE WHEN p_updates ? 'essay_content' THEN p_updates->>'essay_content' ELSE assignment.essay_content END,
+    allowed_mime_types = CASE WHEN p_updates ? 'allowed_mime_types' THEN ARRAY(SELECT jsonb_array_elements_text(p_updates->'allowed_mime_types')) ELSE assignment.allowed_mime_types END,
+    max_file_size_mb = CASE WHEN p_updates ? 'max_file_size_mb' THEN (p_updates->>'max_file_size_mb')::INTEGER ELSE assignment.max_file_size_mb END,
+    allow_late_submission = CASE WHEN p_updates ? 'allow_late_submission' THEN (p_updates->>'allow_late_submission')::BOOLEAN ELSE assignment.allow_late_submission END,
     ai_grading_enabled = CASE WHEN p_updates ? 'ai_grading_enabled' THEN (p_updates->>'ai_grading_enabled')::BOOLEAN ELSE assignment.ai_grading_enabled END,
     essay_model_answer = CASE WHEN p_updates ? 'essay_model_answer' THEN p_updates->>'essay_model_answer' ELSE assignment.essay_model_answer END,
     essay_rubric = CASE WHEN p_updates ? 'essay_rubric' THEN p_updates->'essay_rubric' ELSE assignment.essay_rubric END,
@@ -169,6 +185,13 @@ BEGIN
     updated_at = pg_catalog.now()
   WHERE assignment.id = p_assignment_id;
 
+  UPDATE public.submissions SET regrade_status = 'required', regrade_error = NULL
+  WHERE delivery_id IN (
+    SELECT id FROM public.assignment_deliveries
+    WHERE assignment_id = p_assignment_id
+      OR (library_assignment_id = p_assignment_id AND sync_mode = 'linked')
+  );
+
   RETURN (SELECT pg_catalog.to_jsonb(a) FROM public.assignments a WHERE id = p_assignment_id);
 END;
 $$;
@@ -176,4 +199,3 @@ REVOKE ALL ON FUNCTION public.update_assignment_content(UUID, UUID, JSONB, BOOLE
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.update_assignment_content(UUID, UUID, JSONB, BOOLEAN)
   TO service_role;
-

@@ -6,6 +6,7 @@ export const assignmentStatus = (delivery, now = new Date()) => {
   const latest = [...(delivery.submissions ?? [])]
     .sort((left, right) => new Date(right.submitted_at) - new Date(left.submitted_at))[0];
   if (latest?.object_key != null || latest?.file_name != null) {
+    if (latest.published_result) return 'graded';
     if (latest.graded_at) return 'graded';
     if (latest.is_late) return 'late';
     return 'submitted';

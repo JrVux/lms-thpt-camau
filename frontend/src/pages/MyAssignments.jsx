@@ -53,7 +53,8 @@ const StudentGradebookSummary = ({ deliveries }) => {
         (a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0)
       )[0];
 
-      const score = latestSub?.score != null ? Number(latestSub.score) : null;
+      const publishedResult = latestSub?.published_result;
+      const score = publishedResult?.score != null ? Number(publishedResult.score) : latestSub?.score != null ? Number(latestSub.score) : null;
       const maxScore = Number(latestSub?.max_score || assignment.max_score || 10);
       const isGraded = score != null;
       const isSubmitted = Boolean(latestSub?.submitted_at || latestSub?.object_key);
@@ -83,7 +84,7 @@ const StudentGradebookSummary = ({ deliveries }) => {
         submittedAt: latestSub?.submitted_at,
         score,
         maxScore,
-        feedback: latestSub?.feedback || '',
+        feedback: publishedResult?.feedback || latestSub?.feedback || '',
         isGraded,
         isSubmitted,
         isOverdue,

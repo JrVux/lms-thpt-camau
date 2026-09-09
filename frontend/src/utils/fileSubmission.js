@@ -9,6 +9,14 @@ export const SUPPORTED_FILE_MIME_TYPES = [
   'image/webp',
 ];
 
+export const AI_ESSAY_FILE_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+];
+
 export const formatFileSize = (bytes) => {
   if (!bytes || isNaN(bytes)) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
@@ -80,13 +88,28 @@ export const toReportRows = (roster = []) => {
 
 export const buildFileAssignmentPayload = (formState) => {
   const submissionType = formState.submission_type || 'essay';
-  return {
+  const payload = {
     submission_type: submissionType,
     essay_content: submissionType === 'essay' ? String(formState.essay_content || '').trim() : null,
-    allowed_mime_types: formState.allowed_mime_types || SUPPORTED_FILE_MIME_TYPES,
+    allowed_mime_types: formState.ai_grading_enabled
+      ? AI_ESSAY_FILE_MIME_TYPES.filter((mime) => (formState.allowed_mime_types || AI_ESSAY_FILE_MIME_TYPES).includes(mime))
+      : formState.allowed_mime_types || SUPPORTED_FILE_MIME_TYPES,
     max_file_size_mb: Number(formState.max_file_size_mb || 25),
     allow_late_submission: Boolean(formState.allow_late_submission),
   };
+  if (submissionType === 'essay' && formState.ai_grading_enabled !== undefined) {
+    payload.ai_grading_enabled = Boolean(formState.ai_grading_enabled);
+    payload.essay_model_answer = payload.ai_grading_enabled ? String(formState.essay_model_answer || '').trim() : null;
+    payload.essay_rubric = payload.ai_grading_enabled ? (formState.essay_rubric || []).map((item) => ({
+      id: item.id,
+      title: String(item.title || '').trim(),
+      description: String(item.description || '').trim(),
+      max_points: Number(item.max_points || 0),
+      acceptance_notes: String(item.acceptance_notes || '').trim(),
+    })) : [];
+    payload.show_model_answer_after_publish = payload.ai_grading_enabled && Boolean(formState.show_model_answer_after_publish);
+  }
+  return payload;
 };
 
 export const studentFileCard = (delivery = {}) => {
@@ -99,7 +122,11 @@ export const studentFileCard = (delivery = {}) => {
 
   let statusText = 'Chưa nộp';
   if (latest) {
-    if ((latest.graded_at || delivery.assignment_status === 'graded') && latest.score !== null && latest.score !== undefined) {
+    if (latest.published_result) {
+      statusText = `Đã công bố: ${latest.published_result.score}/${latest.max_score ?? assignment.max_score ?? 10}`;
+    } else if (latest.grading_status === 'under_review' || latest.grading_status === 'processing') {
+      statusText = 'Đã nộp · Đang chấm';
+    } else if ((latest.graded_at || delivery.assignment_status === 'graded') && latest.score !== null && latest.score !== undefined) {
       statusText = `Đã chấm: ${latest.score}/${latest.max_score ?? assignment.max_score ?? 10}`;
     } else if (latest.is_late) {
       statusText = 'Đã nộp trễ';

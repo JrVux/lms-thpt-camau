@@ -20,6 +20,10 @@ for (const path of paths) {
     assert.match(sql, /FOR UPDATE SKIP LOCKED/i);
     assert.match(sql, /claim_essay_grading_job/i);
     assert.match(sql, /TO service_role/i);
+    for (const preservedField of ['topic_id', 'submission_type', 'essay_content', 'allowed_mime_types', 'max_file_size_mb', 'allow_late_submission', 'due_date', 'max_submissions']) {
+      assert.match(sql, new RegExp(`${preservedField}\\s*=\\s*CASE`, 'i'), `replacement RPC must preserve/update ${preservedField}`);
+    }
+    assert.match(sql, /UPDATE public\.submissions SET regrade_status = 'required'/i);
     assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN/i);
   });
 }

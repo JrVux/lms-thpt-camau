@@ -31,6 +31,7 @@ export const processEssayJob = async ({ job, assignment, submission, fileReader,
       ai_strengths: generated.grade.strengths || [],
       ai_improvements: generated.grade.improvements || [],
       review_status: 'pending',
+      show_model_answer: Boolean(assignment.show_model_answer_after_publish),
     },
   };
 };
@@ -44,7 +45,7 @@ export const createEssayGradingWorker = ({ db, fileReader, gateway, workerId = '
     try {
       const [{ data: submission }, { data: assignment }] = await Promise.all([
         db.from('submissions').select('*').eq('id', job.submission_id).single(),
-        db.from('assignments').select('id,essay_content,max_score,max_file_size_mb').eq('id', job.assignment_id).single(),
+        db.from('assignments').select('id,essay_content,max_score,max_file_size_mb,show_model_answer_after_publish').eq('id', job.assignment_id).single(),
       ]);
       await updateJob(job.id, { status: 'grading', updated_at: new Date(now()).toISOString() });
       const result = await processEssayJob({ job, assignment, submission, fileReader, gateway });

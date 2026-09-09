@@ -40,5 +40,11 @@ services:
         value: "90000"
       - key: AI_ANALYSIS_WORKER_ENABLED
         value: "true"
+      - key: AI_ESSAY_GRADING_WORKER_ENABLED
+        value: "true"
+      - key: GEMINI_ESSAY_MODEL
+        value: gemini-3.6-flash
+      - key: AI_ESSAY_GRADING_TIMEOUT_MS
+        value: "90000"
       - key: BRAVE_SEARCH_API_KEY
         sync: false

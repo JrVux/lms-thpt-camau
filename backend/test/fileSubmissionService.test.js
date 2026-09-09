@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeFileSubmission, fileRosterStatus, toExportRows } from '../src/services/fileSubmissionService.js';
+import { safeFileSubmission, fileRosterStatus, toExportRows, validateSubmissionBuffer } from '../src/services/fileSubmissionService.js';
 
 test('safe projection removes the object key', () => {
   const result = safeFileSubmission({ id: 's1', object_key: 'private/key', file_name: 'a.pdf', score: 8 });
   assert.equal(result.object_key, undefined);
   assert.equal(result.file_name, 'a.pdf');
+});
+
+test('AI essays reject disguised files and oversized uploads before persistence', () => {
+  const assignment = { ai_grading_enabled: true, allowed_mime_types: ['image/jpeg'], max_file_size_mb: 1 };
+  assert.match(validateSubmissionBuffer(Buffer.from('not a jpeg'), 'image/jpeg', assignment), /không khớp/i);
+  assert.match(validateSubmissionBuffer(Buffer.alloc(1024 * 1024 + 1), 'image/jpeg', assignment), /dung lượng/i);
+  assert.equal(validateSubmissionBuffer(Buffer.from([0xff, 0xd8, 0xff, 0x00]), 'image/jpeg', assignment), null);
 });
 
 test('roster distinguishes missing, submitted, late, and graded', () => {

@@ -83,7 +83,7 @@ export const createEssayGradingService = (db) => {
   };
 
   const teacherReport = async ({ teacherId, submissionId }) => {
-    const { data: submission, error } = await db.from('submissions').select('*, assignment_deliveries!inner(teacher_id)').eq('id', submissionId).maybeSingle();
+    const { data: submission, error } = await db.from('submissions').select('*, assignment_deliveries!inner(teacher_id,assignment_id,library_assignment_id)').eq('id', submissionId).maybeSingle();
     if (error || !submission) return badRequest('Không tìm thấy bài nộp.');
     if (submission.assignment_deliveries?.teacher_id !== teacherId) {
       const forbidden = new Error('Bạn không có quyền xem kết quả chấm này.');
@@ -98,13 +98,23 @@ export const createEssayGradingService = (db) => {
 
   const saveReview = async ({ teacherId, submissionId, criteriaResults, feedback, approved = false, showModelAnswer = false }) => {
     const context = await teacherReport({ teacherId, submissionId });
-    if (!context.report || !context.job) return badRequest('Bài nộp chưa có bản chấm AI để duyệt.');
+    if (!context.job) return badRequest('Bài nộp chưa có lượt chấm để duyệt.');
+    if (!context.report) {
+      const { data: manualReport, error: insertError } = await db.from('essay_grading_reports').insert({
+        job_id: context.job.id,
+        submission_id: submissionId,
+        source: 'manual',
+        review_status: 'pending',
+        show_model_answer: Boolean(showModelAnswer),
+      }).select().maybeSingle();
+      if (insertError) throw new Error(insertError.message);
+      context.report = manualReport;
+    }
     const score = reviewedScore(criteriaResults, context.job.rubric_snapshot, context.submission.max_score || context.job.rubric_snapshot.reduce((n, item) => n + Number(item.max_points), 0));
     const now = new Date().toISOString();
     const { data, error } = await db.from('essay_grading_reports').update({ reviewed_score: score, reviewed_criteria_results: criteriaResults, reviewed_feedback: feedback || '', review_status: approved ? 'approved' : 'pending', reviewed_by: teacherId, reviewed_at: now, show_model_answer: Boolean(showModelAnswer), updated_at: now }).eq('id', context.report.id).select().maybeSingle();
     if (error) throw new Error(error.message);
-    await db.from('submissions').update({ score, feedback: feedback || '', graded_at: now, graded_by: teacherId }).eq('id', submissionId);
-    await db.from('essay_grading_events').insert({ job_id: context.job.id, report_id: context.report.id, event_type: approved ? 'review_approved' : 'review_saved', actor_id: teacherId, metadata: {} });
+    await db.from('essay_grading_events').insert({ job_id: context.job.id, report_id: context.report.id, event_type: approved ? 'review_approved' : 'review_saved', actor_id: teacherId, metadata: { show_model_answer: Boolean(showModelAnswer), source: context.report.source } });
     return data;
   };
 
@@ -130,8 +140,12 @@ export const createEssayGradingService = (db) => {
 
   const retry = async ({ teacherId, submissionId }) => {
     const context = await teacherReport({ teacherId, submissionId });
-    const { data: assignment } = await db.from('assignments').select('*').eq('id', context.job?.assignment_id || context.submission.assignment_id).maybeSingle();
-    return enqueue({ submission: context.submission, assignment, studentId: context.submission.user_id, requestedBy: teacherId });
+    const assignmentId = context.job?.assignment_id || context.submission.assignment_id || context.submission.assignment_deliveries?.library_assignment_id || context.submission.assignment_deliveries?.assignment_id;
+    const { data: assignment } = await db.from('assignments').select('*').eq('id', assignmentId).maybeSingle();
+    if (!assignment) return badRequest('Không tìm thấy cấu hình bài tự luận.');
+    const prepared = { ...context.submission, assignment_id: assignment.id };
+    await db.from('submissions').update({ assignment_id: assignment.id, max_score: assignment.max_score }).eq('id', submissionId);
+    return enqueue({ submission: prepared, assignment, studentId: context.submission.user_id, requestedBy: teacherId });
   };
 
   return { enqueue, publishedReportsBySubmission, teacherReport, saveReview, setPublished, retry };

@@ -51,6 +51,10 @@ const CreateAssignment = () => {
     ],
     max_file_size_mb: 25,
     allow_late_submission: false,
+    ai_grading_enabled: false,
+    essay_model_answer: '',
+    essay_rubric: [],
+    show_model_answer_after_publish: false,
   });
   const [testCases, setTestCases] = useState([
     { input_data: '', expected_output: '', test_name: 'Test 1', points: 1 },
@@ -112,6 +116,10 @@ const CreateAssignment = () => {
           ],
           max_file_size_mb: data.max_file_size_mb || 25,
           allow_late_submission: Boolean(data.allow_late_submission),
+          ai_grading_enabled: Boolean(data.ai_grading_enabled),
+          essay_model_answer: data.essay_model_answer || '',
+          essay_rubric: data.essay_rubric || [],
+          show_model_answer_after_publish: Boolean(data.show_model_answer_after_publish),
         });
         setType(data.type);
         if (data.category) setCategory(data.category);
@@ -171,6 +179,17 @@ const CreateAssignment = () => {
     if (fileSettings.submission_type === 'essay' && !String(fileSettings.essay_content || '').trim()) {
       setError('Vui lòng nhập đề bài tự luận');
       return;
+    }
+    if (fileSettings.submission_type === 'essay' && fileSettings.ai_grading_enabled) {
+      const rubric = fileSettings.essay_rubric || [];
+      const rubricTotal = rubric.reduce((sum, item) => sum + Number(item.max_points || 0), 0);
+      if (!String(fileSettings.essay_model_answer || '').trim()) { setError('Vui lòng nhập đáp án mẫu để AI chấm bài'); return; }
+      if (!rubric.length || rubric.some((item) => !String(item.title || '').trim() || !String(item.description || '').trim() || Number(item.max_points) <= 0)) {
+        setError('Vui lòng nhập đầy đủ tên, mô tả và điểm cho từng nội dung cốt lõi'); return;
+      }
+      if (!Number(form.max_score) || Math.abs(rubricTotal - Number(form.max_score)) > 0.0001) {
+        setError('Tổng điểm các nội dung cốt lõi phải bằng tổng điểm của bài'); return;
+      }
     }
 
     setSaving(true);
@@ -408,7 +427,7 @@ const CreateAssignment = () => {
           </div>
         </div>
 
-        <FileAssignmentFields value={fileSettings} onChange={setFileSettings} />
+        <FileAssignmentFields value={fileSettings} onChange={setFileSettings} maxScore={form.max_score} />
 
         {fileSettings.submission_type === 'autograde' && (
           <>

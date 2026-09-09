@@ -1,5 +1,6 @@
 import React from 'react';
-import { SUPPORTED_FILE_MIME_TYPES } from '../utils/fileSubmission';
+import { AI_ESSAY_FILE_MIME_TYPES, SUPPORTED_FILE_MIME_TYPES } from '../utils/fileSubmission';
+import EssayAiGradingFields from './EssayAiGradingFields';
 
 const MIME_LABELS = [
   { mime: 'application/pdf', label: 'PDF (.pdf)' },
@@ -12,7 +13,7 @@ const MIME_LABELS = [
   { mime: 'image/webp', label: 'Ảnh WebP (.webp)' },
 ];
 
-export default function FileAssignmentFields({ value = {}, onChange }) {
+export default function FileAssignmentFields({ value = {}, onChange, maxScore }) {
   const submissionType = value.submission_type || 'autograde';
   const essayContent = value.essay_content || '';
   const allowedMimeTypes = value.allowed_mime_types || SUPPORTED_FILE_MIME_TYPES;
@@ -45,7 +46,7 @@ export default function FileAssignmentFields({ value = {}, onChange }) {
     <div className="space-y-6 bg-slate-800/40 p-6 rounded-xl border border-slate-700/60">
 
       {submissionType === 'essay' && (
-        <div>
+        <div className="space-y-5">
           <label className="block text-sm font-medium text-purple-300 mb-2">
             Đề bài tự luận (hỗ trợ định dạng Markdown) <span className="text-rose-400">*</span>
           </label>
@@ -56,6 +57,7 @@ export default function FileAssignmentFields({ value = {}, onChange }) {
             placeholder="Nhập nội dung đề bài tự luận tại đây (dùng định dạng Markdown để tạo tiêu đề, danh sách, công thức...)"
             className="w-full bg-slate-900 border border-purple-500/30 rounded-lg p-3 text-slate-200 text-sm focus:outline-none focus:border-purple-500"
           />
+          <EssayAiGradingFields value={value} onChange={onChange} maxScore={maxScore} />
         </div>
       )}
 
@@ -66,7 +68,7 @@ export default function FileAssignmentFields({ value = {}, onChange }) {
               Định dạng file học sinh được phép nộp
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {MIME_LABELS.map(({ mime, label }) => (
+              {MIME_LABELS.filter(({ mime }) => !value.ai_grading_enabled || AI_ESSAY_FILE_MIME_TYPES.includes(mime)).map(({ mime, label }) => (
                 <label key={mime} className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer bg-slate-900/40 p-2 rounded border border-slate-700/50 hover:bg-slate-800">
                   <input
                     type="checkbox"

@@ -10,6 +10,7 @@ import {
   getDownloadUrl,
 } from '../services/edgeFunctions';
 import FileDropzone from '../components/FileDropzone';
+import EssayPublishedResult from '../components/EssayPublishedResult';
 import { formatFileSize } from '../utils/fileSubmission';
 import { ArrowLeft, Clock, FileText, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -259,7 +260,13 @@ export default function FileSubmissionDetail() {
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 space-y-4">
           <h2 className="text-base font-semibold text-slate-100">Lịch sử nộp bài ({history.length} lần)</h2>
 
-          {latestSubmission?.score !== null && latestSubmission?.score !== undefined && (
+          {latestSubmission?.grading_status && !latestSubmission?.published_result && (
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">Bài đã được ghi nhận và đang chấm. Kết quả chỉ hiển thị sau khi giáo viên phê duyệt và công bố.</div>
+          )}
+
+          <EssayPublishedResult result={latestSubmission?.published_result} maxScore={assignment.max_score || 10} />
+
+          {!latestSubmission?.grading_status && latestSubmission?.score !== null && latestSubmission?.score !== undefined && (
             <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-emerald-400">Kết quả đánh giá từ giáo viên</span>

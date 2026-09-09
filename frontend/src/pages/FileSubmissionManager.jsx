@@ -31,12 +31,15 @@ export default function FileSubmissionManager() {
   const [roster, setRoster] = useState([]);
   const [filterKey, setFilterKey] = useState('all');
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState([]);
 
   // Grading form state
   const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
   const [savingGrade, setSavingGrade] = useState(false);
   const [gradeError, setGradeError] = useState('');
+  const [criteriaResults, setCriteriaResults] = useState([]);
+  const [showModelAnswer, setShowModelAnswer] = useState(false);
 
   const loadRoster = async () => {
     try {
@@ -64,12 +67,16 @@ export default function FileSubmissionManager() {
 
   useEffect(() => {
     if (selectedItem?.latest) {
-      setScore(selectedItem.latest.score ?? '');
-      setFeedback(selectedItem.latest.feedback ?? '');
+      const report = selectedItem.essay_grading?.report;
+      setScore(report?.reviewed_score ?? report?.ai_score ?? selectedItem.latest.score ?? '');
+      setFeedback(report?.reviewed_feedback ?? report?.ai_overall_feedback ?? selectedItem.latest.feedback ?? '');
+      setCriteriaResults(report?.reviewed_criteria_results ?? report?.ai_criteria_results ?? selectedItem.essay_grading?.job?.rubric_snapshot?.map((item) => ({ rubric_item_id: item.id, awarded_points: 0, status: 'uncertain', explanation: 'Giáo viên chấm thủ công', evidence_snippets: [], confidence: 1 })) ?? []);
+      setShowModelAnswer(Boolean(report?.show_model_answer));
       setGradeError('');
     } else {
       setScore('');
       setFeedback('');
+      setCriteriaResults([]);
       setGradeError('');
     }
   }, [selectedIndex, selectedItem]);
@@ -123,6 +130,43 @@ export default function FileSubmissionManager() {
     } finally {
       setSavingGrade(false);
     }
+  };
+
+  const handleAiReview = async (approved) => {
+    if (!selectedItem?.latest?.id) return;
+    try {
+      setSavingGrade(true);
+      setGradeError('');
+      await api.patch(`/api/file-submissions/${selectedItem.latest.id}/ai-grading`, {
+        criteria_results: criteriaResults,
+        feedback,
+        approved,
+        show_model_answer: showModelAnswer,
+      });
+      await loadRoster();
+    } catch (err) {
+      setGradeError(err.response?.data?.message || 'Không thể lưu bản duyệt.');
+    } finally { setSavingGrade(false); }
+  };
+
+  const handleRetryAi = async () => {
+    try {
+      setSavingGrade(true);
+      await api.post(`/api/file-submissions/${selectedItem.latest.id}/ai-grading/retry`);
+      await loadRoster();
+    } catch (err) { setGradeError(err.response?.data?.message || 'Không thể yêu cầu AI chấm lại.'); }
+    finally { setSavingGrade(false); }
+  };
+
+  const handlePublish = async (mode, published = true, ids = selectedSubmissionIds) => {
+    try {
+      setSavingGrade(true);
+      setGradeError('');
+      await api.post(`/api/assignment-library/${assignmentId}/essay-results/publish`, { mode, submission_ids: ids, published });
+      setSelectedSubmissionIds([]);
+      await loadRoster();
+    } catch (err) { setGradeError(err.response?.data?.message || 'Không thể cập nhật trạng thái công bố.'); }
+    finally { setSavingGrade(false); }
   };
 
   const handleExportCsv = async () => {
@@ -182,6 +226,10 @@ export default function FileSubmissionManager() {
         </div>
 
         <div className="flex items-center space-x-2">
+          {roster.some((item) => item.essay_grading) && <>
+            <button onClick={() => handlePublish('selected')} disabled={!selectedSubmissionIds.length || savingGrade} className="rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-medium text-white disabled:opacity-40">Công bố đã chọn ({selectedSubmissionIds.length})</button>
+            <button onClick={() => handlePublish('all')} disabled={savingGrade} className="rounded-xl border border-violet-500/50 px-3.5 py-2 text-xs font-medium text-violet-200">Công bố tất cả đã duyệt</button>
+          </>}
           <button
             onClick={handleExportCsv}
             className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium transition"
@@ -240,6 +288,7 @@ export default function FileSubmissionManager() {
               <table className="w-full text-left text-sm text-slate-300">
                 <thead className="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700/60">
                   <tr>
+                    <th className="p-3.5">Chọn</th>
                     <th className="p-3.5">Học sinh</th>
                     <th className="p-3.5">Lớp</th>
                     <th className="p-3.5">Trạng thái</th>
@@ -257,6 +306,9 @@ export default function FileSubmissionManager() {
                           isSelected ? 'bg-blue-500/10 border-l-4 border-l-blue-500' : ''
                         }`}
                       >
+                        <td className="p-3.5" onClick={(event) => event.stopPropagation()}>
+                          {item.latest?.id && item.essay_grading && <input type="checkbox" checked={selectedSubmissionIds.includes(item.latest.id)} onChange={(event) => setSelectedSubmissionIds((current) => event.target.checked ? [...new Set([...current, item.latest.id])] : current.filter((id) => id !== item.latest.id))} />}
+                        </td>
                         <td className="p-3.5 font-medium text-slate-100">
                           {item.student_name}
                         </td>
@@ -264,6 +316,10 @@ export default function FileSubmissionManager() {
                           {item.class_name}
                         </td>
                         <td className="p-3.5">
+                          {item.essay_grading?.job?.status === 'awaiting_review' && <span className="mr-1 rounded border border-violet-500/30 bg-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-300">AI chờ duyệt</span>}
+                          {item.essay_grading?.job?.status === 'failed' && <span className="mr-1 rounded border border-rose-500/30 bg-rose-500/20 px-2 py-0.5 text-xs font-medium text-rose-300">AI lỗi</span>}
+                          {item.essay_grading?.job?.status === 'not_queued' && <span className="mr-1 rounded border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">Chưa vào hàng chờ</span>}
+                          {item.essay_grading?.report?.published_at && <span className="mr-1 rounded border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-300">Đã công bố</span>}
                           {item.status === 'graded' && (
                             <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs px-2 py-0.5 rounded font-medium">
                               Đã chấm
@@ -286,14 +342,14 @@ export default function FileSubmissionManager() {
                           )}
                         </td>
                         <td className="p-3.5 font-semibold text-slate-200">
-                          {item.latest?.score !== null && item.latest?.score !== undefined ? `${item.latest.score}đ` : '-'}
+                          {item.essay_grading?.report?.reviewed_score ?? item.essay_grading?.report?.ai_score ?? item.latest?.score ?? '-'}{(item.essay_grading?.report || item.latest?.score !== undefined) ? 'đ' : ''}
                         </td>
                       </tr>
                     );
                   })}
                   {filteredRoster.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-500 text-sm">
+                      <td colSpan={5} className="p-8 text-center text-slate-500 text-sm">
                         Không tìm thấy học sinh phù hợp bộ lọc.
                       </td>
                     </tr>
@@ -332,13 +388,27 @@ export default function FileSubmissionManager() {
 
                 {/* Grading Form */}
                 <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-700/60 space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-200">Chấm điểm & Nhận xét</h3>
+                  <h3 className="text-sm font-semibold text-slate-200">{selectedItem.essay_grading ? 'Duyệt bản chấm AI' : 'Chấm điểm & Nhận xét'}</h3>
+
+                  {selectedItem.essay_grading?.job?.status === 'failed' && <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">AI chưa chấm được bài này ({selectedItem.essay_grading.job.error_code || 'AI_ESSAY_FAILED'}). Bài không bị cho 0 điểm.<button type="button" onClick={handleRetryAi} className="ml-2 underline">Chấm lại</button></div>}
+                  {selectedItem.essay_grading?.job?.status === 'not_queued' && <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">Bài đã nộp nhưng chưa vào hàng chờ AI. Bài không bị cho 0 điểm.<button type="button" onClick={handleRetryAi} className="ml-2 underline">Đưa vào hàng chờ</button></div>}
+                  {selectedItem.essay_grading?.report?.extraction_warnings?.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">Cần kiểm tra bản chụp: {selectedItem.essay_grading.report.extraction_warnings.join('; ')}</div>}
 
                   {gradeError && (
                     <div className="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
                       {gradeError}
                     </div>
                   )}
+
+                  {selectedItem.essay_grading?.job?.status !== 'not_queued' && criteriaResults.length > 0 && <div className="space-y-2">
+                    {criteriaResults.map((criterion, index) => {
+                      const rule = selectedItem.essay_grading.job.rubric_snapshot?.find((item) => item.id === criterion.rubric_item_id);
+                      return <div key={criterion.rubric_item_id} className="rounded-lg border border-slate-700 p-3">
+                        <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-200">{rule?.title || criterion.rubric_item_id}</span><label className="text-xs text-slate-400"><input type="number" min="0" max={rule?.max_points} step="0.25" value={criterion.awarded_points} onChange={(event) => setCriteriaResults((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, awarded_points: Number(event.target.value) } : item))} className="mr-1 w-20 rounded border border-slate-700 bg-slate-950 p-1 text-right text-slate-100" />/{rule?.max_points}</label></div>
+                        {criterion.feedback && <p className="mt-1 text-xs text-slate-400">{criterion.feedback}</p>}
+                      </div>;
+                    })}
+                  </div>}
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -349,8 +419,9 @@ export default function FileSubmissionManager() {
                         type="number"
                         min={0}
                         step="0.5"
-                        value={score}
+                        value={selectedItem.essay_grading ? criteriaResults.reduce((sum, item) => sum + Number(item.awarded_points || 0), 0) : score}
                         onChange={(e) => setScore(e.target.value)}
+                        readOnly={Boolean(selectedItem.essay_grading)}
                         placeholder="Nhập điểm"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 text-sm focus:outline-none focus:border-blue-500 font-semibold"
                       />
@@ -370,7 +441,15 @@ export default function FileSubmissionManager() {
                     </div>
                   </div>
 
+                  {selectedItem.essay_grading?.job?.status !== 'not_queued' && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={showModelAnswer} onChange={(event) => setShowModelAnswer(event.target.checked)} />Cho học sinh xem đáp án mẫu sau khi công bố</label>}
+
                   <div className="flex items-center justify-end space-x-3 pt-2">
+                    {selectedItem.essay_grading?.job && selectedItem.essay_grading.job.status !== 'not_queued' ? <>
+                      {selectedItem.essay_grading.report?.published_at && <button type="button" onClick={() => handlePublish('selected', false, [selectedItem.latest.id])} disabled={savingGrade} className="rounded-xl border border-amber-500/40 px-4 py-2 text-xs font-medium text-amber-200">Thu hồi kết quả</button>}
+                      <button type="button" onClick={() => handleAiReview(false)} disabled={savingGrade} className="rounded-xl bg-slate-700 px-4 py-2 text-xs font-medium text-slate-200">Lưu bản duyệt</button>
+                      <button type="button" onClick={() => handleAiReview(true)} disabled={savingGrade} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-medium text-white">Phê duyệt</button>
+                      <button type="button" onClick={() => handlePublish('selected', true, [selectedItem.latest.id])} disabled={savingGrade || selectedItem.essay_grading.report?.review_status !== 'approved'} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white disabled:opacity-40">Công bố bài này</button>
+                    </> : selectedItem.essay_grading ? null : <>
                     <button
                       type="button"
                       onClick={() => handleGrade(false)}
@@ -389,6 +468,7 @@ export default function FileSubmissionManager() {
                       <span>Lưu & Bài tiếp theo</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
+                    </>}
                   </div>
                 </div>
               </div>

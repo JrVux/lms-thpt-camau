@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { uploadBufferToR2 } from './r2Service.js';
 import { createEssayGradingService, toStudentEssaySubmission } from './essayGradingService.js';
+import { detectFileType } from './submissionFileReader.js';
 
 export const safeFileName = (fileName) => {
   if (!fileName) return '';
@@ -34,6 +35,14 @@ export const toExportRows = (rows) => rows.map((row) => ({
   'Điểm': row.latest?.score ?? '',
   'Nhận xét': row.latest?.feedback ?? '',
 }));
+
+export const validateSubmissionBuffer = (buffer, mimeType, assignment = {}) => {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) return 'File bài làm không có dữ liệu.';
+  if (!(assignment.allowed_mime_types || []).includes(mimeType)) return 'Định dạng file không được phép cho bài tập này.';
+  if (buffer.length > Number(assignment.max_file_size_mb || 25) * 1024 * 1024) return 'File vượt quá dung lượng cho phép.';
+  if (assignment.ai_grading_enabled && detectFileType(buffer) !== mimeType) return 'Nội dung file không khớp định dạng khai báo.';
+  return null;
+};
 
 export const createFileSubmissionService = (db) => {
   const essayGrading = createEssayGradingService(db);
@@ -222,15 +231,25 @@ export const createFileSubmissionService = (db) => {
         }
 
         const latest = submissionMap.get(`${delivery.id}_${studentId}`) || null;
+        const grading = latest && assignment.ai_grading_enabled ? gradingMap.get(latest.id) || {
+          job: { status: 'not_queued', assignment_id: assignment.id, rubric_snapshot: assignment.essay_rubric || [] },
+          report: null,
+        } : null;
+        const latestForTeacher = grading?.report?.published_at ? {
+          ...latest,
+          score: grading.report.reviewed_score,
+          feedback: grading.report.reviewed_feedback,
+          graded_at: grading.report.published_at,
+        } : latest;
         roster.push({
           student_id: studentId,
           student_name: enrollment.users?.full_name || 'Học sinh',
           class_id: delivery.class_id,
           class_name: delivery.classes?.name || '',
           delivery_id: delivery.id,
-          status: fileRosterStatus(latest),
-          latest,
-          essay_grading: latest ? gradingMap.get(latest.id) || null : null,
+          status: fileRosterStatus(latestForTeacher),
+          latest: latestForTeacher,
+          essay_grading: grading,
         });
       }
     }
@@ -278,6 +297,12 @@ export const createFileSubmissionService = (db) => {
 
     const base64Clean = (fileData || '').replace(/^data:.*?;base64,/, '');
     const buffer = Buffer.from(base64Clean, 'base64');
+    const fileError = validateSubmissionBuffer(buffer, mimeType, assignment);
+    if (fileError) {
+      const err = new Error(fileError);
+      err.code = 'BAD_REQUEST';
+      throw err;
+    }
     fs.writeFileSync(filePath, buffer);
 
     const isLate = delivery.due_date ? new Date() > new Date(delivery.due_date) : false;
@@ -295,15 +320,21 @@ export const createFileSubmissionService = (db) => {
     if (rpcErr) throw new Error(rpcErr.message);
 
     const createdSubmission = Array.isArray(submission) ? submission[0] : submission;
+    let gradingQueued = false;
     if (assignment.ai_grading_enabled && createdSubmission?.id) {
-      const { data: prepared, error: prepareError } = await db
-        .from('submissions')
-        .update({ assignment_id: assignment.id, max_score: assignment.max_score })
-        .eq('id', createdSubmission.id)
-        .select()
-        .maybeSingle();
-      if (prepareError) throw new Error(prepareError.message);
-      await essayGrading.enqueue({ submission: prepared || createdSubmission, assignment, studentId });
+      try {
+        const { data: prepared, error: prepareError } = await db
+          .from('submissions')
+          .update({ assignment_id: assignment.id, max_score: assignment.max_score })
+          .eq('id', createdSubmission.id)
+          .select()
+          .maybeSingle();
+        if (prepareError) throw new Error(prepareError.message);
+        await essayGrading.enqueue({ submission: prepared || createdSubmission, assignment, studentId });
+        gradingQueued = true;
+      } catch {
+        // The durable submission remains successful; a teacher can enqueue it again.
+      }
     }
 
     // Parallel sync to Cloudflare R2 in background
@@ -314,7 +345,7 @@ export const createFileSubmissionService = (db) => {
     }).catch(() => {});
 
     const updatedDetail = await getStudentDelivery({ studentId, deliveryId });
-    return { success: true, submission, history: updatedDetail.history };
+    return { success: true, submission, history: updatedDetail.history, ...(assignment.ai_grading_enabled ? { grading_queued: gradingQueued } : {}) };
   };
 
   const getSubmissionDownload = async ({ userId, userRole, submissionId }) => {

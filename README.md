@@ -39,6 +39,12 @@ OpenRouter được gọi trước; Gemini chỉ dự phòng khi lỗi kỹ thu�
 - Xem điểm, kết quả từng test, số lượt còn lại và làm lại khi được phép.
 - Nhận trạng thái yêu cầu chấm lại khi giáo viên cập nhật bài dùng chung.
 
+## Chấm bài tự luận bằng AI
+
+Với bài tự luận nộp file, giáo viên có thể bật Gemini, nhập đáp án mẫu và tạo thang điểm theo từng nội dung cốt lõi. Hệ thống nhận PDF, DOCX, JPG/JPEG, PNG và WebP; ảnh chụp được Gemini đọc trực tiếp. AI chỉ tạo bản chấm nháp theo từng tiêu chí. Giáo viên có thể sửa, lưu và phê duyệt, sau đó công bố riêng một bài, các bài đã chọn hoặc tất cả bài đã duyệt.
+
+Học sinh không nhận điểm, nhận xét, văn bản OCR, rubric hay đáp án mẫu khi kết quả chưa được công bố. Lỗi đọc file hoặc lỗi AI không tạo điểm 0; giáo viên có thể yêu cầu chấm lại hoặc xử lý thủ công. Đáp án mẫu chỉ xuất hiện trong kết quả đã công bố khi giáo viên bật tùy chọn tương ứng.
+
 ## Kiến trúc
 
 | Thành phần | Công nghệ | Production |
@@ -107,6 +113,8 @@ Với database mới, chạy `backend/src/database/schema.sql`, sau đó chạy 
 11. `011_student_ai_analysis.sql`
 12. `012_assignment_topics.sql`
 13. `013_delete_assignment_transaction.sql`
+14. `014_file_submissions.sql`
+15. `015_ai_essay_grading.sql`
 
 Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai, xóa lớp an toàn, nền tảng năng lực có phiên bản, chủ đề bài tập theo từng khối và xóa bài tập an toàn theo giao dịch.
 
@@ -137,6 +145,10 @@ Repository có `render.yaml`. Cấu hình các biến:
 - `JWT_SECRET`
 - `TEACHER_SECRET`
 - `CORS_ORIGIN=https://frontend-alpha-henna-71.vercel.app`
+- `GEMINI_API_KEY`, `GEMINI_ESSAY_MODEL`
+- `AI_ESSAY_GRADING_WORKER_ENABLED=true`
+
+Trước khi bật worker, áp dụng migration `supabase/migrations/020_ai_essay_grading.sql`. Worker và khóa Gemini chỉ đặt ở backend; không đưa khóa vào biến frontend.
 
 Build command: `npm run build`. Start command: `npm start`. Health check: `/health`.
 
