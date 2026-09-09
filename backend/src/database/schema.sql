@@ -571,3 +571,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 REVOKE ALL ON FUNCTION claim_student_analysis_job(text, int) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION claim_student_analysis_job(text, int) TO service_role;
+-- AI essay grading additions are deployed by migrations/015_ai_essay_grading.sql.
+-- Keep this bootstrap schema aligned by applying that migration after base schema creation.
