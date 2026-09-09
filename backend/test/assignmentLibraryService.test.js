@@ -100,6 +100,23 @@ test('scoring update uses the atomic content-and-regrade transaction', async () 
   });
 });
 
+test('rubric update uses the versioned content transaction', async () => {
+  const db = fakeSupabase([{ data: { id: 'a1', content_version: 4 }, error: null }]);
+  const service = createAssignmentLibraryService(db);
+  await service.update({
+    teacherId: 't1', assignmentId: 'a1',
+    input: {
+      submission_type: 'essay', essay_content: 'Đề', max_score: 10,
+      ai_grading_enabled: true, essay_model_answer: 'Đáp án',
+      essay_rubric: [{ id: 'c1', title: 'Ý 1', description: 'Mô tả', max_points: 10 }],
+    },
+  });
+  const rpc = db.calls.find((call) => call.method === 'rpc');
+  assert.equal(rpc.name, 'update_assignment_content');
+  assert.equal(rpc.args.p_updates.ai_grading_enabled, true);
+  assert.equal(rpc.args.p_updates.essay_rubric[0].id, 'c1');
+});
+
 test('title-only update does not mark submissions', async () => {
   const db = fakeSupabase([
     { data: { id: 'a1', content_version: 2 }, error: null },

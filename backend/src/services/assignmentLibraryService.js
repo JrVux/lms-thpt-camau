@@ -6,6 +6,9 @@ const SCORING_FIELDS = new Set([
   'test_code',
   'solution_code',
   'max_score',
+  'ai_grading_enabled',
+  'essay_model_answer',
+  'essay_rubric',
 ]);
 
 const WRITABLE_FIELDS = new Set([
@@ -24,6 +27,10 @@ const WRITABLE_FIELDS = new Set([
   'allowed_mime_types',
   'max_file_size_mb',
   'allow_late_submission',
+  'ai_grading_enabled',
+  'essay_model_answer',
+  'essay_rubric',
+  'show_model_answer_after_publish',
 ]);
 
 const throwDbError = (error) => {
