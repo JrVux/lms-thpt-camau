@@ -44,6 +44,9 @@ export const validateSubmissionBuffer = (buffer, mimeType, assignment = {}) => {
   return null;
 };
 
+export const studentMayAccessDelivery = (delivery, enrolled, recipients, studentId) => Boolean(enrolled)
+  && (delivery?.recipient_mode === 'all' || (recipients || []).some((recipient) => recipient.user_id === studentId));
+
 export const createFileSubmissionService = (db) => {
   const essayGrading = createEssayGradingService(db);
   const throwNotFound = (msg = 'Không tìm thấy thông tin bài tập') => {
@@ -71,6 +74,16 @@ export const createFileSubmissionService = (db) => {
 
     if (delErr || !delivery) {
       throwNotFound('Không tìm thấy thông tin bài tập đã giao.');
+    }
+
+    const { data: enrollment } = await db.from('enrollments').select('id').eq('class_id', delivery.class_id).eq('user_id', studentId).maybeSingle();
+    let recipients = [];
+    if (delivery.recipient_mode === 'selected') {
+      const { data } = await db.from('assignment_recipients').select('user_id').eq('delivery_id', deliveryId);
+      recipients = data || [];
+    }
+    if (!studentMayAccessDelivery(delivery, enrollment, recipients, studentId)) {
+      throwForbidden('Bạn không được chỉ định làm bài tập này.');
     }
 
     let assignment = delivery.assignments || delivery.assignment;
@@ -108,7 +121,7 @@ export const createFileSubmissionService = (db) => {
     let history = (submissions || []).map(safeFileSubmission);
     if (assignment.ai_grading_enabled) {
       const reports = await essayGrading.publishedReportsBySubmission(history.map((item) => item.id));
-      history = history.map((item) => toStudentEssaySubmission(item, reports.get(item.id), assignment.essay_model_answer));
+      history = history.map((item) => toStudentEssaySubmission(item, reports.get(item.id), assignment.essay_model_answer, assignment.essay_rubric));
     }
     const { essay_model_answer: _modelAnswer, essay_rubric: _rubric, ...studentAssignment } = assignment;
     return {
@@ -360,6 +373,10 @@ export const createFileSubmissionService = (db) => {
     if (userRole === 'student' && sub.user_id !== userId) {
       throwForbidden();
     }
+    if (userRole === 'teacher' && sub.assignment_deliveries?.teacher_id !== userId) {
+      throwForbidden('Bạn không có quyền tải bài nộp này.');
+    }
+    if (!['student', 'teacher'].includes(userRole)) throwForbidden();
 
     if (sub.object_key && sub.object_key.startsWith('local://')) {
       const relativePath = sub.object_key.replace('local://', '');

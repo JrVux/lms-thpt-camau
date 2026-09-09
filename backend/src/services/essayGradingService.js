@@ -24,18 +24,24 @@ export const reviewedScore = (criteriaResults, rubric, maxScore) => {
   return Number(total.toFixed(2));
 };
 
-export const toStudentEssaySubmission = (submission, report, modelAnswer) => {
+export const toStudentEssaySubmission = (submission, report, modelAnswer, rubric = []) => {
   if (!submission) return null;
   const { score: _score, feedback: _feedback, graded_at: _gradedAt, graded_by: _gradedBy, ...safe } = submission;
+  const jobSnapshot = Array.isArray(report?.essay_grading_jobs) ? report.essay_grading_jobs[0] : report?.essay_grading_jobs;
+  const resultRubric = jobSnapshot?.rubric_snapshot || rubric;
+  const resultModelAnswer = jobSnapshot?.model_answer_snapshot || modelAnswer;
   const published = report?.published_at
     ? {
         score: Number(report.reviewed_score),
         feedback: report.reviewed_feedback || '',
-        criteria_results: report.reviewed_criteria_results || [],
+        criteria_results: (report.reviewed_criteria_results || []).map((result) => {
+          const criterion = resultRubric.find((item) => item.id === result.rubric_item_id);
+          return { ...result, title: criterion?.title || result.rubric_item_id, max_points: criterion?.max_points };
+        }),
         strengths: report.ai_strengths || [],
         improvements: report.ai_improvements || [],
         published_at: report.published_at,
-        ...(report.show_model_answer && modelAnswer ? { model_answer: modelAnswer } : {}),
+        ...(report.show_model_answer && resultModelAnswer ? { model_answer: resultModelAnswer } : {}),
       }
     : null;
   return {
@@ -75,7 +81,7 @@ export const createEssayGradingService = (db) => {
 
   const publishedReportsBySubmission = async (submissionIds) => {
     if (!submissionIds?.length) return new Map();
-    const { data, error } = await db.from('essay_grading_reports').select('*').in('submission_id', submissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
+    const { data, error } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot)').in('submission_id', submissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
     if (error) throw new Error(error.message);
     const result = new Map();
     for (const report of data || []) if (!result.has(report.submission_id)) result.set(report.submission_id, report);

@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeFileSubmission, fileRosterStatus, toExportRows, validateSubmissionBuffer } from '../src/services/fileSubmissionService.js';
+import { safeFileSubmission, fileRosterStatus, toExportRows, validateSubmissionBuffer, studentMayAccessDelivery } from '../src/services/fileSubmissionService.js';
 
 test('safe projection removes the object key', () => {
   const result = safeFileSubmission({ id: 's1', object_key: 'private/key', file_name: 'a.pdf', score: 8 });
   assert.equal(result.object_key, undefined);
   assert.equal(result.file_name, 'a.pdf');
+});
+
+test('student delivery access requires enrollment and selected-recipient membership', () => {
+  assert.equal(studentMayAccessDelivery({ recipient_mode: 'all' }, true, [], 'u1'), true);
+  assert.equal(studentMayAccessDelivery({ recipient_mode: 'all' }, false, [], 'u1'), false);
+  assert.equal(studentMayAccessDelivery({ recipient_mode: 'selected' }, true, [{ user_id: 'u2' }], 'u1'), false);
+  assert.equal(studentMayAccessDelivery({ recipient_mode: 'selected' }, true, [{ user_id: 'u1' }], 'u1'), true);
 });
 
 test('AI essays reject disguised files and oversized uploads before persistence', () => {

@@ -15,9 +15,10 @@ test('redacts draft grades and reveals only published reviewed results', () => {
   assert.equal(hidden.feedback, undefined);
   assert.equal(hidden.published_result, null);
   assert.equal(JSON.stringify(hidden).includes('OCR'), false);
-  const shown = toStudentEssaySubmission({ id: 's1', max_score: 10 }, { published_at: 'now', reviewed_score: 8, reviewed_feedback: 'Tốt', reviewed_criteria_results: [], show_model_answer: true }, 'Đáp án');
+  const shown = toStudentEssaySubmission({ id: 's1', max_score: 10 }, { published_at: 'now', reviewed_score: 8, reviewed_feedback: 'Tốt', reviewed_criteria_results: [{ rubric_item_id: 'c1', awarded_points: 3 }], show_model_answer: true, essay_grading_jobs: { model_answer_snapshot: 'Đáp án lúc nộp', rubric_snapshot: [{ id: 'c1', title: 'Ý chính', max_points: 4 }] } }, 'Đáp án hiện tại');
   assert.equal(shown.published_result.score, 8);
-  assert.equal(shown.published_result.model_answer, 'Đáp án');
+  assert.equal(shown.published_result.model_answer, 'Đáp án lúc nộp');
+  assert.equal(shown.published_result.criteria_results[0].title, 'Ý chính');
 });
 
 test('bulk result separates approved and skipped reports', () => {

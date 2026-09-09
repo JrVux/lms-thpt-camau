@@ -1,6 +1,7 @@
 import path from 'path';
 import { readFile } from 'fs/promises';
 import { extractTextFromDocx, extractTextFromPdf } from './documentPipelineService.js';
+import { downloadBufferFromR2 } from './r2Service.js';
 
 const starts = (buffer, bytes) => bytes.every((byte, index) => buffer[index] === byte);
 
@@ -16,14 +17,20 @@ export const detectFileType = (buffer) => {
 
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 
-export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(), 'uploads/submissions') } = {}) => ({
+export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(), 'uploads/submissions'), r2Download = downloadBufferFromR2 } = {}) => ({
   async read({ submission, assignment }) {
     if (!submission?.object_key?.startsWith('local://')) fail('FILE_NOT_AVAILABLE', 'Không tìm thấy bản file nội bộ để chấm.');
     const root = path.resolve(uploadsDir);
     const filePath = path.resolve(root, submission.object_key.slice('local://'.length));
     if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) fail('FILE_INVALID', 'Đường dẫn file không hợp lệ.');
     let buffer;
-    try { buffer = await readFile(filePath); } catch { fail('FILE_NOT_AVAILABLE', 'File bài làm chưa sẵn sàng.'); }
+    try {
+      buffer = await readFile(filePath);
+    } catch {
+      const r2ObjectKey = `${submission.delivery_id}/${submission.user_id}/${submission.object_key.slice('local://'.length).replace(/\\/g, '/')}`;
+      try { buffer = await r2Download({ objectKey: r2ObjectKey }); } catch { buffer = null; }
+      if (!buffer) fail('FILE_NOT_AVAILABLE', 'File bài làm chưa sẵn sàng.');
+    }
     const maxBytes = Number(assignment?.max_file_size_mb || 25) * 1024 * 1024;
     if (buffer.length > maxBytes) fail('FILE_TOO_LARGE', 'File vượt quá dung lượng cho phép.');
     const mimeType = detectFileType(buffer);
@@ -33,9 +40,13 @@ export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(
       return { extractedText: pages.map((page) => page.text).join('\n').trim(), extractionMethod: 'docx_text' };
     }
     if (mimeType === 'application/pdf') {
-      const pages = await extractTextFromPdf(buffer);
-      const extractedText = pages.map((page) => page.text).join('\n').trim();
-      if (extractedText) return { extractedText, extractionMethod: 'pdf_text' };
+      try {
+        const pages = await extractTextFromPdf(buffer);
+        const extractedText = pages.map((page) => page.text).join('\n').trim();
+        if (extractedText) return { extractedText, extractionMethod: 'pdf_text' };
+      } catch {
+        // Valid PDFs that local extraction cannot parse are delegated to Gemini document vision.
+      }
     }
     return { file: { mimeType, base64: buffer.toString('base64') }, extractionMethod: 'gemini_vision' };
   },

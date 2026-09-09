@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'crypto';
+import { buildR2GetHeaders } from '../src/services/r2Service.js';
 
 export const buildR2Headers = ({ accountId, accessKeyId, secretAccessKey, bucketName, objectKey, buffer, mimeType, now = new Date() }) => {
   const amzDate = now.toISOString().replace(/[:-]/g, '').split('.')[0] + 'Z';
@@ -55,4 +56,15 @@ test('builds valid Cloudflare R2 AWS SigV4 PutObject headers', () => {
   assert.equal(req.url, 'https://acc123.r2.cloudflarestorage.com/lms-submissions/delivery1/student1/test.pdf');
   assert.match(req.headers.Authorization, /AWS4-HMAC-SHA256 Credential=key123\/20260829\/auto\/s3\/aws4_request/);
   assert.equal(req.headers['x-amz-date'], '20260829T120000Z');
+});
+
+test('builds a private signed R2 GetObject request', () => {
+  const req = buildR2GetHeaders({
+    accountId: 'acc123', accessKeyId: 'key123', secretAccessKey: 'sec123',
+    bucketName: 'lms-submissions', objectKey: 'd1/u1/photo 1.jpg',
+    now: new Date('2026-09-10T01:02:03Z'),
+  });
+  assert.match(req.url, /photo 1\.jpg$/);
+  assert.match(req.headers.Authorization, /Credential=key123\/20260910\/auto\/s3\/aws4_request/);
+  assert.equal(req.headers['x-amz-date'], '20260910T010203Z');
 });
