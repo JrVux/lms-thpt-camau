@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { studentFileCard } from '../src/utils/fileSubmission.js';
 
 test('file card uses file route and graded copy', () => {
@@ -7,4 +8,13 @@ test('file card uses file route and graded copy', () => {
   assert.equal(card.href, '/deliveries/d1/file-submission');
   assert.equal(card.badge, 'Tự luận');
   assert.match(card.status, /8\/10/);
+});
+
+test('published percentage result explains the approved score', async () => {
+  const source = await readFile(new URL('../src/components/EssayPublishedResult.jsx', import.meta.url), 'utf8');
+  assert.match(source, /correctness_percentage/);
+  assert.match(source, /Nội dung làm đúng/i);
+  assert.match(source, /Nội dung thiếu hoặc sai/i);
+  assert.match(source, /Hướng cải thiện/i);
+  assert.match(source, /model_answer/);
 });
