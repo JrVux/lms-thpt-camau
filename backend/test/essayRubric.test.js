@@ -9,6 +9,19 @@ test('normalizes a stable weighted rubric', () => {
   assert.equal(validateEssayAiSettings({ submission_type: 'essay', ai_grading_enabled: true, essay_model_answer: 'Đáp án', essay_rubric: valid }, 4), null);
 });
 
+test('accepts model-answer percentage grading without a rubric', () => {
+  assert.equal(validateEssayAiSettings({
+    submission_type: 'essay', ai_grading_enabled: true,
+    essay_model_answer: 'Đáp án', essay_rubric: [], max_score: 10,
+  }, 10), null);
+});
+
+test('requires a positive maximum score', () => {
+  assert.match(validateEssayAiSettings({
+    submission_type: 'essay', ai_grading_enabled: true, essay_model_answer: 'Đáp án', essay_rubric: [],
+  }, 0), /điểm tối đa/i);
+});
+
 test('rejects missing answer and duplicate ids', () => {
   assert.match(validateEssayAiSettings({ submission_type: 'essay', ai_grading_enabled: true, essay_model_answer: '', essay_rubric: valid }, 4), /đáp án mẫu/i);
   assert.match(validateEssayAiSettings({ submission_type: 'essay', ai_grading_enabled: true, essay_model_answer: 'A', essay_rubric: [valid[0], valid[0]] }, 8), /không được trùng/i);

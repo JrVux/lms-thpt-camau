@@ -100,13 +100,7 @@ export const buildFileAssignmentPayload = (formState) => {
   if (submissionType === 'essay' && formState.ai_grading_enabled !== undefined) {
     payload.ai_grading_enabled = Boolean(formState.ai_grading_enabled);
     payload.essay_model_answer = payload.ai_grading_enabled ? String(formState.essay_model_answer || '').trim() : null;
-    payload.essay_rubric = payload.ai_grading_enabled ? (formState.essay_rubric || []).map((item) => ({
-      id: item.id,
-      title: String(item.title || '').trim(),
-      description: String(item.description || '').trim(),
-      max_points: Number(item.max_points || 0),
-      acceptance_notes: String(item.acceptance_notes || '').trim(),
-    })) : [];
+    payload.essay_rubric = [];
     payload.show_model_answer_after_publish = payload.ai_grading_enabled && Boolean(formState.show_model_answer_after_publish);
   }
   return payload;

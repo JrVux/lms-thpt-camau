@@ -13,7 +13,7 @@ test('builds essay settings without code fields', () => {
   });
 });
 
-test('builds enabled AI essay settings with a weighted rubric', () => {
+test('builds enabled AI essay settings without a teacher-authored rubric', () => {
   const payload = buildFileAssignmentPayload({
     submission_type: 'essay', essay_content: 'Đề', max_file_size_mb: 20,
     ai_grading_enabled: true, essay_model_answer: 'Đáp án mẫu',
@@ -22,7 +22,7 @@ test('builds enabled AI essay settings with a weighted rubric', () => {
   });
   assert.equal(payload.ai_grading_enabled, true);
   assert.equal(payload.essay_model_answer, 'Đáp án mẫu');
-  assert.equal(payload.essay_rubric[0].max_points, 10);
+  assert.deepEqual(payload.essay_rubric, []);
   assert.equal(payload.show_model_answer_after_publish, true);
   assert.deepEqual(payload.allowed_mime_types, [
     'application/pdf',

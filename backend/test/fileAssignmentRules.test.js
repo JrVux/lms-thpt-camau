@@ -32,3 +32,11 @@ test('normalizes AI essay settings and limits AI MIME types', () => {
   assert.equal(normalized.ai_grading_enabled, true);
   assert.equal(normalized.show_model_answer_after_publish, true);
 });
+
+test('accepts percentage grading without rubric criteria', () => {
+  assert.equal(validateFileAssignment({
+    submission_type: 'essay', essay_content: 'Đề', max_score: 10,
+    ai_grading_enabled: true, essay_model_answer: 'Đáp án', essay_rubric: [],
+    allowed_mime_types: ['application/pdf'], max_file_size_mb: 25,
+  }), null);
+});
