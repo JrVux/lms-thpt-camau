@@ -6,6 +6,13 @@ import { createEssayGradingGateway } from '../src/services/essayGradingGateway.j
 
 const rubric = [{ id: 'c1', title: 'Ý 1', description: 'Mô tả', max_points: 4, acceptance_notes: '' }];
 const grade = { extracted_text: 'Bài làm', extraction_quality: 'sufficient', extraction_warnings: [], criteria_results: [{ rubric_item_id: 'c1', awarded_points: 3, status: 'partial', explanation: 'Thiếu ví dụ', evidence_snippets: ['Bài làm'], confidence: 0.8 }], overall_feedback: 'Khá', strengths: ['Đúng ý'], improvements: ['Thêm ví dụ'] };
+const percentageGrade = {
+  extracted_text: 'Bài làm', extraction_quality: 'sufficient', extraction_warnings: [],
+  correctness_percentage: 83, overall_feedback: 'Khá',
+  correct_content: [{ description: 'Đúng khái niệm', evidence_snippets: ['Bài làm'] }],
+  missing_or_incorrect_content: [{ description: 'Thiếu ví dụ', explanation: 'Cần bổ sung.' }],
+  contradictions: [], strengths: ['Rõ ràng'], improvements: ['Thêm ví dụ'], confidence: 0.8,
+};
 
 test('validates criteria and derives the score', () => {
   assert.equal(validateEssayGrade(grade, rubric, 4).score, 3);
@@ -27,6 +34,13 @@ test('gateway uses only Gemini and validates its result', async () => {
   assert.equal(calls, 1);
   assert.equal(result.provider, 'gemini');
   assert.equal(result.grade.score, 3);
+});
+
+test('gateway validates percentage grading with the percentage contract', async () => {
+  const gateway = createEssayGradingGateway({ gemini: { isConfigured: true, grade: async () => ({ value: percentageGrade, model: 'gemini-test', usage: {} }) } });
+  const result = await gateway.generate({ gradingMethod: 'percentage_v2', question: 'Đề', modelAnswer: 'Đáp án', maxScore: 10, extractedText: 'Bài làm' });
+  assert.equal(result.grade.correctness_percentage, 83);
+  assert.equal(result.grade.score, 8.3);
 });
 
 test('rejects an empty extraction instead of storing a zero-like draft', () => {
