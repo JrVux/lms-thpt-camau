@@ -28,6 +28,11 @@ export default function EssayPercentageReview({
 }) {
   const analysis = report?.ai_content_analysis || {};
   const confidence = Number(analysis.confidence);
+  const extractionLabel = {
+    sufficient: 'Đủ rõ để chấm',
+    uncertain: 'Chưa chắc chắn, cần kiểm tra',
+    empty: 'Không đọc được nội dung',
+  }[report?.extraction_quality] || 'Chưa xác định';
   return <div className="space-y-4">
     <div className="grid gap-4 md:grid-cols-2">
       <label className="text-xs font-medium text-slate-400">
@@ -61,7 +66,10 @@ export default function EssayPercentageReview({
       </section>
     </div>
 
-    <p className="text-xs text-slate-500">Độ tin cậy AI: {Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : 'Chưa xác định'}</p>
+    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+      <span>Chất lượng trích xuất: {extractionLabel}</span>
+      <span>Độ tin cậy AI: {Number.isFinite(confidence) ? `${Math.round(confidence * 100)}%` : 'Chưa xác định'}</span>
+    </div>
 
     <label className="block text-xs font-medium text-slate-400">
       Nhận xét của giáo viên

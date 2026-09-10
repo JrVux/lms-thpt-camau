@@ -29,7 +29,7 @@ test('derives a one-decimal score from a bounded percentage', () => {
 });
 
 test('rejects invalid percentage values and empty extraction', () => {
-  for (const value of [-1, 101, Number.NaN, Number.POSITIVE_INFINITY]) {
+  for (const value of [-1, 101, Number.NaN, Number.POSITIVE_INFINITY, '', null, '83']) {
     assert.throws(() => validatePercentageGrade({ ...valid, correctness_percentage: value }, 10), /phần trăm/i);
   }
   assert.throws(() => validatePercentageGrade({ ...valid, extracted_text: '', extraction_quality: 'empty' }, 10), /trích xuất|nội dung/i);

@@ -99,6 +99,10 @@ export const validatePercentageGrade = (value, maxScore) => {
   if (!Number.isFinite(Number(value.confidence)) || Number(value.confidence) < 0 || Number(value.confidence) > 1) {
     fail('Độ tin cậy không hợp lệ.');
   }
-  const percentage = Number(value.correctness_percentage);
+  if (typeof value.correctness_percentage !== 'number' || !Number.isFinite(value.correctness_percentage)
+    || value.correctness_percentage < 0 || value.correctness_percentage > 100) {
+    fail('Phần trăm nội dung đúng không hợp lệ.');
+  }
+  const percentage = value.correctness_percentage;
   return { ...value, correctness_percentage: percentage, confidence: Number(value.confidence), score: roundPercentageScore(maxScore, percentage) };
 };

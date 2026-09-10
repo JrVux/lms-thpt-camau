@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { filterRoster, nextRosterIndex, toReportRows } from '../src/utils/fileSubmission.js';
 
 const rows = [{ status: 'missing' }, { status: 'submitted' }, { status: 'late' }];
@@ -28,4 +29,10 @@ test('filters the teacher roster by AI review and publication states', () => {
   assert.equal(filterRoster(aiRows, 'ai_approved').length, 1);
   assert.equal(filterRoster(aiRows, 'ai_published').length, 1);
   assert.equal(filterRoster(aiRows, 'ai_failed').length, 1);
+});
+
+test('percentage review rejects a blank percentage before sending the request', async () => {
+  const source = await readFile(new URL('../src/pages/FileSubmissionManager.jsx', import.meta.url), 'utf8');
+  assert.match(source, /correctnessPercentage\s*===\s*''/);
+  assert.match(source, /Vui lòng nhập phần trăm nội dung đúng/);
 });

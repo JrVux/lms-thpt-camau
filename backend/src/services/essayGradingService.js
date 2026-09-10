@@ -30,6 +30,9 @@ export const reviewedScore = (criteriaResults, rubric, maxScore) => {
 };
 
 export const reviewedPercentageScore = (correctnessPercentage, maxScore) => {
+  if (correctnessPercentage === '' || correctnessPercentage === null || correctnessPercentage === undefined) {
+    return badRequest('Phần trăm nội dung đúng không hợp lệ.');
+  }
   const percentage = Number(correctnessPercentage);
   const maximum = Number(maxScore);
   if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) return badRequest('Phần trăm nội dung đúng không hợp lệ.');

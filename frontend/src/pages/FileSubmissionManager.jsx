@@ -146,6 +146,10 @@ export default function FileSubmissionManager() {
 
   const handleAiReview = async (approved, rejected = false) => {
     if (!selectedItem?.latest?.id) return;
+    if (isPercentageReview && correctnessPercentage === '') {
+      setGradeError('Vui lòng nhập phần trăm nội dung đúng.');
+      return;
+    }
     try {
       setSavingGrade(true);
       setGradeError('');

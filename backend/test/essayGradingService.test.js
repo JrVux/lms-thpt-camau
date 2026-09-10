@@ -19,6 +19,8 @@ test('validates reviewed percentage and derives the final score', () => {
   assert.deepEqual(reviewedPercentageScore(83, 10), { correctnessPercentage: 83, score: 8.3 });
   assert.deepEqual(reviewedPercentageScore(33.3, 7), { correctnessPercentage: 33.3, score: 2.3 });
   assert.throws(() => reviewedPercentageScore(101, 10), /phần trăm/i);
+  assert.throws(() => reviewedPercentageScore('', 10), /phần trăm/i);
+  assert.throws(() => reviewedPercentageScore(null, 10), /phần trăm/i);
 });
 
 test('redacts draft grades and reveals only published reviewed results', () => {
