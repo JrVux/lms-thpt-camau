@@ -4,6 +4,8 @@ import * as XLSX from 'xlsx';
 import api from '../services/api';
 import { gradeSubmission } from '../services/edgeFunctions';
 import FilePreview from '../components/FilePreview';
+import EssayPercentageReview from '../components/EssayPercentageReview';
+import { percentageFromScore, scoreFromPercentage } from '../utils/essayPercentageGrading';
 import {
   filterRoster,
   nextRosterIndex,
@@ -39,6 +41,7 @@ export default function FileSubmissionManager() {
   const [savingGrade, setSavingGrade] = useState(false);
   const [gradeError, setGradeError] = useState('');
   const [criteriaResults, setCriteriaResults] = useState([]);
+  const [correctnessPercentage, setCorrectnessPercentage] = useState('');
   const [showModelAnswer, setShowModelAnswer] = useState(false);
 
   const loadRoster = async () => {
@@ -64,6 +67,8 @@ export default function FileSubmissionManager() {
   );
 
   const selectedItem = selectedIndex !== null ? filteredRoster[selectedIndex] : null;
+  const isPercentageReview = selectedItem?.essay_grading?.job?.grading_method === 'percentage_v2';
+  const selectedMaxScore = Number(selectedItem?.latest?.max_score || 10);
 
   useEffect(() => {
     if (selectedItem?.latest) {
@@ -71,12 +76,14 @@ export default function FileSubmissionManager() {
       setScore(report?.reviewed_score ?? report?.ai_score ?? selectedItem.latest.score ?? '');
       setFeedback(report?.reviewed_feedback ?? report?.ai_overall_feedback ?? selectedItem.latest.feedback ?? '');
       setCriteriaResults(report?.reviewed_criteria_results ?? report?.ai_criteria_results ?? selectedItem.essay_grading?.job?.rubric_snapshot?.map((item) => ({ rubric_item_id: item.id, awarded_points: 0, status: 'uncertain', explanation: 'Giáo viên chấm thủ công', evidence_snippets: [], confidence: 1 })) ?? []);
+      setCorrectnessPercentage(report?.reviewed_correctness_percentage ?? report?.ai_correctness_percentage ?? '');
       setShowModelAnswer(Boolean(report?.show_model_answer));
       setGradeError('');
     } else {
       setScore('');
       setFeedback('');
       setCriteriaResults([]);
+      setCorrectnessPercentage('');
       setGradeError('');
     }
   }, [selectedIndex, selectedItem]);
@@ -143,7 +150,9 @@ export default function FileSubmissionManager() {
       setSavingGrade(true);
       setGradeError('');
       await api.patch(`/api/file-submissions/${selectedItem.latest.id}/ai-grading`, {
-        criteria_results: criteriaResults,
+        ...(isPercentageReview
+          ? { correctness_percentage: Number(correctnessPercentage) }
+          : { criteria_results: criteriaResults }),
         feedback,
         approved,
         rejected,
@@ -153,6 +162,18 @@ export default function FileSubmissionManager() {
     } catch (err) {
       setGradeError(err.response?.data?.message || 'Không thể lưu bản duyệt.');
     } finally { setSavingGrade(false); }
+  };
+
+  const handlePercentageChange = (value) => {
+    setCorrectnessPercentage(value);
+    const next = Number(value);
+    if (Number.isFinite(next) && next >= 0 && next <= 100) setScore(scoreFromPercentage(selectedMaxScore, next));
+  };
+
+  const handleScoreChange = (value) => {
+    setScore(value);
+    const next = Number(value);
+    if (Number.isFinite(next) && next >= 0 && next <= selectedMaxScore) setCorrectnessPercentage(percentageFromScore(selectedMaxScore, next));
   };
 
   const handleRetryAi = async () => {
@@ -414,7 +435,18 @@ export default function FileSubmissionManager() {
                     </div>
                   )}
 
-                  {selectedItem.essay_grading?.job?.status !== 'not_queued' && criteriaResults.length > 0 && <div className="space-y-2">
+                  {isPercentageReview && selectedItem.essay_grading?.job?.status !== 'not_queued' && <EssayPercentageReview
+                    report={selectedItem.essay_grading?.report}
+                    maxScore={selectedMaxScore}
+                    percentage={correctnessPercentage}
+                    score={score}
+                    feedback={feedback}
+                    onPercentageChange={handlePercentageChange}
+                    onScoreChange={handleScoreChange}
+                    onFeedbackChange={setFeedback}
+                  />}
+
+                  {!isPercentageReview && selectedItem.essay_grading?.job?.status !== 'not_queued' && criteriaResults.length > 0 && <div className="space-y-2">
                     {criteriaResults.map((criterion, index) => {
                       const rule = selectedItem.essay_grading.job.rubric_snapshot?.find((item) => item.id === criterion.rubric_item_id);
                       return <div key={criterion.rubric_item_id} className="rounded-lg border border-slate-700 p-3">
@@ -426,7 +458,7 @@ export default function FileSubmissionManager() {
                     })}
                   </div>}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {!isPercentageReview && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-400 mb-1">
                         Điểm số <span className="text-rose-400">*</span>
@@ -455,7 +487,7 @@ export default function FileSubmissionManager() {
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
                       />
                     </div>
-                  </div>
+                  </div>}
 
                   {selectedItem.essay_grading?.job?.status !== 'not_queued' && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={showModelAnswer} onChange={(event) => setShowModelAnswer(event.target.checked)} />Cho học sinh xem đáp án mẫu sau khi công bố</label>}
 
