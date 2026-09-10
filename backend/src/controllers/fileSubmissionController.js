@@ -7,8 +7,17 @@ const failure = (res, error) => {
   const status = error.code === 'NOT_FOUND' ? 404
     : error.code === 'FORBIDDEN' ? 403
     : error.code === 'BAD_REQUEST' ? 400
+    : error.code === 'STORAGE_UNAVAILABLE' ? 503
     : 500;
   return res.status(status).json({ success: false, message: error.message || 'Thao tác không thành công', code: error.code || 'ERROR' });
+};
+
+export const sendSubmissionFile = (res, fileInfo) => {
+  res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileInfo.fileName)}"`);
+  if (fileInfo.type === 'local') return res.sendFile(fileInfo.filePath);
+  if (fileInfo.type === 'buffer') return res.send(fileInfo.buffer);
+  return res.status(404).json({ message: 'Không tìm thấy file' });
 };
 
 export const getStudentDelivery = async (req, res) => {
@@ -95,12 +104,7 @@ export const downloadFile = async (req, res) => {
       userRole: req.user.role,
       submissionId,
     });
-    if (fileInfo.type === 'local') {
-      res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileInfo.fileName)}"`);
-      return res.sendFile(fileInfo.filePath);
-    }
-    return res.status(404).json({ message: 'Không tìm thấy file' });
+    return sendSubmissionFile(res, fileInfo);
   } catch (error) {
     return failure(res, error);
   }

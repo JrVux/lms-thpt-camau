@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { uploadBufferToR2 } from './r2Service.js';
+import { downloadBufferFromR2, uploadBufferToR2 } from './r2Service.js';
 import { createEssayGradingService, toStudentEssaySubmission } from './essayGradingService.js';
 import { detectFileType } from './submissionFileReader.js';
 
@@ -49,7 +49,64 @@ export const singleRelation = (value) => Array.isArray(value) ? value[0] ?? null
 export const studentMayAccessDelivery = (delivery, enrolled, recipients, studentId) => Boolean(enrolled)
   && (delivery?.recipient_mode === 'all' || (recipients || []).some((recipient) => recipient.user_id === studentId));
 
-export const createFileSubmissionService = (db) => {
+export const r2ObjectKeyForSubmission = (submission) => {
+  if (!submission?.object_key?.startsWith('local://') || !submission.delivery_id || !submission.user_id) return null;
+  const relativePath = submission.object_key.slice('local://'.length).replace(/\\/g, '/');
+  return `${submission.delivery_id}/${submission.user_id}/${relativePath}`;
+};
+
+export const persistSubmissionBuffer = async ({
+  localPath,
+  objectKey,
+  buffer,
+  mimeType,
+  writeFile = fs.promises.writeFile,
+  removeFile = fs.promises.unlink,
+  r2Upload = uploadBufferToR2,
+}) => {
+  await writeFile(localPath, buffer);
+  let uploaded = false;
+  try {
+    uploaded = await r2Upload({ objectKey, buffer, mimeType });
+  } catch {
+    uploaded = false;
+  }
+  if (!uploaded) {
+    try { await removeFile(localPath); } catch { /* best-effort cleanup */ }
+    const error = new Error('Không thể lưu file bài làm vào kho lưu trữ an toàn. Vui lòng thử lại.');
+    error.code = 'STORAGE_UNAVAILABLE';
+    throw error;
+  }
+};
+
+export const resolveSubmissionStorage = async ({
+  submission,
+  uploadsDir = path.join(process.cwd(), 'uploads/submissions'),
+  fileExists = fs.existsSync,
+  r2Download = downloadBufferFromR2,
+}) => {
+  if (!submission?.object_key?.startsWith('local://')) return null;
+  const root = path.resolve(uploadsDir);
+  const relativePath = submission.object_key.slice('local://'.length);
+  const filePath = path.resolve(root, relativePath);
+  if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) return null;
+  if (fileExists(filePath)) return { type: 'local', filePath };
+
+  const objectKey = r2ObjectKeyForSubmission(submission);
+  if (!objectKey) return null;
+  try {
+    const buffer = await r2Download({ objectKey });
+    return Buffer.isBuffer(buffer) ? { type: 'buffer', buffer } : null;
+  } catch {
+    return null;
+  }
+};
+
+export const createFileSubmissionService = (db, {
+  uploadsDir = path.join(process.cwd(), 'uploads/submissions'),
+  r2Upload = uploadBufferToR2,
+  r2Download = downloadBufferFromR2,
+} = {}) => {
   const essayGrading = createEssayGradingService(db);
   const throwNotFound = (msg = 'Không tìm thấy thông tin bài tập') => {
     const err = new Error(msg);
@@ -306,11 +363,10 @@ export const createFileSubmissionService = (db) => {
 
     const safeName = safeFileName(fileName) || 'file.bin';
     const relativePath = `${deliveryId}_${studentId}_${Date.now()}_${safeName}`;
-    const UPLOADS_DIR = path.join(process.cwd(), 'uploads/submissions');
-    if (!fs.existsSync(UPLOADS_DIR)) {
-      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
-    const filePath = path.join(UPLOADS_DIR, relativePath);
+    const filePath = path.join(uploadsDir, relativePath);
 
     const base64Clean = (fileData || '').replace(/^data:.*?;base64,/, '');
     const buffer = Buffer.from(base64Clean, 'base64');
@@ -320,7 +376,14 @@ export const createFileSubmissionService = (db) => {
       err.code = 'BAD_REQUEST';
       throw err;
     }
-    fs.writeFileSync(filePath, buffer);
+    const r2ObjectKey = `${deliveryId}/${studentId}/${relativePath}`;
+    await persistSubmissionBuffer({
+      localPath: filePath,
+      objectKey: r2ObjectKey,
+      buffer,
+      mimeType,
+      r2Upload,
+    });
 
     const isLate = delivery.due_date ? new Date() > new Date(delivery.due_date) : false;
 
@@ -354,13 +417,6 @@ export const createFileSubmissionService = (db) => {
       }
     }
 
-    // Parallel sync to Cloudflare R2 in background
-    uploadBufferToR2({
-      objectKey: `${deliveryId}/${studentId}/${relativePath}`,
-      buffer,
-      mimeType,
-    }).catch(() => {});
-
     let updatedHistory;
     try {
       updatedHistory = (await getStudentDelivery({ studentId, deliveryId })).history;
@@ -390,17 +446,9 @@ export const createFileSubmissionService = (db) => {
     }
     if (!['student', 'teacher'].includes(userRole)) throwForbidden();
 
-    if (sub.object_key && sub.object_key.startsWith('local://')) {
-      const relativePath = sub.object_key.replace('local://', '');
-      const UPLOADS_DIR = path.join(process.cwd(), 'uploads/submissions');
-      const filePath = path.join(UPLOADS_DIR, relativePath);
-      if (!fs.existsSync(filePath)) {
-        throwNotFound('File không còn tồn tại trên server.');
-      }
-      return { type: 'local', filePath, fileName: sub.file_name, mimeType: sub.mime_type };
-    }
-
-    throwNotFound('Không tìm thấy file bài nộp.');
+    const storage = await resolveSubmissionStorage({ submission: sub, uploadsDir, r2Download });
+    if (!storage) throwNotFound('Không tìm thấy file bài nộp.');
+    return { ...storage, fileName: sub.file_name, mimeType: sub.mime_type };
   };
 
   const gradeStudentSubmission = async ({ teacherId, submissionId, score, feedback }) => {
