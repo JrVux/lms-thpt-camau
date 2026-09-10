@@ -26,6 +26,36 @@ test('bulk result separates approved and skipped reports', () => {
   assert.deepEqual(buildPublishResult([{ submission_id: 's1', review_status: 'approved' }, { submission_id: 's2', review_status: 'pending' }]), { publishable: ['s1'], skipped: [{ submission_id: 's2', reason: 'not_approved' }] });
 });
 
+test('enqueue persists an explicit grading method and prompt version', async () => {
+  const inserts = [];
+  const db = {
+    from(table) {
+      if (table === 'essay_grading_events') return { insert: async (payload) => { inserts.push({ table, payload }); return { error: null }; } };
+      const builder = {
+        insert(payload) { inserts.push({ table, payload }); return builder; },
+        select: () => builder,
+        maybeSingle: async () => ({ data: { id: `job-${inserts.length}`, ...inserts.findLast((item) => item.table === table).payload }, error: null }),
+      };
+      return builder;
+    },
+  };
+  const grading = createEssayGradingService(db);
+  await grading.enqueue({
+    submission: { id: 's1', delivery_id: 'd1', user_id: 'u1' }, studentId: 'u1',
+    assignment: { id: 'a1', ai_grading_enabled: true, content_version: 1, essay_model_answer: 'A', essay_rubric: [] },
+  });
+  await grading.enqueue({
+    submission: { id: 's2', delivery_id: 'd1', user_id: 'u1' }, studentId: 'u1',
+    assignment: { id: 'a2', ai_grading_enabled: true, content_version: 1, essay_model_answer: 'A', essay_rubric: rubric },
+  });
+  const jobs = inserts.filter((item) => item.table === 'essay_grading_jobs').map((item) => item.payload);
+  assert.equal(jobs[0].grading_method, 'percentage_v2');
+  assert.equal(jobs[0].prompt_version, 'essay-percentage-v2');
+  assert.deepEqual(jobs[0].rubric_snapshot, []);
+  assert.equal(jobs[1].grading_method, 'rubric_v1');
+  assert.equal(jobs[1].prompt_version, 'essay-grading-v1');
+});
+
 test('manual essay grading creates an approved but unpublished review', async () => {
   const inserts = [];
   const db = {

@@ -3,16 +3,25 @@ import assert from 'node:assert/strict';
 import { createEssayGradingWorker, processEssayJob, safeEssayErrorCode } from '../src/services/essayGradingWorker.js';
 
 test('builds an awaiting-review report without writing a model total', async () => {
-  const job = { id: 'j1', submission_id: 's1', rubric_snapshot: [{ id: 'c1', max_points: 4 }], model_answer_snapshot: 'A' };
+  const job = { id: 'j1', submission_id: 's1', grading_method: 'percentage_v2', rubric_snapshot: [], model_answer_snapshot: 'A' };
+  const grade = {
+    score: 8.3, correctness_percentage: 83, extracted_text: 'Bài', extraction_quality: 'sufficient', extraction_warnings: [],
+    overall_feedback: 'Khá', correct_content: [{ description: 'Đúng', evidence_snippets: ['Bài'] }],
+    missing_or_incorrect_content: [{ description: 'Thiếu', explanation: 'Cần bổ sung' }], contradictions: [],
+    strengths: ['Rõ'], improvements: ['Bổ sung'], confidence: 0.8,
+  };
   const result = await processEssayJob({
     job,
-    assignment: { essay_content: 'Đề', max_score: 4 },
+    assignment: { essay_content: 'Đề', max_score: 10 },
     submission: { object_key: 'local://x.jpg', mime_type: 'image/jpeg' },
     fileReader: { read: async () => ({ file: { mimeType: 'image/jpeg', base64: 'AA==' }, extractionMethod: 'gemini_vision' }) },
-    gateway: { generate: async () => ({ provider: 'gemini', model: 'g', usage: {}, grade: { score: 3, extracted_text: 'Bài', extraction_quality: 'sufficient', extraction_warnings: [], criteria_results: [], overall_feedback: 'Khá', strengths: [], improvements: [] } }) },
+    gateway: { generate: async () => ({ provider: 'gemini', model: 'g', usage: {}, grade }) },
   });
   assert.equal(result.jobStatus, 'awaiting_review');
-  assert.equal(result.report.ai_score, 3);
+  assert.equal(result.report.grading_method, 'percentage_v2');
+  assert.equal(result.report.ai_score, 8.3);
+  assert.equal(result.report.ai_correctness_percentage, 83);
+  assert.deepEqual(result.report.ai_content_analysis.correct_content, grade.correct_content);
   assert.equal(result.report.extraction_method, 'gemini_vision');
 });
 

@@ -28,3 +28,21 @@ for (const path of paths) {
     assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN/i);
   });
 }
+
+const percentagePaths = [
+  new URL('../src/database/migrations/016_ai_essay_percentage_grading.sql', import.meta.url),
+  new URL('../../supabase/migrations/021_ai_essay_percentage_grading.sql', import.meta.url),
+];
+
+for (const path of percentagePaths) {
+  test(`AI percentage migration contract: ${path.pathname}`, async () => {
+    const sql = await readFile(path, 'utf8');
+    for (const field of ['grading_method', 'ai_correctness_percentage', 'reviewed_correctness_percentage', 'ai_content_analysis']) {
+      assert.match(sql, new RegExp(`ADD COLUMN IF NOT EXISTS ${field}`, 'i'));
+    }
+    assert.match(sql, /percentage_v2/i);
+    assert.match(sql, /rubric_v1/i);
+    assert.match(sql, /manual_v1/i);
+    assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN/i);
+  });
+}

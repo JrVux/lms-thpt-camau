@@ -1,3 +1,6 @@
+import { PERCENTAGE_GRADING_METHOD } from '../ai/essayPercentageGrading.js';
+import { ESSAY_PERCENTAGE_PROMPT_VERSION } from '../ai/essayGradingPrompt.js';
+
 const badRequest = (message) => {
   const error = new Error(message);
   error.code = 'BAD_REQUEST';
@@ -63,6 +66,8 @@ export const createEssayGradingService = (db) => {
   const enqueue = async ({ submission, assignment, studentId, requestedBy = null }) => {
     const normalized = Array.isArray(submission) ? submission[0] : submission;
     if (!assignment?.ai_grading_enabled || !normalized?.id) return null;
+    const legacyRubric = Array.isArray(assignment.essay_rubric) && assignment.essay_rubric.length > 0;
+    const gradingMethod = legacyRubric ? 'rubric_v1' : PERCENTAGE_GRADING_METHOD;
     const payload = {
       submission_id: normalized.id,
       assignment_id: assignment.id,
@@ -70,9 +75,10 @@ export const createEssayGradingService = (db) => {
       student_id: studentId || normalized.user_id,
       requested_by: requestedBy,
       assignment_content_version: Number(assignment.content_version || 1),
-      prompt_version: 'essay-grading-v1',
+      grading_method: gradingMethod,
+      prompt_version: legacyRubric ? 'essay-grading-v1' : ESSAY_PERCENTAGE_PROMPT_VERSION,
       model_answer_snapshot: assignment.essay_model_answer,
-      rubric_snapshot: assignment.essay_rubric,
+      rubric_snapshot: legacyRubric ? assignment.essay_rubric : [],
       status: 'queued',
     };
     const { data, error } = await db.from('essay_grading_jobs').insert(payload).select().maybeSingle();

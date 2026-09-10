@@ -6,7 +6,9 @@ export const safeEssayErrorCode = (error) => SAFE_CODES.has(error?.code) ? error
 
 export const processEssayJob = async ({ job, assignment, submission, fileReader, gateway }) => {
   const input = await fileReader.read({ submission, assignment });
+  const gradingMethod = job.grading_method || 'rubric_v1';
   const generated = await gateway.generate({
+    gradingMethod,
     question: assignment.essay_content,
     modelAnswer: job.model_answer_snapshot,
     rubric: job.rubric_snapshot,
@@ -14,25 +16,37 @@ export const processEssayJob = async ({ job, assignment, submission, fileReader,
     extractedText: input.extractedText,
     file: input.file,
   });
+  const report = {
+    job_id: job.id, submission_id: job.submission_id, source: 'ai', grading_method: gradingMethod,
+    extracted_text: generated.grade.extracted_text || input.extractedText || '',
+    extraction_method: input.extractionMethod,
+    extraction_quality: generated.grade.extraction_quality,
+    extraction_warnings: generated.grade.extraction_warnings || [],
+    ai_score: generated.grade.score,
+    ai_overall_feedback: generated.grade.overall_feedback,
+    ai_strengths: generated.grade.strengths || [],
+    ai_improvements: generated.grade.improvements || [],
+    review_status: 'pending',
+    show_model_answer: Boolean(assignment.show_model_answer_after_publish),
+  };
+  if (gradingMethod === 'percentage_v2') {
+    report.ai_correctness_percentage = generated.grade.correctness_percentage;
+    report.ai_content_analysis = {
+      correct_content: generated.grade.correct_content,
+      missing_or_incorrect_content: generated.grade.missing_or_incorrect_content,
+      contradictions: generated.grade.contradictions,
+      confidence: generated.grade.confidence,
+    };
+    report.ai_criteria_results = null;
+  } else {
+    report.ai_criteria_results = generated.grade.criteria_results;
+  }
   return {
     jobStatus: 'awaiting_review',
     provider: generated.provider,
     model: generated.model,
     usage: generated.usage,
-    report: {
-      job_id: job.id, submission_id: job.submission_id, source: 'ai',
-      extracted_text: generated.grade.extracted_text || input.extractedText || '',
-      extraction_method: input.extractionMethod,
-      extraction_quality: generated.grade.extraction_quality,
-      extraction_warnings: generated.grade.extraction_warnings || [],
-      ai_score: generated.grade.score,
-      ai_criteria_results: generated.grade.criteria_results,
-      ai_overall_feedback: generated.grade.overall_feedback,
-      ai_strengths: generated.grade.strengths || [],
-      ai_improvements: generated.grade.improvements || [],
-      review_status: 'pending',
-      show_model_answer: Boolean(assignment.show_model_answer_after_publish),
-    },
+    report,
   };
 };
 
