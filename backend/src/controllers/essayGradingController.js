@@ -18,6 +18,7 @@ export const reviewEssayGrading = async (req, res) => {
     const report = await grading.saveReview({
       teacherId: req.user.id,
       submissionId: req.params.submissionId,
+      correctnessPercentage: req.body.correctness_percentage,
       criteriaResults: req.body.criteria_results,
       feedback: req.body.feedback,
       approved: req.body.approved === true,

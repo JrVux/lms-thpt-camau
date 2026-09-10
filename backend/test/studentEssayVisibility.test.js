@@ -12,4 +12,7 @@ test('student delivery never exposes rubric/model answer or unpublished essay gr
   assert.equal(hidden.assignments.essay_rubric, undefined);
   assert.equal(hidden.submissions[0].score, undefined);
   assert.equal(hidden.submissions[0].published_result, null);
+  assert.equal(JSON.stringify(hidden).includes('correctness_percentage'), false);
+  assert.equal(JSON.stringify(hidden).includes('ai_content_analysis'), false);
+  assert.equal(JSON.stringify(hidden).includes('extracted_text'), false);
 });

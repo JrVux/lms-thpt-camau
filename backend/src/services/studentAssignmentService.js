@@ -125,7 +125,7 @@ export const createStudentAssignmentService = (db) => {
     throwDbError(submissionError);
     let publishedReports = new Map();
     if (delivery.assignments?.submission_type === 'essay' && submissions?.length) {
-      const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot)').in('submission_id', submissions.map((item) => item.id)).not('published_at', 'is', null).order('published_at', { ascending: false });
+      const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot,grading_method)').in('submission_id', submissions.map((item) => item.id)).not('published_at', 'is', null).order('published_at', { ascending: false });
       throwDbError(reportsError);
       publishedReports = new Map((reports || []).map((report) => [report.submission_id, report]));
     }
@@ -156,7 +156,7 @@ export const createStudentAssignmentService = (db) => {
       const studentSubmissionIds = (deliveries || []).flatMap((delivery) => (delivery.submissions || []).filter((s) => s.user_id === userId).map((s) => s.id));
       let publishedReports = new Map();
       if (studentSubmissionIds.length) {
-        const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot)').in('submission_id', studentSubmissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
+        const { data: reports, error: reportsError } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot,grading_method)').in('submission_id', studentSubmissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
         throwDbError(reportsError);
         for (const report of reports || []) if (!publishedReports.has(report.submission_id)) publishedReports.set(report.submission_id, report);
       }

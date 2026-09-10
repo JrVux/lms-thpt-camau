@@ -29,14 +29,39 @@ export const reviewedScore = (criteriaResults, rubric, maxScore) => {
   return Number(total.toFixed(2));
 };
 
+export const reviewedPercentageScore = (correctnessPercentage, maxScore) => {
+  const percentage = Number(correctnessPercentage);
+  const maximum = Number(maxScore);
+  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) return badRequest('Phần trăm nội dung đúng không hợp lệ.');
+  if (!Number.isFinite(maximum) || maximum <= 0) return badRequest('Điểm tối đa không hợp lệ.');
+  return {
+    correctnessPercentage: Number(percentage.toFixed(1)),
+    score: Number((maximum * percentage / 100).toFixed(1)),
+  };
+};
+
 export const toStudentEssaySubmission = (submission, report, modelAnswer, rubric = []) => {
   if (!submission) return null;
   const { object_key: _objectKey, score: _score, feedback: _feedback, graded_at: _gradedAt, graded_by: _gradedBy, ...safe } = submission;
   const jobSnapshot = Array.isArray(report?.essay_grading_jobs) ? report.essay_grading_jobs[0] : report?.essay_grading_jobs;
   const resultRubric = jobSnapshot?.rubric_snapshot || rubric;
   const resultModelAnswer = jobSnapshot?.model_answer_snapshot || modelAnswer;
+  const gradingMethod = report?.grading_method || jobSnapshot?.grading_method || 'rubric_v1';
   const published = report?.published_at
-    ? {
+    ? gradingMethod === 'percentage_v2' ? {
+        grading_method: 'percentage_v2',
+        score: Number(report.reviewed_score),
+        correctness_percentage: Number(report.reviewed_correctness_percentage),
+        feedback: report.reviewed_feedback || '',
+        content_analysis: report.ai_content_analysis || {
+          correct_content: [], missing_or_incorrect_content: [], contradictions: [], confidence: null,
+        },
+        strengths: report.ai_strengths || [],
+        improvements: report.ai_improvements || [],
+        published_at: report.published_at,
+        ...(report.show_model_answer && resultModelAnswer ? { model_answer: resultModelAnswer } : {}),
+      } : {
+        grading_method: gradingMethod,
         score: Number(report.reviewed_score),
         feedback: report.reviewed_feedback || '',
         criteria_results: (report.reviewed_criteria_results || []).map((result) => {
@@ -89,7 +114,7 @@ export const createEssayGradingService = (db) => {
 
   const publishedReportsBySubmission = async (submissionIds) => {
     if (!submissionIds?.length) return new Map();
-    const { data, error } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot)').in('submission_id', submissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
+    const { data, error } = await db.from('essay_grading_reports').select('*, essay_grading_jobs(model_answer_snapshot,rubric_snapshot,grading_method)').in('submission_id', submissionIds).not('published_at', 'is', null).order('published_at', { ascending: false });
     if (error) throw new Error(error.message);
     const result = new Map();
     for (const report of data || []) if (!result.has(report.submission_id)) result.set(report.submission_id, report);
@@ -112,7 +137,7 @@ export const createEssayGradingService = (db) => {
     return { submission, job, report };
   };
 
-  const saveReview = async ({ teacherId, submissionId, criteriaResults, feedback, approved = false, rejected = false, showModelAnswer = false }) => {
+  const saveReview = async ({ teacherId, submissionId, correctnessPercentage, criteriaResults, feedback, approved = false, rejected = false, showModelAnswer = false }) => {
     if (feedback !== undefined && (typeof feedback !== 'string' || feedback.length > 10000)) return badRequest('Nhận xét giáo viên không hợp lệ.');
     const context = await teacherReport({ teacherId, submissionId });
     if (!context.job) return badRequest('Bài nộp chưa có lượt chấm để duyệt.');
@@ -121,18 +146,27 @@ export const createEssayGradingService = (db) => {
         job_id: context.job.id,
         submission_id: submissionId,
         source: 'manual',
+        grading_method: context.job.grading_method || 'rubric_v1',
         review_status: 'pending',
         show_model_answer: Boolean(showModelAnswer),
       }).select().maybeSingle();
       if (insertError) throw new Error(insertError.message);
       context.report = manualReport;
     }
-    const score = reviewedScore(criteriaResults, context.job.rubric_snapshot, context.submission.max_score || context.job.rubric_snapshot.reduce((n, item) => n + Number(item.max_points), 0));
+    const gradingMethod = context.job.grading_method || 'rubric_v1';
+    const maxScore = context.submission.max_score || context.job.rubric_snapshot.reduce((n, item) => n + Number(item.max_points), 0);
+    const percentageReview = gradingMethod === 'percentage_v2'
+      ? reviewedPercentageScore(correctnessPercentage, maxScore)
+      : null;
+    const score = percentageReview?.score ?? reviewedScore(criteriaResults, context.job.rubric_snapshot, maxScore);
     const now = new Date().toISOString();
     const reviewStatus = rejected ? 'rejected' : approved ? 'approved' : 'pending';
-    const { data, error } = await db.from('essay_grading_reports').update({ reviewed_score: score, reviewed_criteria_results: criteriaResults, reviewed_feedback: feedback || '', review_status: reviewStatus, reviewed_by: teacherId, reviewed_at: now, show_model_answer: Boolean(showModelAnswer), updated_at: now }).eq('id', context.report.id).select().maybeSingle();
+    const reviewPatch = { reviewed_score: score, reviewed_feedback: feedback || '', review_status: reviewStatus, reviewed_by: teacherId, reviewed_at: now, show_model_answer: Boolean(showModelAnswer), updated_at: now };
+    if (percentageReview) reviewPatch.reviewed_correctness_percentage = percentageReview.correctnessPercentage;
+    else reviewPatch.reviewed_criteria_results = criteriaResults;
+    const { data, error } = await db.from('essay_grading_reports').update(reviewPatch).eq('id', context.report.id).select().maybeSingle();
     if (error) throw new Error(error.message);
-    await db.from('essay_grading_events').insert({ job_id: context.job.id, report_id: context.report.id, event_type: rejected ? 'review_rejected' : approved ? 'review_approved' : 'review_saved', actor_id: teacherId, metadata: { show_model_answer: Boolean(showModelAnswer), source: context.report.source } });
+    await db.from('essay_grading_events').insert({ job_id: context.job.id, report_id: context.report.id, event_type: rejected ? 'review_rejected' : approved ? 'review_approved' : 'review_saved', actor_id: teacherId, metadata: { show_model_answer: Boolean(showModelAnswer), source: context.report.source, grading_method: gradingMethod, ...(percentageReview ? { correctness_percentage: percentageReview.correctnessPercentage } : {}) } });
     return data;
   };
 
@@ -194,6 +228,7 @@ export const createEssayGradingService = (db) => {
       submission_id: submission.id, assignment_id: assignment.id, delivery_id: submission.delivery_id,
       student_id: submission.user_id, requested_by: teacherId,
       assignment_content_version: Number(assignment.content_version || 1), prompt_version: 'manual-review-v1',
+      grading_method: 'manual_v1',
       model_answer_snapshot: assignment.essay_model_answer || '', rubric_snapshot: rubric,
       status: 'awaiting_review', completed_at: new Date().toISOString(),
     }).select().maybeSingle();
@@ -202,6 +237,7 @@ export const createEssayGradingService = (db) => {
     const criteria = [{ rubric_item_id: 'manual-total', awarded_points: numericScore, status: 'met', explanation: feedback || 'Giáo viên chấm thủ công.', evidence_snippets: [], confidence: 1 }];
     const { data: report, error: reportError } = await db.from('essay_grading_reports').insert({
       job_id: job.id, submission_id: submission.id, source: 'manual', reviewed_score: numericScore,
+      grading_method: 'manual_v1',
       reviewed_criteria_results: criteria, reviewed_feedback: feedback || '', review_status: 'approved',
       reviewed_by: teacherId, reviewed_at: now, show_model_answer: false,
     }).select().maybeSingle();
