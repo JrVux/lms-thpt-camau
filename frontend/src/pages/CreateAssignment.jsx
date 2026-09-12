@@ -7,7 +7,7 @@ import CompetencyMappingPanel from '../components/CompetencyMappingPanel';
 import AIAssignmentComposer from '../components/AIAssignmentComposer';
 import { applyAIDraft, subjectToCategory } from '../utils/aiAssignmentDraft';
 import FileAssignmentFields from '../components/FileAssignmentFields';
-import { buildFileAssignmentPayload } from '../utils/fileSubmission';
+import { buildFileAssignmentPayload, validateAiEssayAuthoring } from '../utils/fileSubmission';
 import { Plus, Trash2, Code, Sparkles } from 'lucide-react';
 
 const LANG_MAP = { python: 'python', sql: 'sql', html: 'html' };
@@ -180,17 +180,8 @@ const CreateAssignment = () => {
       setError('Vui lòng nhập đề bài tự luận');
       return;
     }
-    if (fileSettings.submission_type === 'essay' && fileSettings.ai_grading_enabled) {
-      const rubric = fileSettings.essay_rubric || [];
-      const rubricTotal = rubric.reduce((sum, item) => sum + Number(item.max_points || 0), 0);
-      if (!String(fileSettings.essay_model_answer || '').trim()) { setError('Vui lòng nhập đáp án mẫu để AI chấm bài'); return; }
-      if (!rubric.length || rubric.some((item) => !String(item.title || '').trim() || !String(item.description || '').trim() || Number(item.max_points) <= 0)) {
-        setError('Vui lòng nhập đầy đủ tên, mô tả và điểm cho từng nội dung cốt lõi'); return;
-      }
-      if (!Number(form.max_score) || Math.abs(rubricTotal - Number(form.max_score)) > 0.0001) {
-        setError('Tổng điểm các nội dung cốt lõi phải bằng tổng điểm của bài'); return;
-      }
-    }
+    const aiEssayError = validateAiEssayAuthoring(fileSettings, form.max_score);
+    if (aiEssayError) { setError(aiEssayError); return; }
 
     setSaving(true);
     setError('');

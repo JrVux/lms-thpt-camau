@@ -106,6 +106,13 @@ export const buildFileAssignmentPayload = (formState) => {
   return payload;
 };
 
+export const validateAiEssayAuthoring = (settings = {}, maxScore) => {
+  if (settings.submission_type !== 'essay' || settings.ai_grading_enabled !== true) return null;
+  if (!String(settings.essay_model_answer || '').trim()) return 'Vui lòng nhập đáp án mẫu để AI chấm bài';
+  if (!Number.isFinite(Number(maxScore)) || Number(maxScore) <= 0) return 'Điểm tối đa phải lớn hơn 0';
+  return null;
+};
+
 export const studentFileCard = (delivery = {}) => {
   const assignment = delivery.assignments || {};
   const isEssay = assignment.submission_type === 'essay';
