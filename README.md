@@ -41,7 +41,9 @@ OpenRouter được gọi trước; Gemini chỉ dự phòng khi lỗi kỹ thu�
 
 ## Chấm bài tự luận bằng AI
 
-Với bài tự luận nộp file, giáo viên có thể bật Gemini, nhập đáp án mẫu và tạo thang điểm theo từng nội dung cốt lõi. Hệ thống nhận PDF, DOCX, JPG/JPEG, PNG và WebP; ảnh chụp được Gemini đọc trực tiếp. AI chỉ tạo bản chấm nháp theo từng tiêu chí. Giáo viên có thể sửa, lưu và phê duyệt, sau đó công bố riêng một bài, các bài đã chọn hoặc tất cả bài đã duyệt.
+Với bài tự luận nộp file, giáo viên chỉ cần bật Gemini, nhập đáp án mẫu và đặt điểm tối đa; không phải khai báo từng nội dung cốt lõi. Mỗi lần nộp, học sinh có thể chọn từ 1 đến 5 tệp PDF, DOCX, JPG/JPEG, PNG hoặc WebP theo đúng thứ tự bài làm. Các tệp được tải tuần tự nhưng được ghi nhận nguyên tử thành một lần nộp, một điểm và một kết quả chấm; nộp lại sẽ thay toàn bộ bộ tệp bằng một lần nộp mới mà vẫn giữ lịch sử cũ.
+
+AI đọc từng tệp theo thứ tự rồi chấm toàn bộ bộ tệp một lần dựa trên đáp án mẫu. Giáo viên xem/tải từng tệp, duyệt bản chấm và công bố riêng một bài, các bài đã chọn hoặc tất cả bài đã duyệt. Nếu một tệp không đọc được, hệ thống nêu rõ tên tệp để giáo viên kiểm tra và không tự cho bài điểm 0.
 
 Học sinh không nhận điểm, nhận xét, văn bản OCR, rubric hay đáp án mẫu khi kết quả chưa được công bố. Lỗi đọc file hoặc lỗi AI không tạo điểm 0; giáo viên có thể yêu cầu chấm lại hoặc xử lý thủ công. Đáp án mẫu chỉ xuất hiện trong kết quả đã công bố khi giáo viên bật tùy chọn tương ứng.
 
@@ -115,6 +117,8 @@ Với database mới, chạy `backend/src/database/schema.sql`, sau đó chạy 
 13. `013_delete_assignment_transaction.sql`
 14. `014_file_submissions.sql`
 15. `015_ai_essay_grading.sql`
+16. `016_ai_essay_percentage_grading.sql`
+17. `017_multi_file_essay_submissions.sql`
 
 Các migration thiết lập Kho bài tập, bản giao theo lớp/học sinh, giao dịch nộp/chấm lại nguyên tử, khóa truy cập công khai, xóa lớp an toàn, nền tảng năng lực có phiên bản, chủ đề bài tập theo từng khối và xóa bài tập an toàn theo giao dịch.
 
@@ -148,7 +152,7 @@ Repository có `render.yaml`. Cấu hình các biến:
 - `GEMINI_API_KEY`, `GEMINI_ESSAY_MODEL`
 - `AI_ESSAY_GRADING_WORKER_ENABLED=true`
 
-Trước khi bật worker, áp dụng migration `supabase/migrations/020_ai_essay_grading.sql`. Worker và khóa Gemini chỉ đặt ở backend; không đưa khóa vào biến frontend.
+Trước khi bật worker, áp dụng lần lượt `supabase/migrations/020_ai_essay_grading.sql`, `021_ai_essay_percentage_grading.sql` và `022_multi_file_essay_submissions.sql`. Với nộp nhiều tệp, token R2 cần quyền đọc, ghi và xóa để dọn phiên upload bị hủy; worker không xóa file của bài đã xác nhận. Worker và khóa Gemini chỉ đặt ở backend; không đưa khóa vào biến frontend.
 
 Build command: `npm run build`. Start command: `npm start`. Health check: `/health`.
 

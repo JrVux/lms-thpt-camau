@@ -532,7 +532,7 @@ Add `gemini.extract({ file, signal })` using the extraction schema. Add `gateway
 `readMany` processes the sorted list with `for...of`, never `Promise.all`, and returns one item per file with `fileName`, `sortOrder`, `extractedText` or `file`, method and warnings. The worker calls `extractFile` only for items carrying binary vision input, also sequentially.
 
 ```js
-export const combineExtractedFiles = (results, maxChars = Number(process.env.AI_ESSAY_MAX_EXTRACTED_CHARS || 120000)) => {
+export const combineExtractedFiles = (results, maxChars = Number(process.env.AI_ESSAY_MAX_EXTRACTED_CHARS || 100000)) => {
   const readable = results.filter((item) => item.extractedText?.trim());
   if (!readable.length) fail('FILE_NOT_AVAILABLE', 'Không đọc được nội dung từ bộ file bài làm.');
   const text = readable.map((item, index) => `<submission_file index="${index + 1}" name="${escapeBoundary(item.fileName)}">\n${item.extractedText.trim()}\n</submission_file>`).join('\n');
@@ -785,7 +785,7 @@ Document migration order through backend `017` / Supabase `022`, three session e
 ```text
 SUBMISSION_UPLOAD_CLEANUP_ENABLED=true
 SUBMISSION_UPLOAD_CLEANUP_POLL_MS=60000
-AI_ESSAY_MAX_EXTRACTED_CHARS=120000
+AI_ESSAY_MAX_EXTRACTED_CHARS=100000
 ```
 
 The checklist must require migration first, compatible backend/worker second, frontend bundle third, then authorization/storage/live-bundle probes. Rollback disables the multi-file UI and cleanup worker or rolls back application code; it never drops the additive tables or deletes confirmed files.
