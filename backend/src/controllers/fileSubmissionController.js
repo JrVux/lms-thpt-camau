@@ -1,15 +1,65 @@
 import { supabase } from '../services/supabaseClient.js';
 import { createFileSubmissionService } from '../services/fileSubmissionService.js';
+import { createSubmissionUploadSessionService } from '../services/submissionUploadSessionService.js';
 
 const service = createFileSubmissionService(supabase);
+const uploadSessions = createSubmissionUploadSessionService(supabase, {
+  getStudentDelivery: service.getStudentDelivery,
+});
 
 const failure = (res, error) => {
   const status = error.code === 'NOT_FOUND' ? 404
     : error.code === 'FORBIDDEN' ? 403
-    : error.code === 'BAD_REQUEST' ? 400
+    : ['BAD_REQUEST', 'DEADLINE_PASSED', 'MAX_SUBMISSIONS_EXCEEDED'].includes(error.code) ? 400
+    : error.code === 'CONFLICT' ? 409
     : error.code === 'STORAGE_UNAVAILABLE' ? 503
     : 500;
   return res.status(status).json({ success: false, message: error.message || 'Thao tác không thành công', code: error.code || 'ERROR' });
+};
+
+export const createUploadSession = async (req, res) => {
+  try {
+    const session = await uploadSessions.createSession({
+      studentId: req.user.id,
+      deliveryId: req.params.deliveryId,
+      files: req.body?.files,
+    });
+    return res.status(201).json(session);
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const uploadSessionFile = async (req, res) => {
+  try {
+    const result = await uploadSessions.uploadSessionFile({
+      studentId: req.user.id,
+      sessionId: req.params.sessionId,
+      fileId: req.params.fileId,
+      buffer: req.body,
+      declaredMimeType: req.get('x-file-mime') || req.get('content-type'),
+      declaredSize: Number(req.get('x-file-size')),
+    });
+    return res.json({ success: true, file: result });
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const confirmUploadSession = async (req, res) => {
+  try {
+    return res.json(await uploadSessions.confirmSession({ studentId: req.user.id, sessionId: req.params.sessionId }));
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const cancelUploadSession = async (req, res) => {
+  try {
+    return res.json(await uploadSessions.cancelSession({ studentId: req.user.id, sessionId: req.params.sessionId }));
+  } catch (error) {
+    return failure(res, error);
+  }
 };
 
 export const sendSubmissionFile = (res, fileInfo) => {
@@ -103,6 +153,20 @@ export const downloadFile = async (req, res) => {
       userId: req.user.id,
       userRole: req.user.role,
       submissionId,
+    });
+    return sendSubmissionFile(res, fileInfo);
+  } catch (error) {
+    return failure(res, error);
+  }
+};
+
+export const downloadSubmissionFile = async (req, res) => {
+  try {
+    const fileInfo = await service.getSubmissionDownload({
+      userId: req.user.id,
+      userRole: req.user.role,
+      submissionId: req.params.submissionId,
+      fileId: req.params.fileId,
     });
     return sendSubmissionFile(res, fileInfo);
   } catch (error) {

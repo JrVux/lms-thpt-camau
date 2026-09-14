@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, raw } from 'express';
 import { body } from 'express-validator';
 import { authenticate, requireRole, requireAIAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -91,6 +91,11 @@ router.post('/api/assignment-deliveries/:id/detach', authenticate, requireRole('
 router.get('/api/my-assignments', authenticate, requireRole('student'), studentAssignmentController.listMine);
 router.get('/api/file-submissions/deliveries/:deliveryId', authenticate, requireRole('student'), fileSubmissionController.getStudentDelivery);
 router.post('/api/file-submissions/deliveries/:deliveryId/submit', authenticate, requireRole('student'), fileSubmissionController.submitFile);
+router.post('/api/file-submissions/deliveries/:deliveryId/upload-sessions', authenticate, requireRole('student'), fileSubmissionController.createUploadSession);
+router.post('/api/file-submissions/upload-sessions/:sessionId/files/:fileId', authenticate, requireRole('student'), raw({ type: () => true, limit: '101mb' }), fileSubmissionController.uploadSessionFile);
+router.post('/api/file-submissions/upload-sessions/:sessionId/confirm', authenticate, requireRole('student'), fileSubmissionController.confirmUploadSession);
+router.delete('/api/file-submissions/upload-sessions/:sessionId', authenticate, requireRole('student'), fileSubmissionController.cancelUploadSession);
+router.get('/api/file-submissions/:submissionId/files/:fileId/download', authenticate, fileSubmissionController.downloadSubmissionFile);
 router.get('/api/file-submissions/:submissionId/download', authenticate, fileSubmissionController.downloadFile);
 router.post('/api/file-submissions/:submissionId/grade', authenticate, requireRole('teacher'), fileSubmissionController.gradeFileSubmission);
 router.get('/api/file-submissions/:submissionId/ai-grading', authenticate, requireRole('teacher'), essayGradingController.getEssayGrading);
