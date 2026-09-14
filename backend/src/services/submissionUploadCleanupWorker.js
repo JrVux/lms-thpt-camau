@@ -40,17 +40,30 @@ export const createSubmissionUploadCleanupWorker = ({
     if (error) throw new Error(error.message);
   };
 
+  const claimCleanup = async (sessionId, patch) => {
+    const { data, error } = await db
+      .from('submission_upload_sessions')
+      .update({ ...patch, updated_at: new Date(now()).toISOString() })
+      .eq('id', sessionId)
+      .neq('status', 'confirmed')
+      .select('id')
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return Boolean(data);
+  };
+
   const defaultCleanupSession = async (candidate) => {
     if (!candidate || candidate.status === 'confirmed') return false;
     const expired = candidate.status === 'uploading' && new Date(candidate.expires_at).getTime() <= now();
     const cleanupReason = expired ? 'expired' : candidate.cleanup_reason || 'cancelled';
-    await updateSession(candidate.id, { status: 'cleanup_pending', cleanup_reason: cleanupReason });
+    const claimed = await claimCleanup(candidate.id, { status: 'cleanup_pending', cleanup_reason: cleanupReason });
+    if (!claimed) return false;
 
     const { data: files, error } = await db
       .from('submission_upload_session_files')
       .select('*')
       .eq('session_id', candidate.id)
-      .in('status', ['uploaded', 'cleanup_pending']);
+      .in('status', ['pending', 'uploaded', 'cleanup_pending']);
     if (error) throw new Error(error.message);
 
     let complete = true;
