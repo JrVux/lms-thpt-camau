@@ -37,6 +37,50 @@ export const validateSelectedFile = (file, settings = {}) => {
   return null;
 };
 
+const normalizeSelectedFileName = (name) => String(name || '')
+  .trim()
+  .normalize('NFKC')
+  .toLocaleLowerCase('vi-VN');
+
+export const validateSelectedFiles = (files = [], settings = {}, maxFiles = 5) => {
+  if (!Array.isArray(files) || files.length === 0) return 'Vui lòng chọn ít nhất 1 file bài làm.';
+  if (files.length > maxFiles) return `Chỉ được chọn tối đa ${maxFiles} file.`;
+
+  const names = new Set();
+  for (const file of files) {
+    const error = validateSelectedFile(file, settings);
+    if (error) return `${file?.name || 'File'}: ${error}`;
+
+    const normalizedName = normalizeSelectedFileName(file?.name);
+    if (!normalizedName) return 'Tên file không hợp lệ.';
+    if (names.has(normalizedName)) return `Tên file bị trùng: ${file.name}`;
+    names.add(normalizedName);
+  }
+
+  return null;
+};
+
+export const addSelectedFiles = (currentFiles = [], newFiles = [], settings = {}, maxFiles = 5) => {
+  const additions = Array.from(newFiles || []);
+  if (additions.length === 0) return { files: currentFiles, error: null };
+
+  const combined = [...currentFiles, ...additions];
+  const error = validateSelectedFiles(combined, settings, maxFiles);
+  return error
+    ? { files: currentFiles, error }
+    : { files: combined, error: null };
+};
+
+export const removeSelectedFile = (files = [], index) => files.filter((_, itemIndex) => itemIndex !== index);
+
+export const moveSelectedFile = (files = [], index, offset) => {
+  const output = [...files];
+  const targetIndex = index + offset;
+  if (index < 0 || index >= output.length || targetIndex < 0 || targetIndex >= output.length) return output;
+  [output[index], output[targetIndex]] = [output[targetIndex], output[index]];
+  return output;
+};
+
 export const fileAssignmentStatus = (latestSubmission, isOverdue = false) => {
   if (!latestSubmission) {
     return isOverdue ? 'overdue' : 'pending';
