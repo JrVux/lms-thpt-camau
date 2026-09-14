@@ -48,8 +48,9 @@ test('roster distinguishes missing, submitted, late, and graded', () => {
 });
 
 test('export rows omit keys and URLs', () => {
-  const [row] = toExportRows([{ student_name: 'An', class_name: '10A', latest: { file_name: 'a.pdf' } }]);
+  const [row] = toExportRows([{ student_name: 'An', class_name: '10A', latest: { files: [{ file_name: 'a.pdf' }, { file_name: 'b.jpg' }] } }]);
   assert.deepEqual(Object.keys(row), ['Học sinh', 'Lớp', 'Trạng thái', 'Thời gian nộp', 'Nộp trễ', 'Tên file', 'Điểm', 'Nhận xét']);
+  assert.equal(row['Tên file'], 'a.pdf; b.jpg');
 });
 
 test('persists a submission to R2 before reporting storage success', async () => {
@@ -216,4 +217,25 @@ test('getSubmissionDownload authorizes before using the private R2 fallback', as
   assert.equal(downloadCalls, 1);
   assert.equal(result.type, 'buffer');
   assert.deepEqual(result.buffer, Buffer.from([0xff, 0xd8, 0xff]));
+});
+
+test('file-specific download rejects a child from another submission', async () => {
+  let downloadCalls = 0;
+  const submission = {
+    id: 'submission-1', user_id: 'student-1', delivery_id: 'delivery-1',
+    object_key: 'local://first.jpg', file_name: 'first.jpg', mime_type: 'image/jpeg',
+    assignment_deliveries: { teacher_id: 'teacher-1' },
+  };
+  const db = {
+    from: (table) => table === 'submissions' ? queryReturning(submission) : queryReturning(null),
+  };
+  const service = fileSubmissionModule.createFileSubmissionService(db, {
+    r2Download: async () => { downloadCalls += 1; return Buffer.from([0xff, 0xd8, 0xff]); },
+  });
+
+  await assert.rejects(
+    service.getSubmissionDownload({ userId: 'student-1', userRole: 'student', submissionId: 'submission-1', fileId: 'file-from-submission-2' }),
+    (error) => error.code === 'NOT_FOUND',
+  );
+  assert.equal(downloadCalls, 0);
 });

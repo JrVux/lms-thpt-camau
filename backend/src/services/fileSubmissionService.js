@@ -3,6 +3,7 @@ import path from 'path';
 import { downloadBufferFromR2, uploadBufferToR2 } from './r2Service.js';
 import { createEssayGradingService, toStudentEssaySubmission } from './essayGradingService.js';
 import { detectFileType } from './submissionFileReader.js';
+import { groupSubmissionHistory, safeSubmissionBundle } from './submissionFiles.js';
 
 export const safeFileName = (fileName) => {
   if (!fileName) return '';
@@ -13,9 +14,7 @@ export const safeFileName = (fileName) => {
 };
 
 export const safeFileSubmission = (submission) => {
-  if (!submission) return null;
-  const { object_key, ...safe } = submission;
-  return safe;
+  return safeSubmissionBundle(submission);
 };
 
 export const fileRosterStatus = (submission) => {
@@ -31,7 +30,7 @@ export const toExportRows = (rows) => rows.map((row) => ({
   'Trạng thái': fileRosterStatus(row.latest),
   'Thời gian nộp': row.latest?.submitted_at ?? '',
   'Nộp trễ': row.latest?.is_late ? 'Có' : 'Không',
-  'Tên file': row.latest?.file_name ?? '',
+  'Tên file': (row.latest?.files || (row.latest?.file_name ? [{ file_name: row.latest.file_name }] : [])).map((file) => file.file_name).join('; '),
   'Điểm': row.latest?.score ?? '',
   'Nhận xét': row.latest?.feedback ?? '',
 }));
@@ -171,7 +170,7 @@ export const createFileSubmissionService = (db, {
     // 2. Fetch submissions history
     const { data: submissions } = await db
       .from('submissions')
-      .select('*')
+      .select('*, submission_files(id,submission_id,object_key,file_name,mime_type,file_size,sort_order)')
       .eq('delivery_id', deliveryId)
       .eq('user_id', studentId)
       .not('object_key', 'is', null)
@@ -265,18 +264,21 @@ export const createFileSubmissionService = (db, {
       recipientMap.get(r.delivery_id).add(r.user_id);
     });
 
-    // 5. Get latest file submissions
-    const { data: latestSubmissions } = await db
+    // 5. Get file-submission history and select the latest parent for each student.
+    const { data: allSubmissions } = await db
       .from('submissions')
-      .select('*')
+      .select('*, submission_files(id,submission_id,object_key,file_name,mime_type,file_size,sort_order)')
       .in('delivery_id', deliveryIds)
-      .eq('is_latest', true)
-      .not('object_key', 'is', null);
+      .not('object_key', 'is', null)
+      .order('submitted_at', { ascending: false });
+
+    const latestSubmissions = (allSubmissions || []).filter((submission) => submission.is_latest);
 
     const submissionMap = new Map();
     (latestSubmissions || []).forEach((s) => {
       submissionMap.set(`${s.delivery_id}_${s.user_id}`, safeFileSubmission(s));
     });
+    const historyMap = groupSubmissionHistory(allSubmissions || []);
 
     const gradingMap = new Map();
     if (assignment.submission_type === 'essay' && (latestSubmissions || []).length) {
@@ -324,6 +326,7 @@ export const createFileSubmissionService = (db, {
           status: fileRosterStatus(latestForTeacher),
           latest: latestForTeacher,
           essay_grading: grading,
+          history: historyMap.get(`${delivery.id}_${studentId}`) || [],
         });
       }
     }
@@ -429,7 +432,7 @@ export const createFileSubmissionService = (db, {
     return { success: true, submission: safeFileSubmission(createdSubmission), history: updatedHistory, ...(assignment.ai_grading_enabled ? { grading_queued: gradingQueued } : {}) };
   };
 
-  const getSubmissionDownload = async ({ userId, userRole, submissionId }) => {
+  const getSubmissionDownload = async ({ userId, userRole, submissionId, fileId = null }) => {
     const { data: sub, error: subErr } = await db
       .from('submissions')
       .select('*, assignment_deliveries!inner(class_id, teacher_id)')
@@ -446,9 +449,28 @@ export const createFileSubmissionService = (db, {
     }
     if (!['student', 'teacher'].includes(userRole)) throwForbidden();
 
-    const storage = await resolveSubmissionStorage({ submission: sub, uploadsDir, r2Download });
+    let selectedFile = null;
+    if (fileId) {
+      const { data: child, error: childError } = await db
+        .from('submission_files')
+        .select('*')
+        .eq('id', fileId)
+        .eq('submission_id', submissionId)
+        .maybeSingle();
+      if (childError || !child) throwNotFound('Không tìm thấy file trong bài nộp này.');
+      selectedFile = child;
+    }
+
+    const storageSubmission = selectedFile ? {
+      ...sub,
+      object_key: selectedFile.object_key,
+      file_name: selectedFile.file_name,
+      mime_type: selectedFile.mime_type,
+      file_size: selectedFile.file_size,
+    } : sub;
+    const storage = await resolveSubmissionStorage({ submission: storageSubmission, uploadsDir, r2Download });
     if (!storage) throwNotFound('Không tìm thấy file bài nộp.');
-    return { ...storage, fileName: sub.file_name, mimeType: sub.mime_type };
+    return { ...storage, fileName: storageSubmission.file_name, mimeType: storageSubmission.mime_type };
   };
 
   const gradeStudentSubmission = async ({ teacherId, submissionId, score, feedback }) => {
