@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'crypto';
-import { buildR2GetHeaders } from '../src/services/r2Service.js';
+import { buildR2DeleteHeaders, buildR2GetHeaders, deleteObjectFromR2 } from '../src/services/r2Service.js';
 
 export const buildR2Headers = ({ accountId, accessKeyId, secretAccessKey, bucketName, objectKey, buffer, mimeType, now = new Date() }) => {
   const amzDate = now.toISOString().replace(/[:-]/g, '').split('.')[0] + 'Z';
@@ -67,4 +67,37 @@ test('builds a private signed R2 GetObject request', () => {
   assert.match(req.url, /photo 1\.jpg$/);
   assert.match(req.headers.Authorization, /Credential=key123\/20260910\/auto\/s3\/aws4_request/);
   assert.equal(req.headers['x-amz-date'], '20260910T010203Z');
+});
+
+test('builds a signed private R2 DeleteObject request', () => {
+  const req = buildR2DeleteHeaders({
+    accountId: 'acc', accessKeyId: 'key', secretAccessKey: 'secret',
+    bucketName: 'lms-submissions', objectKey: 'd1/u1/tmp/session/file.pdf',
+    now: new Date('2026-09-14T01:02:03Z'),
+  });
+  assert.equal(req.method, 'DELETE');
+  assert.match(req.headers.Authorization, /Credential=key\/20260914\/auto\/s3\/aws4_request/);
+  assert.equal(req.headers['x-amz-date'], '20260914T010203Z');
+});
+
+test('treats a missing private R2 object as already deleted', async () => {
+  const previous = {
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKey: process.env.R2_ACCESS_KEY_ID,
+    secret: process.env.R2_SECRET_ACCESS_KEY,
+  };
+  process.env.R2_ACCOUNT_ID = 'acc';
+  process.env.R2_ACCESS_KEY_ID = 'key';
+  process.env.R2_SECRET_ACCESS_KEY = 'secret';
+  try {
+    const deleted = await deleteObjectFromR2({
+      objectKey: 'd1/u1/tmp/session/missing.pdf',
+      fetchImpl: async (_url, options) => ({ ok: false, status: 404, method: options.method }),
+    });
+    assert.equal(deleted, true);
+  } finally {
+    if (previous.accountId === undefined) delete process.env.R2_ACCOUNT_ID; else process.env.R2_ACCOUNT_ID = previous.accountId;
+    if (previous.accessKey === undefined) delete process.env.R2_ACCESS_KEY_ID; else process.env.R2_ACCESS_KEY_ID = previous.accessKey;
+    if (previous.secret === undefined) delete process.env.R2_SECRET_ACCESS_KEY; else process.env.R2_SECRET_ACCESS_KEY = previous.secret;
+  }
 });

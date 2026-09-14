@@ -203,3 +203,16 @@ const startEssayGradingWorker = async () => {
 };
 
 startEssayGradingWorker().catch((error) => logger.error({ message: 'Essay grading worker failed to start', error: error.message }));
+
+const startSubmissionUploadCleanupWorker = async () => {
+  if (process.env.SUBMISSION_UPLOAD_CLEANUP_ENABLED === 'false') return;
+  const [{ supabase }, { createSubmissionUploadCleanupWorker }] = await Promise.all([
+    import('./services/supabaseClient.js'),
+    import('./services/submissionUploadCleanupWorker.js'),
+  ]);
+  const worker = createSubmissionUploadCleanupWorker({ db: supabase });
+  worker.start({ intervalMs: Number(process.env.SUBMISSION_UPLOAD_CLEANUP_POLL_MS) || 60_000 });
+  logger.info('Submission upload cleanup worker started');
+};
+
+startSubmissionUploadCleanupWorker().catch((error) => logger.error({ message: 'Submission upload cleanup worker failed to start', error: error.message }));
