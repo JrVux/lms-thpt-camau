@@ -3,16 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import api from '../services/api';
-import {
-  requestUploadUrl,
-  uploadFileToR2,
-  confirmSubmission,
-  getDownloadUrl,
-} from '../services/edgeFunctions';
+import { submitFileBundle } from '../services/fileSubmissionUploads';
 import FileDropzone from '../components/FileDropzone';
 import EssayPublishedResult from '../components/EssayPublishedResult';
 import { formatFileSize } from '../utils/fileSubmission';
-import { ArrowLeft, Clock, FileText, Download, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Clock, FileText, Download, AlertTriangle } from 'lucide-react';
 
 export default function FileSubmissionDetail() {
   const { deliveryId } = useParams();
@@ -23,7 +18,9 @@ export default function FileSubmissionDetail() {
   const [data, setData] = useState(null); // { delivery, assignment, history }
   
   const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [progressById, setProgressById] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -45,12 +42,34 @@ export default function FileSubmissionDetail() {
   }, [deliveryId]);
 
   const handleSubmitFile = async () => {
-    if (!selectedFile) return;
+    const isEssaySubmission = data?.assignment?.submission_type === 'essay';
+    if (isEssaySubmission ? selectedFiles.length === 0 : !selectedFile) return;
     setSubmitting(true);
     setSubmitError('');
-    setUploadProgress(10);
+    setUploadProgress(0);
+    setProgressById({});
 
     try {
+      if (isEssaySubmission) {
+        const result = await submitFileBundle({
+          deliveryId,
+          files: selectedFiles,
+          onProgress: ({ fileIndex, filePercent, totalPercent }) => {
+            setProgressById((current) => ({ ...current, [fileIndex]: filePercent }));
+            setUploadProgress(totalPercent);
+          },
+        });
+        setSelectedFiles([]);
+        setUploadProgress(0);
+        setProgressById({});
+        setData((previous) => ({
+          ...previous,
+          history: result.history || previous.history,
+        }));
+        setSubmitting(false);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = async () => {
         try {
@@ -89,20 +108,27 @@ export default function FileSubmissionDetail() {
       };
       reader.readAsDataURL(selectedFile);
     } catch (err) {
-      setSubmitError(err.message || 'Nộp bài thất bại. Vui lòng thử lại.');
+      setSubmitError(
+        err.response?.data?.message
+          ? `${err.response.data.message} Bài nộp chưa được ghi nhận; bạn có thể nộp lại toàn bộ các file.`
+          : 'Bài nộp chưa được ghi nhận. Bạn có thể nộp lại toàn bộ các file.',
+      );
       setSubmitting(false);
     }
   };
 
-  const handleDownloadFile = async (submissionId) => {
+  const handleDownloadFile = async (submissionId, file = null) => {
     try {
-      const response = await api.get(`/api/file-submissions/${submissionId}/download`, {
+      const endpoint = file?.id
+        ? `/api/file-submissions/${submissionId}/files/${file.id}/download`
+        : `/api/file-submissions/${submissionId}/download`;
+      const response = await api.get(endpoint, {
         responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `submission_${submissionId}`);
+      link.setAttribute('download', file?.file_name || `submission_${submissionId}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -145,8 +171,6 @@ export default function FileSubmissionDetail() {
   const sanitizedEssayHtml = isEssay && assignment.essay_content
     ? DOMPurify.sanitize(marked.parse(assignment.essay_content))
     : '';
-
-  const latestSubmission = history.find((h) => h.is_latest) || history[0];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -229,10 +253,14 @@ export default function FileSubmissionDetail() {
             <FileDropzone
               settings={assignment}
               disabled={submitting}
-              onSelectFile={setSelectedFile}
-              selectedFile={selectedFile}
+              onSelectFile={isEssay ? undefined : setSelectedFile}
+              selectedFile={isEssay ? null : selectedFile}
+              selectedFiles={isEssay ? selectedFiles : undefined}
+              onChangeFiles={isEssay ? setSelectedFiles : undefined}
               uploadProgress={uploadProgress}
+              progressById={progressById}
               isUploading={submitting}
+              multiple={isEssay}
             />
 
             {submitError && (
@@ -245,7 +273,7 @@ export default function FileSubmissionDetail() {
               <button
                 type="button"
                 onClick={handleSubmitFile}
-                disabled={!selectedFile || submitting}
+                disabled={(isEssay ? selectedFiles.length === 0 : !selectedFile) || submitting}
                 className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20"
               >
                 {submitting ? 'Đang gửi bài...' : history.length > 0 ? 'Nộp lại bài làm mới' : 'Nộp bài ngay'}
@@ -260,30 +288,13 @@ export default function FileSubmissionDetail() {
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 space-y-4">
           <h2 className="text-base font-semibold text-slate-100">Lịch sử nộp bài ({history.length} lần)</h2>
 
-          {latestSubmission?.grading_status && !latestSubmission?.published_result && (
-            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-200">Bài đã được ghi nhận và đang chấm. Kết quả chỉ hiển thị sau khi giáo viên phê duyệt và công bố.</div>
-          )}
-
-          <EssayPublishedResult result={latestSubmission?.published_result} maxScore={assignment.max_score || 10} />
-
-          {!latestSubmission?.grading_status && latestSubmission?.score !== null && latestSubmission?.score !== undefined && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-emerald-400">Kết quả đánh giá từ giáo viên</span>
-                <span className="text-lg font-bold text-emerald-400">{latestSubmission.score} / {assignment.max_score || 10} điểm</span>
-              </div>
-              {latestSubmission.feedback && (
-                <p className="text-sm text-slate-300 italic">"{latestSubmission.feedback}"</p>
-              )}
-            </div>
-          )}
-
-          <div className="divide-y divide-slate-700/50">
+          <div className="space-y-3">
             {history.map((item, idx) => (
-              <div key={item.id} className="py-3 flex items-center justify-between text-sm">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-slate-200">{item.file_name}</span>
+              <div key={item.id} className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 text-sm space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-slate-200">Lần nộp {history.length - idx}</span>
                     {item.is_latest && (
                       <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-0.5 rounded font-medium">
                         Bản chính thức
@@ -296,18 +307,40 @@ export default function FileSubmissionDetail() {
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    Nộp lúc {new Date(item.submitted_at).toLocaleString('vi-VN')} · {formatFileSize(item.file_size)}
+                      Nộp lúc {new Date(item.submitted_at).toLocaleString('vi-VN')}
                   </p>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleDownloadFile(item.id)}
-                  className="flex items-center space-x-1 text-slate-400 hover:text-blue-400 transition p-2 rounded-lg hover:bg-slate-700/50"
-                  title="Tải xuống bài làm này"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
+                <div className="space-y-2">
+                  {(item.files?.length ? item.files : [item]).map((file, fileIndex) => (
+                    <div key={file.id || `${item.id}-${fileIndex}`} className="flex items-center justify-between gap-3 rounded-lg bg-slate-800/70 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-200">{fileIndex + 1}. {file.file_name}</p>
+                        <p className="text-xs text-slate-500">{file.mime_type || 'Không rõ định dạng'} · {formatFileSize(file.file_size)}</p>
+                      </div>
+                      <button type="button" onClick={() => handleDownloadFile(item.id, item.files?.length ? file : null)} className="flex-shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-700/50 hover:text-blue-400" title={`Tải xuống ${file.file_name}`}>
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {item.grading_status && !item.published_result && (
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">Bài đã được ghi nhận và đang chấm. Kết quả chỉ hiển thị sau khi giáo viên phê duyệt và công bố.</div>
+                )}
+
+                <EssayPublishedResult result={item.published_result} maxScore={assignment.max_score || 10} />
+
+                {!item.grading_status && item.score !== null && item.score !== undefined && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-emerald-400">Kết quả đánh giá từ giáo viên</span>
+                      <span className="font-bold text-emerald-400">{item.score} / {assignment.max_score || 10} điểm</span>
+                    </div>
+                    {item.feedback && <p className="mt-2 text-slate-300 italic">"{item.feedback}"</p>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

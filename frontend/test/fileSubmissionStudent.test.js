@@ -18,3 +18,11 @@ test('published percentage result explains the approved score', async () => {
   assert.match(source, /Hướng cải thiện/i);
   assert.match(source, /model_answer/);
 });
+
+test('student essay page uses bundle upload and renders child file history', async () => {
+  const source = await readFile(new URL('../src/pages/FileSubmissionDetail.jsx', import.meta.url), 'utf8');
+  assert.match(source, /submitFileBundle/);
+  assert.match(source, /selectedFiles/);
+  assert.match(source, /item\.files/);
+  assert.match(source, /files\/\$\{file\.id\}\/download/);
+});
