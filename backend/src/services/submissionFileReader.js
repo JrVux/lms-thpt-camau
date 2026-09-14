@@ -16,6 +16,7 @@ export const detectFileType = (buffer) => {
 };
 
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
+const SKIPPABLE_BUNDLE_FILE_ERRORS = new Set(['FILE_INVALID', 'FILE_NOT_AVAILABLE', 'FILE_TOO_LARGE']);
 
 export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(), 'uploads/submissions'), r2Download = downloadBufferFromR2 } = {}) => {
   const reader = {
@@ -67,7 +68,7 @@ export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(
           const content = await reader.read({ submission: { ...submission, ...file, delivery_id: submission.delivery_id, user_id: submission.user_id }, assignment });
           results.push({ fileName: file.file_name, sortOrder: file.sort_order, warnings: [], ...content });
         } catch (error) {
-          if (error?.code !== 'FILE_INVALID') throw error;
+          if (!SKIPPABLE_BUNDLE_FILE_ERRORS.has(error?.code)) throw error;
           results.push({ fileName: file.file_name, sortOrder: file.sort_order, extractedText: '', extractionMethod: 'unreadable', warnings: [error.message] });
         }
       }

@@ -74,11 +74,23 @@ const withoutSolution = (assignment) => {
   return safe;
 };
 
+const withoutPrivateObjectKey = (submission) => {
+  if (!submission) return submission;
+  const { object_key: _objectKey, ...safe } = submission;
+  return safe;
+};
+
 export const redactEssayDelivery = (delivery, publishedReports = new Map()) => {
   const assignment = delivery?.assignments;
   if (!assignment) return delivery;
   const safeAssignment = withoutSolution(assignment);
-  if (assignment.submission_type !== 'essay' && !assignment.ai_grading_enabled) return { ...delivery, assignments: safeAssignment };
+  if (assignment.submission_type !== 'essay' && !assignment.ai_grading_enabled) {
+    return {
+      ...delivery,
+      assignments: safeAssignment,
+      submissions: (delivery.submissions || []).map(withoutPrivateObjectKey),
+    };
+  }
   return {
     ...delivery,
     assignments: safeAssignment,

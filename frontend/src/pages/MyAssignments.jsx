@@ -57,7 +57,7 @@ const StudentGradebookSummary = ({ deliveries }) => {
       const score = publishedResult?.score != null ? Number(publishedResult.score) : latestSub?.score != null ? Number(latestSub.score) : null;
       const maxScore = Number(latestSub?.max_score || assignment.max_score || 10);
       const isGraded = score != null;
-      const isSubmitted = Boolean(latestSub?.submitted_at || latestSub?.object_key);
+      const isSubmitted = Boolean(latestSub?.submitted_at || latestSub?.file_name);
       const isOverdue = d.due_date && new Date(d.due_date) < new Date() && !isSubmitted;
 
       if (isGraded) {

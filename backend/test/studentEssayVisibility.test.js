@@ -16,3 +16,13 @@ test('student delivery never exposes rubric/model answer or unpublished essay gr
   assert.equal(JSON.stringify(hidden).includes('ai_content_analysis'), false);
   assert.equal(JSON.stringify(hidden).includes('extracted_text'), false);
 });
+
+test('practice file delivery never exposes a private object key', () => {
+  const delivery = {
+    assignments: { id: 'a1', submission_type: 'practice_file' },
+    submissions: [{ id: 's1', object_key: 'local://private/key.pdf', file_name: 'answer.pdf' }],
+  };
+  const hidden = redactEssayDelivery(delivery, new Map());
+  assert.equal(hidden.submissions[0].object_key, undefined);
+  assert.equal(hidden.submissions[0].file_name, 'answer.pdf');
+});

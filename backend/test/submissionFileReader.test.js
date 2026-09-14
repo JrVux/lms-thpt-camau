@@ -47,3 +47,23 @@ test('reads child files sequentially in sort order', async () => {
   assert.deepEqual(requested, ['d1/u1/tmp/s/f1.jpg', 'd1/u1/tmp/s/f2.jpg']);
   assert.deepEqual(result.map((item) => item.fileName), ['1.jpg', '2.jpg']);
 });
+
+test('keeps readable files when one child is unavailable', async () => {
+  const reader = createSubmissionFileReader({
+    uploadsDir: 'Z:\\missing-essay-uploads',
+    r2Download: async ({ objectKey }) => objectKey.endsWith('2.jpg')
+      ? Buffer.from([0xff, 0xd8, 0xff, 0x00])
+      : null,
+  });
+  const result = await reader.readMany({
+    submission: { delivery_id: 'd1', user_id: 'u1' },
+    files: [
+      { object_key: 'local://tmp/s/1.jpg', file_name: '1.jpg', mime_type: 'image/jpeg', sort_order: 0 },
+      { object_key: 'local://tmp/s/2.jpg', file_name: '2.jpg', mime_type: 'image/jpeg', sort_order: 1 },
+    ],
+    assignment: { max_file_size_mb: 1 },
+  });
+  assert.equal(result[0].extractionMethod, 'unreadable');
+  assert.match(result[0].warnings[0], /chưa sẵn sàng/i);
+  assert.equal(result[1].file.mimeType, 'image/jpeg');
+});

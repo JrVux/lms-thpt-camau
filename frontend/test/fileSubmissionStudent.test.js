@@ -26,3 +26,8 @@ test('student essay page uses bundle upload and renders child file history', asy
   assert.match(source, /item\.files/);
   assert.match(source, /files\/\$\{file\.id\}\/download/);
 });
+
+test('student assignment list does not depend on private object keys', async () => {
+  const source = await readFile(new URL('../src/pages/MyAssignments.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /object_key/);
+});
