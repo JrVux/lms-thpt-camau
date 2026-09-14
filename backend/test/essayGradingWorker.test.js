@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEssayGradingWorker, processEssayJob, safeEssayErrorCode } from '../src/services/essayGradingWorker.js';
+import { combineExtractedFiles, createEssayGradingWorker, processEssayJob, safeEssayErrorCode } from '../src/services/essayGradingWorker.js';
 
 test('builds an awaiting-review report without writing a model total', async () => {
   const job = { id: 'j1', submission_id: 's1', grading_method: 'percentage_v2', rubric_snapshot: [], model_answer_snapshot: 'A' };
@@ -98,4 +98,38 @@ test('stops before AI processing when the claimed lease is no longer owned', asy
   assert.deepEqual(updateFilters, [{ id: 'j1', lease_owner: 'worker-1' }]);
   assert.equal(gatewayCalls, 0);
   assert.equal(reportWrites, 0);
+});
+
+test('extracts vision files sequentially and grades the combined bundle once', async () => {
+  const calls = [];
+  const grade = {
+    score: 8, correctness_percentage: 80, extracted_text: 'Một\nHai', extraction_quality: 'sufficient', extraction_warnings: [],
+    overall_feedback: 'Khá', correct_content: [], missing_or_incorrect_content: [], contradictions: [], strengths: [], improvements: [], confidence: 0.8,
+  };
+  const result = await processEssayJob({
+    job: { id: 'j1', submission_id: 's1', grading_method: 'percentage_v2', rubric_snapshot: [], model_answer_snapshot: 'Đáp án' },
+    assignment: { essay_content: 'Đề', max_score: 10 },
+    submission: { id: 's1' },
+    files: [{ file_name: '1.docx', sort_order: 0 }, { file_name: '2.jpg', sort_order: 1 }],
+    fileReader: {
+      readMany: async () => [
+        { fileName: '1.docx', sortOrder: 0, extractedText: 'Một', extractionMethod: 'docx_text', warnings: [] },
+        { fileName: '2.jpg', sortOrder: 1, file: { mimeType: 'image/jpeg', base64: 'AA==' }, extractionMethod: 'gemini_vision', warnings: [] },
+      ],
+    },
+    gateway: {
+      extractFile: async ({ fileName }) => { calls.push(`extract:${fileName}`); return { extractedText: 'Hai', quality: 'sufficient', warnings: [] }; },
+      generate: async ({ extractedText }) => { calls.push(`grade:${extractedText}`); return { provider: 'gemini', model: 'g', usage: {}, grade }; },
+    },
+  });
+  assert.equal(calls[0], 'extract:2.jpg');
+  assert.match(calls[1], /^grade:<submission_file index="1" name="1\.docx">/);
+  assert.match(calls[1], /<submission_file index="2" name="2\.jpg">\nHai/);
+  assert.equal(calls.length, 2);
+  assert.equal(result.report.extraction_method, 'multi_file');
+});
+
+test('combined extraction fails safely when every file is unreadable or total text is too long', () => {
+  assert.throws(() => combineExtractedFiles([{ fileName: 'blur.jpg', extractedText: '' }], 100), (error) => error.code === 'FILE_NOT_AVAILABLE');
+  assert.throws(() => combineExtractedFiles([{ fileName: 'long.pdf', extractedText: 'x'.repeat(101) }], 100), (error) => error.code === 'AI_ESSAY_INVALID');
 });

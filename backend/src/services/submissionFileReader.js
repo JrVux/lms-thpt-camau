@@ -17,8 +17,9 @@ export const detectFileType = (buffer) => {
 
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 
-export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(), 'uploads/submissions'), r2Download = downloadBufferFromR2 } = {}) => ({
-  async read({ submission, assignment }) {
+export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(), 'uploads/submissions'), r2Download = downloadBufferFromR2 } = {}) => {
+  const reader = {
+    async read({ submission, assignment }) {
     if (!submission?.object_key?.startsWith('local://')) fail('FILE_NOT_AVAILABLE', 'Không tìm thấy bản file nội bộ để chấm.');
     const root = path.resolve(uploadsDir);
     const filePath = path.resolve(root, submission.object_key.slice('local://'.length));
@@ -49,5 +50,29 @@ export const createSubmissionFileReader = ({ uploadsDir = path.join(process.cwd(
       }
     }
     return { file: { mimeType, base64: buffer.toString('base64') }, extractionMethod: 'gemini_vision' };
-  },
-});
+    },
+    async readMany({ submission, files = [], assignment }) {
+      const ordered = files.length
+        ? [...files].sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+        : [{
+            object_key: submission.object_key,
+            file_name: submission.file_name,
+            mime_type: submission.mime_type,
+            file_size: submission.file_size,
+            sort_order: 0,
+          }];
+      const results = [];
+      for (const file of ordered) {
+        try {
+          const content = await reader.read({ submission: { ...submission, ...file, delivery_id: submission.delivery_id, user_id: submission.user_id }, assignment });
+          results.push({ fileName: file.file_name, sortOrder: file.sort_order, warnings: [], ...content });
+        } catch (error) {
+          if (error?.code !== 'FILE_INVALID') throw error;
+          results.push({ fileName: file.file_name, sortOrder: file.sort_order, extractedText: '', extractionMethod: 'unreadable', warnings: [error.message] });
+        }
+      }
+      return results;
+    },
+  };
+  return reader;
+};

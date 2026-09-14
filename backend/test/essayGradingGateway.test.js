@@ -51,3 +51,19 @@ test('rejects an empty extraction instead of storing a zero-like draft', () => {
     overall_feedback: 'Không đủ dữ liệu', strengths: [], improvements: [],
   }, rubric, 4), /trích xuất|nội dung/i);
 });
+
+test('gateway validates one-file Gemini extraction', async () => {
+  const gateway = createEssayGradingGateway({
+    gemini: {
+      isConfigured: true,
+      extract: async () => ({
+        value: { extracted_text: 'Nội dung trang viết tay', extraction_quality: 'uncertain', extraction_warnings: ['Một dòng hơi mờ'] },
+        model: 'gemini-test', usage: {},
+      }),
+    },
+  });
+  const result = await gateway.extractFile({ file: { mimeType: 'image/jpeg', base64: 'AA==' }, fileName: 'trang-2.jpg' });
+  assert.equal(result.extractedText, 'Nội dung trang viết tay');
+  assert.equal(result.quality, 'uncertain');
+  assert.deepEqual(result.warnings, ['Một dòng hơi mờ']);
+});

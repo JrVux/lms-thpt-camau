@@ -1,10 +1,56 @@
 const SAFE_CODES = new Set(['AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'AI_CONFIGURATION_ERROR', 'AI_ESSAY_INVALID', 'FILE_NOT_AVAILABLE', 'FILE_INVALID', 'FILE_TOO_LARGE']);
 const RETRYABLE = new Set(['AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'FILE_NOT_AVAILABLE']);
 const backoffMs = (attempt) => Math.min(60_000 * (2 ** Math.max(0, attempt - 1)), 900_000);
+const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
+
+const escapeBoundary = (value) => String(value || 'file')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+export const combineExtractedFiles = (results, maxChars = Number(process.env.AI_ESSAY_MAX_EXTRACTED_CHARS || 100000)) => {
+  const readable = (results || []).filter((item) => item.extractedText?.trim());
+  if (!readable.length) fail('FILE_NOT_AVAILABLE', 'Không đọc được nội dung từ bộ file bài làm.');
+  const text = readable.map((item) => `<submission_file index="${Number(item.sortOrder) + 1}" name="${escapeBoundary(item.fileName)}">\n${item.extractedText.trim()}\n</submission_file>`).join('\n');
+  if (text.length > maxChars) fail('AI_ESSAY_INVALID', 'Tổng nội dung bài làm vượt giới hạn xử lý an toàn.');
+  return text;
+};
 
 export const safeEssayErrorCode = (error) => SAFE_CODES.has(error?.code) ? error.code : 'AI_ESSAY_FAILED';
 
-export const processEssayJob = async ({ job, assignment, submission, fileReader, gateway }) => {
+export const processEssayJob = async ({ job, assignment, submission, files = [], fileReader, gateway }) => {
+  if (typeof fileReader.readMany === 'function') {
+    const inputs = await fileReader.readMany({ submission, files, assignment });
+    const extracted = [];
+    const fileWarnings = [];
+    for (const input of inputs) {
+      let result = input;
+      if (input.file) {
+        const vision = await gateway.extractFile({ file: input.file, fileName: input.fileName });
+        result = { ...input, extractedText: vision.extractedText, quality: vision.quality, warnings: [...(input.warnings || []), ...(vision.warnings || [])] };
+      }
+      for (const warning of result.warnings || []) fileWarnings.push(`${result.fileName}: ${warning}`);
+      if (!result.extractedText?.trim()) fileWarnings.push(`${result.fileName}: Không đọc được nội dung.`);
+      extracted.push(result);
+    }
+    const combinedText = combineExtractedFiles(extracted);
+    const gradingMethod = job.grading_method || 'rubric_v1';
+    const generated = await gateway.generate({
+      gradingMethod,
+      question: assignment.essay_content,
+      modelAnswer: job.model_answer_snapshot,
+      rubric: job.rubric_snapshot,
+      maxScore: assignment.max_score,
+      extractedText: combinedText,
+    });
+    const report = buildReport({ job, assignment, gradingMethod, generated, input: {
+      extractedText: combinedText,
+      extractionMethod: 'multi_file',
+      warnings: fileWarnings,
+    } });
+    return { jobStatus: 'awaiting_review', provider: generated.provider, model: generated.model, usage: generated.usage, report };
+  }
   const input = await fileReader.read({ submission, assignment });
   const gradingMethod = job.grading_method || 'rubric_v1';
   const generated = await gateway.generate({
@@ -16,12 +62,23 @@ export const processEssayJob = async ({ job, assignment, submission, fileReader,
     extractedText: input.extractedText,
     file: input.file,
   });
+  const report = buildReport({ job, assignment, gradingMethod, generated, input });
+  return {
+    jobStatus: 'awaiting_review',
+    provider: generated.provider,
+    model: generated.model,
+    usage: generated.usage,
+    report,
+  };
+};
+
+const buildReport = ({ job, assignment, gradingMethod, generated, input }) => {
   const report = {
     job_id: job.id, submission_id: job.submission_id, source: 'ai', grading_method: gradingMethod,
-    extracted_text: generated.grade.extracted_text || input.extractedText || '',
+    extracted_text: input.extractedText || generated.grade.extracted_text || '',
     extraction_method: input.extractionMethod,
-    extraction_quality: generated.grade.extraction_quality,
-    extraction_warnings: generated.grade.extraction_warnings || [],
+    extraction_quality: (input.warnings?.length ? 'uncertain' : generated.grade.extraction_quality),
+    extraction_warnings: [...(input.warnings || []), ...(generated.grade.extraction_warnings || [])],
     ai_score: generated.grade.score,
     ai_overall_feedback: generated.grade.overall_feedback,
     ai_strengths: generated.grade.strengths || [],
@@ -41,13 +98,7 @@ export const processEssayJob = async ({ job, assignment, submission, fileReader,
   } else {
     report.ai_criteria_results = generated.grade.criteria_results;
   }
-  return {
-    jobStatus: 'awaiting_review',
-    provider: generated.provider,
-    model: generated.model,
-    usage: generated.usage,
-    report,
-  };
+  return report;
 };
 
 export const createEssayGradingWorker = ({ db, fileReader, gateway, workerId = 'essay-worker', leaseSeconds = 120, maxAttempts = 3, now = () => Date.now() }) => {
@@ -73,11 +124,17 @@ export const createEssayGradingWorker = ({ db, fileReader, gateway, workerId = '
       }
       const submission = submissionResult.data;
       const assignment = assignmentResult.data;
+      let files = [];
+      if (typeof fileReader.readMany === 'function') {
+        const fileResult = await db.from('submission_files').select('*').eq('submission_id', submission.id).order('sort_order');
+        if (fileResult.error) throw new Error(fileResult.error.message);
+        files = fileResult.data || [];
+      }
       const leaseExpiresAt = () => new Date(now() + leaseSeconds * 1000).toISOString();
       if (!await updateJob(job.id, { status: 'grading', lease_expires_at: leaseExpiresAt(), updated_at: new Date(now()).toISOString() })) {
         return { claimed: true, jobId: job.id, status: 'lease_lost' };
       }
-      const result = await processEssayJob({ job, assignment, submission, fileReader, gateway });
+      const result = await processEssayJob({ job, assignment, submission, files, fileReader, gateway });
       if (!await updateJob(job.id, { status: 'grading', lease_expires_at: leaseExpiresAt(), updated_at: new Date(now()).toISOString() })) {
         return { claimed: true, jobId: job.id, status: 'lease_lost' };
       }

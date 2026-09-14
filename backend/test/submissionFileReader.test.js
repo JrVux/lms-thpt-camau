@@ -26,3 +26,24 @@ test('falls back to the deterministic private R2 key when local storage is gone'
   assert.equal(requestedKey, 'd1/u1/saved.jpg');
   assert.equal(result.file.mimeType, 'image/jpeg');
 });
+
+test('reads child files sequentially in sort order', async () => {
+  const requested = [];
+  const reader = createSubmissionFileReader({
+    uploadsDir: 'Z:\\missing-essay-uploads',
+    r2Download: async ({ objectKey }) => {
+      requested.push(objectKey);
+      return Buffer.from([0xff, 0xd8, 0xff, 0x00]);
+    },
+  });
+  const result = await reader.readMany({
+    submission: { delivery_id: 'd1', user_id: 'u1' },
+    files: [
+      { object_key: 'local://tmp/s/f2.jpg', file_name: '2.jpg', mime_type: 'image/jpeg', sort_order: 1 },
+      { object_key: 'local://tmp/s/f1.jpg', file_name: '1.jpg', mime_type: 'image/jpeg', sort_order: 0 },
+    ],
+    assignment: { max_file_size_mb: 1 },
+  });
+  assert.deepEqual(requested, ['d1/u1/tmp/s/f1.jpg', 'd1/u1/tmp/s/f2.jpg']);
+  assert.deepEqual(result.map((item) => item.fileName), ['1.jpg', '2.jpg']);
+});
