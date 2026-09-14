@@ -444,7 +444,8 @@ export const createFileSubmissionService = (db, {
     if (userRole === 'student' && sub.user_id !== userId) {
       throwForbidden();
     }
-    if (userRole === 'teacher' && sub.assignment_deliveries?.teacher_id !== userId) {
+    const downloadDelivery = singleRelation(sub.assignment_deliveries);
+    if (userRole === 'teacher' && downloadDelivery?.teacher_id !== userId) {
       throwForbidden('Bạn không có quyền tải bài nộp này.');
     }
     if (!['student', 'teacher'].includes(userRole)) throwForbidden();

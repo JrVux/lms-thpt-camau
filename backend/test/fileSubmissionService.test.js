@@ -191,7 +191,7 @@ test('getSubmissionDownload authorizes before using the private R2 fallback', as
     object_key: 'local://saved.jpg',
     file_name: 'saved.jpg',
     mime_type: 'image/jpeg',
-    assignment_deliveries: { teacher_id: 'teacher-1' },
+    assignment_deliveries: [{ teacher_id: 'teacher-1' }],
   };
   const db = { from: () => queryReturning(submission) };
   const service = fileSubmissionModule.createFileSubmissionService(db, {
