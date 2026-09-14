@@ -34,6 +34,8 @@ export default function FileSubmissionManager() {
   const [filterKey, setFilterKey] = useState('all');
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState([]);
+  const [selectedAttemptId, setSelectedAttemptId] = useState(null);
+  const [selectedFileId, setSelectedFileId] = useState(null);
 
   // Grading form state
   const [score, setScore] = useState('');
@@ -67,8 +69,31 @@ export default function FileSubmissionManager() {
   );
 
   const selectedItem = selectedIndex !== null ? filteredRoster[selectedIndex] : null;
+  const selectedAttempt = selectedItem?.history?.find((item) => item.id === selectedAttemptId)
+    || selectedItem?.latest
+    || null;
+  const previewFiles = selectedAttempt
+    ? (selectedAttempt.files?.length ? selectedAttempt.files : [{
+        id: null,
+        file_name: selectedAttempt.file_name,
+        mime_type: selectedAttempt.mime_type,
+        file_size: selectedAttempt.file_size,
+      }]).map((file, index) => ({
+        ...file,
+        selectionId: file.id || `legacy-${selectedAttempt.id}-${index}`,
+      }))
+    : [];
+  const selectedPreviewFile = previewFiles.find((file) => file.selectionId === selectedFileId) || previewFiles[0];
+  const isViewingHistorical = Boolean(selectedItem?.latest?.id && selectedAttempt?.id !== selectedItem.latest.id);
   const isPercentageReview = selectedItem?.essay_grading?.job?.grading_method === 'percentage_v2';
   const selectedMaxScore = Number(selectedItem?.latest?.max_score || 10);
+
+  useEffect(() => {
+    const latest = selectedItem?.latest;
+    const firstFile = latest?.files?.[0];
+    setSelectedAttemptId(latest?.id || null);
+    setSelectedFileId(firstFile?.id || (latest?.id ? `legacy-${latest.id}-0` : null));
+  }, [selectedItem?.delivery_id, selectedItem?.student_id, selectedItem?.latest?.id]);
 
   useEffect(() => {
     if (selectedItem?.latest) {
@@ -418,14 +443,60 @@ export default function FileSubmissionManager() {
             {selectedItem.latest ? (
               <div className="space-y-6">
                 {/* File Preview */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-200">{previewFiles.length} file</span>
+                      {isViewingHistorical && <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">Đang xem lần nộp cũ</span>}
+                    </div>
+                    {selectedItem.history?.length > 1 && (
+                      <details className="relative">
+                        <summary className="cursor-pointer text-xs font-medium text-blue-300">Các lần nộp trước</summary>
+                        <div className="absolute right-0 z-10 mt-2 w-64 space-y-1 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl">
+                          {selectedItem.history.map((attempt, index) => (
+                            <button
+                              key={attempt.id}
+                              type="button"
+                              onClick={() => {
+                                const first = attempt.files?.[0];
+                                setSelectedAttemptId(attempt.id);
+                                setSelectedFileId(first?.id || `legacy-${attempt.id}-0`);
+                              }}
+                              className={`w-full rounded px-3 py-2 text-left text-xs ${attempt.id === selectedAttempt?.id ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
+                            >
+                              Lần {selectedItem.history.length - index} · {new Date(attempt.submitted_at).toLocaleString('vi-VN')}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {previewFiles.map((file, index) => (
+                      <button
+                        key={file.selectionId}
+                        type="button"
+                        onClick={() => setSelectedFileId(file.selectionId)}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs ${file.selectionId === selectedPreviewFile?.selectionId ? 'border-blue-500 bg-blue-500/15 text-blue-200' : 'border-slate-700 text-slate-300 hover:bg-slate-700/50'}`}
+                      >
+                        <span className="block max-w-[180px] truncate font-medium">{index + 1}. {file.file_name}</span>
+                        <span className="text-[11px] text-slate-500">{formatFileSize(file.file_size)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <FilePreview
-                  submissionId={selectedItem.latest.id}
-                  fileName={selectedItem.latest.file_name}
-                  mimeType={selectedItem.latest.mime_type}
+                  submissionId={selectedAttempt.id}
+                  fileId={selectedPreviewFile?.id}
+                  fileName={selectedPreviewFile?.file_name}
+                  mimeType={selectedPreviewFile?.mime_type}
                 />
 
                 {/* Grading Form */}
-                <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-700/60 space-y-4">
+                {isViewingHistorical && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">Đây là lần nộp cũ. Hãy quay lại bản chính thức để chấm, duyệt hoặc công bố.</div>}
+                <fieldset disabled={isViewingHistorical} className="bg-slate-900/60 p-5 rounded-xl border border-slate-700/60 space-y-4 disabled:opacity-60">
                   <h3 className="text-sm font-semibold text-slate-200">{selectedItem.essay_grading ? 'Duyệt bản chấm AI' : 'Chấm điểm & Nhận xét'}</h3>
 
                   {selectedItem.essay_grading?.job?.status === 'failed' && <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">AI chưa chấm được bài này ({selectedItem.essay_grading.job.error_code || 'AI_ESSAY_FAILED'}). Bài không bị cho 0 điểm.<button type="button" onClick={handleRetryAi} className="ml-2 underline">Chấm lại</button></div>}
@@ -523,7 +594,7 @@ export default function FileSubmissionManager() {
                     </button>
                     </>}
                   </div>
-                </div>
+                </fieldset>
               </div>
             ) : (
               <div className="p-8 text-center bg-slate-900/40 rounded-xl border border-slate-800 text-slate-500 space-y-2">

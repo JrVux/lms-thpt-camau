@@ -1,31 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { previewKind } from '../utils/fileSubmission';
-import { Download, ExternalLink, RefreshCw, FileText, Image as ImageIcon } from 'lucide-react';
+import { Download, RefreshCw, FileText } from 'lucide-react';
 
-export default function FilePreview({ submissionId, fileName, mimeType }) {
+export default function FilePreview({ submissionId, fileId = null, fileName, mimeType }) {
   const [downloadUrl, setDownloadUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const fetchUrl = async () => {
-    if (!submissionId) return;
-    try {
-      setLoading(true);
-      setError('');
-      const res = await api.get(`/api/file-submissions/${submissionId}/download`, { responseType: 'blob' });
-      const blobUrl = URL.createObjectURL(res.data);
-      setDownloadUrl(blobUrl);
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Lỗi lấy liên kết xem file.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    let objectUrl = '';
+    const fetchUrl = async () => {
+      if (!submissionId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError('');
+        setDownloadUrl((previous) => {
+          if (previous) URL.revokeObjectURL(previous);
+          return '';
+        });
+        const endpoint = fileId
+          ? `/api/file-submissions/${submissionId}/files/${fileId}/download`
+          : `/api/file-submissions/${submissionId}/download`;
+        const res = await api.get(endpoint, { responseType: 'blob' });
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(res.data);
+        setDownloadUrl(objectUrl);
+      } catch (err) {
+        if (!cancelled) setError(err.response?.data?.message || err.message || 'Lỗi lấy liên kết xem file.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
     fetchUrl();
-  }, [submissionId]);
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [submissionId, fileId, reloadKey]);
 
   const kind = previewKind(mimeType);
 
@@ -43,7 +60,7 @@ export default function FilePreview({ submissionId, fileName, mimeType }) {
       <div className="p-6 bg-slate-900/60 rounded-xl border border-slate-800 text-center space-y-3">
         <p className="text-sm text-rose-400">{error || 'Không xem được file trực tiếp.'}</p>
         <button
-          onClick={fetchUrl}
+          onClick={() => setReloadKey((value) => value + 1)}
           className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200"
         >
           Thử tải lại

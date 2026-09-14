@@ -16,6 +16,31 @@ test('report rows contain no private URL fields', () => {
   assert.equal(JSON.stringify(row).includes('object_key'), false);
 });
 
+test('report joins bundle names without private fields', () => {
+  const [row] = toReportRows([{
+    student_name: 'An',
+    status: 'submitted',
+    latest: { files: [{ file_name: 'a.pdf' }, { file_name: 'b.jpg' }] },
+  }]);
+  assert.equal(row['Tên file'], 'a.pdf; b.jpg');
+  assert.doesNotMatch(JSON.stringify(row), /object_key|downloadUrl|token/i);
+});
+
+test('teacher preview uses a file-specific download route', async () => {
+  const source = await readFile(new URL('../src/components/FilePreview.jsx', import.meta.url), 'utf8');
+  assert.match(source, /files\/\$\{fileId\}\/download/);
+  assert.match(source, /revokeObjectURL/);
+});
+
+test('teacher can inspect historical attempts without changing the grading target', async () => {
+  const source = await readFile(new URL('../src/pages/FileSubmissionManager.jsx', import.meta.url), 'utf8');
+  assert.match(source, /selectedAttemptId/);
+  assert.match(source, /Các lần nộp trước/);
+  assert.match(source, /isViewingHistorical/);
+  assert.match(source, /fieldset disabled=\{isViewingHistorical\}/);
+  assert.match(source, /selectedItem\.latest\.id/);
+});
+
 test('filters the teacher roster by AI review and publication states', () => {
   const aiRows = [
     { essay_grading: { job: { status: 'grading' }, report: null } },

@@ -124,7 +124,10 @@ export const toReportRows = (roster = []) => {
     'Trạng thái': row.status === 'graded' ? 'Đã chấm' : row.status === 'late' ? 'Nộp trễ' : row.status === 'submitted' ? 'Đã nộp' : 'Chưa nộp',
     'Thời gian nộp': row.latest?.submitted_at ? new Date(row.latest.submitted_at).toLocaleString('vi-VN') : '',
     'Nộp trễ': row.latest?.is_late ? 'Có' : 'Không',
-    'Tên file': row.latest?.file_name || '',
+    'Tên file': (
+      row.latest?.files
+      || (row.latest?.file_name ? [{ file_name: row.latest.file_name }] : [])
+    ).map((file) => file.file_name).join('; '),
     'Điểm': row.latest?.score ?? '',
     'Nhận xét': row.latest?.feedback || '',
   }));
