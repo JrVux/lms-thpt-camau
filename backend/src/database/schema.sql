@@ -573,3 +573,61 @@ REVOKE ALL ON FUNCTION claim_student_analysis_job(text, int) FROM public, anon, 
 GRANT EXECUTE ON FUNCTION claim_student_analysis_job(text, int) TO service_role;
 -- AI essay grading additions are deployed by migrations/015_ai_essay_grading.sql.
 -- Keep this bootstrap schema aligned by applying that migration after base schema creation.
+
+-- Multi-file essay submission storage. The atomic confirmation RPC is deployed by migration 017.
+CREATE TABLE IF NOT EXISTS submission_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+  object_key TEXT NOT NULL UNIQUE,
+  file_name TEXT NOT NULL CHECK (char_length(file_name) BETWEEN 1 AND 100),
+  mime_type TEXT NOT NULL,
+  file_size BIGINT NOT NULL CHECK (file_size > 0),
+  sort_order SMALLINT NOT NULL CHECK (sort_order BETWEEN 0 AND 4),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (submission_id, sort_order)
+);
+
+CREATE TABLE IF NOT EXISTS submission_upload_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  delivery_id UUID NOT NULL REFERENCES assignment_deliveries(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'uploading'
+    CHECK (status IN ('uploading', 'confirming', 'confirmed', 'cancelled', 'expired', 'cleanup_pending')),
+  expected_file_count SMALLINT NOT NULL CHECK (expected_file_count BETWEEN 1 AND 5),
+  expires_at TIMESTAMPTZ NOT NULL,
+  confirmed_submission_id UUID REFERENCES submissions(id) ON DELETE SET NULL,
+  cleanup_reason TEXT
+    CHECK (cleanup_reason IN ('cancelled', 'expired', 'upload_failed', 'confirm_failed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS submission_upload_session_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES submission_upload_sessions(id) ON DELETE CASCADE,
+  object_key TEXT NOT NULL UNIQUE,
+  file_name TEXT NOT NULL CHECK (char_length(file_name) BETWEEN 1 AND 100),
+  mime_type TEXT NOT NULL,
+  declared_size BIGINT NOT NULL CHECK (declared_size > 0),
+  file_size BIGINT CHECK (file_size > 0),
+  sort_order SMALLINT NOT NULL CHECK (sort_order BETWEEN 0 AND 4),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'uploaded', 'cleanup_pending', 'cleaned')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (session_id, sort_order),
+  UNIQUE (session_id, file_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_submission_files_submission_order
+  ON submission_files(submission_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_submission_upload_sessions_cleanup
+  ON submission_upload_sessions(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_submission_upload_session_files_status
+  ON submission_upload_session_files(session_id, status, sort_order);
+
+ALTER TABLE submission_files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE submission_upload_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE submission_upload_session_files ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON submission_files, submission_upload_sessions, submission_upload_session_files FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON submission_files, submission_upload_sessions, submission_upload_session_files TO service_role;
