@@ -42,6 +42,10 @@ services:
         value: "true"
       - key: AI_ESSAY_GRADING_WORKER_ENABLED
         value: "true"
+      - key: AI_ESSAY_QUEUE_RECONCILER_ENABLED
+        value: "true"
+      - key: AI_ESSAY_QUEUE_RECONCILER_POLL_MS
+        value: "30000"
       - key: GEMINI_ESSAY_MODEL
         value: gemini-3.6-flash
       - key: AI_ESSAY_GRADING_TIMEOUT_MS

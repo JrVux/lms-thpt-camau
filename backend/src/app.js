@@ -204,6 +204,19 @@ const startEssayGradingWorker = async () => {
 
 startEssayGradingWorker().catch((error) => logger.error({ message: 'Essay grading worker failed to start', error: error.message }));
 
+const startEssayQueueReconciler = async () => {
+  if (process.env.AI_ESSAY_QUEUE_RECONCILER_ENABLED === 'false' || !process.env.GEMINI_API_KEY) return;
+  const [{ supabase }, { createEssayQueueReconciler }] = await Promise.all([
+    import('./services/supabaseClient.js'),
+    import('./services/essayQueueReconciler.js'),
+  ]);
+  const reconciler = createEssayQueueReconciler({ db: supabase });
+  reconciler.start({ intervalMs: Number(process.env.AI_ESSAY_QUEUE_RECONCILER_POLL_MS) || 30_000 });
+  logger.info('Essay grading queue reconciler started');
+};
+
+startEssayQueueReconciler().catch((error) => logger.error({ message: 'Essay grading queue reconciler failed to start', error: error.message }));
+
 const startSubmissionUploadCleanupWorker = async () => {
   if (process.env.SUBMISSION_UPLOAD_CLEANUP_ENABLED === 'false') return;
   const [{ supabase }, { createSubmissionUploadCleanupWorker }] = await Promise.all([
