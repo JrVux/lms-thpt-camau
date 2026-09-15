@@ -9,6 +9,46 @@ import {
 } from '../src/services/essayGradingService.js';
 
 const rubric = [{ id: 'c1', max_points: 4 }, { id: 'c2', max_points: 6 }];
+const aiAssignment = {
+  id: 'a1', ai_grading_enabled: true, content_version: 1,
+  essay_model_answer: 'A', essay_rubric: [],
+};
+
+const queueDb = ({ existing = null, insertError = null, existingAfterError = null } = {}) => {
+  const inserts = [];
+  let readCount = 0;
+  const db = {
+    from(table) {
+      if (table === 'essay_grading_events') {
+        return { insert: async (payload) => { inserts.push({ table, payload }); return { error: null }; } };
+      }
+      let mode = 'read';
+      let insertedPayload = null;
+      const builder = {
+        select: () => builder,
+        eq: () => builder,
+        order: () => builder,
+        limit: () => builder,
+        insert(payload) {
+          mode = 'insert';
+          insertedPayload = payload;
+          inserts.push({ table, payload });
+          return builder;
+        },
+        maybeSingle: async () => {
+          if (mode === 'insert') {
+            if (insertError) return { data: null, error: { message: insertError.message } };
+            return { data: { id: 'job-new', ...insertedPayload }, error: null };
+          }
+          readCount += 1;
+          return { data: readCount === 1 ? existing : existingAfterError, error: null };
+        },
+      };
+      return builder;
+    },
+  };
+  return { db, inserts };
+};
 
 test('derives reviewed score from exact rubric criteria', () => {
   assert.equal(reviewedScore([{ rubric_item_id: 'c1', awarded_points: 3 }, { rubric_item_id: 'c2', awarded_points: 5 }], rubric, 10), 8);
@@ -90,6 +130,50 @@ test('enqueue persists an explicit grading method and prompt version', async () 
   assert.deepEqual(jobs[0].rubric_snapshot, []);
   assert.equal(jobs[1].grading_method, 'rubric_v1');
   assert.equal(jobs[1].prompt_version, 'essay-grading-v1');
+});
+
+test('ensureQueued returns an existing job without inserting', async () => {
+  const existing = { id: 'job-existing', submission_id: 's1', status: 'queued' };
+  const { db, inserts } = queueDb({ existing });
+  const result = await createEssayGradingService(db).ensureQueued({
+    submission: { id: 's1', delivery_id: 'd1', user_id: 'u1' },
+    assignment: aiAssignment,
+    studentId: 'u1',
+  });
+  assert.deepEqual(result, { job: existing, created: false });
+  assert.equal(inserts.filter((item) => item.table === 'essay_grading_jobs').length, 0);
+});
+
+test('ensureQueued creates one initial job when none exists', async () => {
+  const { db, inserts } = queueDb();
+  const result = await createEssayGradingService(db).ensureQueued({
+    submission: { id: 's1', delivery_id: 'd1', user_id: 'u1' },
+    assignment: aiAssignment,
+    studentId: 'u1',
+  });
+  assert.equal(result.created, true);
+  assert.equal(result.job.submission_id, 's1');
+  assert.equal(inserts.filter((item) => item.table === 'essay_grading_jobs').length, 1);
+});
+
+test('ensureQueued treats a concurrent insert as success after reread', async () => {
+  const raced = { id: 'job-race', submission_id: 's1', status: 'queued' };
+  const { db } = queueDb({ insertError: new Error('duplicate key'), existingAfterError: raced });
+  const result = await createEssayGradingService(db).ensureQueued({
+    submission: { id: 's1', delivery_id: 'd1', user_id: 'u1' },
+    assignment: aiAssignment,
+    studentId: 'u1',
+  });
+  assert.deepEqual(result, { job: raced, created: false });
+});
+
+test('ensureQueued rethrows when insert fails and no job exists', async () => {
+  const { db } = queueDb({ insertError: new Error('database unavailable') });
+  await assert.rejects(() => createEssayGradingService(db).ensureQueued({
+    submission: { id: 's1', delivery_id: 'd1', user_id: 'u1' },
+    assignment: aiAssignment,
+    studentId: 'u1',
+  }), /database unavailable/i);
 });
 
 test('saves a percentage review without rubric criteria', async () => {

@@ -91,6 +91,18 @@ export const buildPublishResult = (reports) => (reports || []).reduce((result, r
 }, { publishable: [], skipped: [] });
 
 export const createEssayGradingService = (db) => {
+  const latestJob = async (submissionId) => {
+    const { data, error } = await db
+      .from('essay_grading_jobs')
+      .select('*')
+      .eq('submission_id', submissionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data || null;
+  };
+
   const enqueue = async ({ submission, assignment, studentId, requestedBy = null }) => {
     const normalized = Array.isArray(submission) ? submission[0] : submission;
     if (!assignment?.ai_grading_enabled || !normalized?.id) return null;
@@ -113,6 +125,20 @@ export const createEssayGradingService = (db) => {
     if (error) throw new Error(error.message);
     await db.from('essay_grading_events').insert({ job_id: data.id, event_type: 'queued', actor_id: requestedBy, metadata: {} });
     return data;
+  };
+
+  const ensureQueued = async (input) => {
+    const normalized = Array.isArray(input.submission) ? input.submission[0] : input.submission;
+    if (!input.assignment?.ai_grading_enabled || !normalized?.id) return { job: null, created: false };
+    const existing = await latestJob(normalized.id);
+    if (existing) return { job: existing, created: false };
+    try {
+      return { job: await enqueue(input), created: true };
+    } catch (error) {
+      const raced = await latestJob(normalized.id);
+      if (raced) return { job: raced, created: false };
+      throw error;
+    }
   };
 
   const publishedReportsBySubmission = async (submissionIds) => {
@@ -249,5 +275,5 @@ export const createEssayGradingService = (db) => {
     return report;
   };
 
-  return { enqueue, publishedReportsBySubmission, teacherReport, saveReview, setPublished, retry, createManualReview };
+  return { enqueue, ensureQueued, publishedReportsBySubmission, teacherReport, saveReview, setPublished, retry, createManualReview };
 };
