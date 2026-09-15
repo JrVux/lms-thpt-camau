@@ -1,7 +1,7 @@
 # Thiết kế tự động bảo đảm bài tự luận vào hàng đợi AI
 
-**Ngày:** 2026-09-15  
-**Trạng thái:** Đã được người dùng duyệt phương án 2  
+**Ngày:** 2026-09-15
+**Trạng thái:** Đã được người dùng duyệt phương án 2
 **Phạm vi:** Luồng tạo job chấm AI sau khi nộp bài tự luận một file hoặc nhiều file; không thay đổi cách AI chấm, duyệt hay công bố điểm.
 
 ## 1. Vấn đề
