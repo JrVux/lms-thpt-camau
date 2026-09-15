@@ -182,6 +182,60 @@ test('submitStudentFile does not create database metadata when R2 storage fails'
   }
 });
 
+test('single-file submission stays successful but reports false when automatic enqueue fails', async () => {
+  const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lms-queue-status-'));
+  const reports = [];
+  const assignment = {
+    id: 'assignment-1', submission_type: 'essay', allowed_mime_types: ['image/jpeg'],
+    max_file_size_mb: 1, allow_late_submission: true, ai_grading_enabled: true,
+    essay_model_answer: 'Đáp án', essay_rubric: [], max_score: 10,
+  };
+  const created = { id: 'submission-1', delivery_id: 'delivery-1', user_id: 'student-1' };
+  const db = {
+    from(table) {
+      if (table === 'assignment_deliveries') return queryReturning({
+        id: 'delivery-1', class_id: 'class-1', recipient_mode: 'all',
+        max_submissions: null, due_date: null, assignment,
+      });
+      if (table === 'enrollments') return queryReturning({ id: 'enrollment-1' });
+      if (table === 'submissions') {
+        const query = {
+          select: () => query,
+          eq: () => query,
+          not: () => query,
+          update: () => query,
+          order: async () => ({ data: [], error: null }),
+          maybeSingle: async () => ({ data: created, error: null }),
+        };
+        return query;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+    rpc: async () => ({ data: created, error: null }),
+  };
+  const service = fileSubmissionModule.createFileSubmissionService(db, {
+    uploadsDir,
+    r2Upload: async () => true,
+    ensureQueued: async () => { throw new Error('database unavailable'); },
+    reportQueueError: (context) => reports.push(context),
+  });
+
+  try {
+    const result = await service.submitStudentFile({
+      studentId: 'student-1', deliveryId: 'delivery-1', fileName: 'answer.jpg',
+      mimeType: 'image/jpeg', fileSize: 4,
+      fileData: `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0x00]).toString('base64')}`,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.grading_queued, false);
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0].submissionId, 'submission-1');
+    assert.equal(JSON.stringify(reports[0]).includes('Đáp án'), false);
+  } finally {
+    fs.rmSync(uploadsDir, { recursive: true, force: true });
+  }
+});
+
 test('getSubmissionDownload authorizes before using the private R2 fallback', async () => {
   let downloadCalls = 0;
   const submission = {

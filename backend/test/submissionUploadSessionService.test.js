@@ -24,12 +24,12 @@ test('upload metadata accepts one to five unique files and rejects invalid bundl
 
 test('confirm queues one AI job and returns the same submission when retried', async () => {
   let rpcCalls = 0;
-  let enqueueCalls = 0;
+  let ensureCalls = 0;
   const service = createSubmissionUploadSessionService({}, {
     getStudentDelivery: async () => essayDetail,
     loadOwnedSession: async () => ({ id: 'session-1', user_id: 'u1', delivery_id: 'd1', status: 'uploading' }),
     confirmRpc: async () => ({ submission: { id: 'submission-1' }, created: rpcCalls++ === 0 }),
-    enqueue: async () => { enqueueCalls += 1; },
+    ensureQueued: async () => ({ job: { id: `job-${++ensureCalls}` }, created: ensureCalls === 1 }),
   });
 
   const first = await service.confirmSession({ studentId: 'u1', sessionId: 'session-1' });
@@ -37,7 +37,29 @@ test('confirm queues one AI job and returns the same submission when retried', a
 
   assert.equal(first.submission.id, 'submission-1');
   assert.equal(second.submission.id, 'submission-1');
-  assert.equal(enqueueCalls, 1);
+  assert.equal(first.grading_queued, true);
+  assert.equal(second.grading_queued, true);
+  assert.equal(ensureCalls, 2);
+});
+
+test('confirm reports false and logs safely when automatic enqueue fails', async () => {
+  const reports = [];
+  const service = createSubmissionUploadSessionService({}, {
+    getStudentDelivery: async () => essayDetail,
+    loadOwnedSession: async () => ({ id: 'session-1', user_id: 'u1', delivery_id: 'd1', status: 'confirmed' }),
+    confirmRpc: async () => ({ submission: { id: 'submission-1', delivery_id: 'd1', user_id: 'u1' }, created: false }),
+    loadAssignment: async () => ({ ...essayDetail.assignment, essay_model_answer: 'bí mật', essay_rubric: [] }),
+    ensureQueued: async () => { throw new Error('database unavailable'); },
+    reportQueueError: (context) => reports.push(context),
+  });
+
+  const result = await service.confirmSession({ studentId: 'u1', sessionId: 'session-1' });
+
+  assert.equal(result.success, true);
+  assert.equal(result.grading_queued, false);
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].submissionId, 'submission-1');
+  assert.equal(JSON.stringify(reports[0]).includes('bí mật'), false);
 });
 
 test('an invalid upload cancels the whole session before confirmation', async () => {
@@ -101,7 +123,10 @@ test('AI enqueue reloads the private model answer after student-safe authorizati
     loadOwnedSession: async () => ({ id: 'session-1', user_id: 'u1', delivery_id: 'd1', status: 'uploading' }),
     confirmRpc: async () => ({ submission: { id: 'submission-1' }, created: true }),
     loadAssignment: async () => ({ ...essayDetail.assignment, essay_model_answer: 'Đáp án bí mật', essay_rubric: [] }),
-    enqueue: async ({ assignment }) => { queuedAssignment = assignment; },
+    ensureQueued: async ({ assignment }) => {
+      queuedAssignment = assignment;
+      return { job: { id: 'job-1' }, created: true };
+    },
   });
 
   await service.confirmSession({ studentId: 'u1', sessionId: 'session-1' });

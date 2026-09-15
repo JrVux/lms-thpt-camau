@@ -7,6 +7,7 @@ import {
   validateSubmissionBuffer,
 } from './fileSubmissionService.js';
 import { createEssayGradingService } from './essayGradingService.js';
+import { reportEssayQueueError } from './essayQueueDiagnostics.js';
 import { createSubmissionUploadCleanupWorker } from './submissionUploadCleanupWorker.js';
 
 const fail = (code, message) => {
@@ -65,10 +66,12 @@ export const createSubmissionUploadSessionService = (db, {
   cleanupSession,
   confirmRpc,
   loadAssignment,
-  enqueue,
+  ensureQueued,
+  reportQueueError = reportEssayQueueError,
   now = () => Date.now(),
 } = {}) => {
   const essayGrading = createEssayGradingService(db);
+  const ensureEssayQueued = ensureQueued || essayGrading.ensureQueued;
   const cleanupWorker = createSubmissionUploadCleanupWorker({ db, uploadsDir, now });
 
   const defaultLoadOwnedSession = async ({ studentId, sessionId }) => {
@@ -226,7 +229,8 @@ export const createSubmissionUploadSessionService = (db, {
     }
     const submission = result?.submission;
     if (!submission?.id) fail('CONFLICT', 'Không nhận được bài nộp sau khi xác nhận.');
-    if (result.created && detail.assignment.ai_grading_enabled) {
+    let gradingQueued = false;
+    if (detail.assignment.ai_grading_enabled) {
       try {
         let gradingAssignment = detail.assignment;
         if (loadAssignment) {
@@ -235,14 +239,20 @@ export const createSubmissionUploadSessionService = (db, {
           const { data } = await db.from('assignments').select('*').eq('id', detail.assignment.id).maybeSingle();
           if (data) gradingAssignment = data;
         }
-        await (enqueue || essayGrading.enqueue)({ submission, assignment: gradingAssignment, studentId });
-      } catch {
-        // Submission is durable; teacher can retry grading from the existing workflow.
+        const queueResult = await ensureEssayQueued({ submission, assignment: gradingAssignment, studentId });
+        gradingQueued = Boolean(queueResult?.job);
+      } catch (error) {
+        reportQueueError({
+          operation: 'confirm_upload_session',
+          submissionId: submission.id,
+          assignmentId: detail.assignment.id,
+          error,
+        });
       }
     }
     let history = detail.history;
     try { history = (await getStudentDelivery({ studentId, deliveryId: session.delivery_id })).history; } catch { /* retain current history */ }
-    return { success: true, submission: safeSubmission(submission), history, grading_queued: Boolean(result.created && detail.assignment.ai_grading_enabled) };
+    return { success: true, submission: safeSubmission(submission), history, grading_queued: gradingQueued };
   };
 
   const cancelSession = async ({ studentId, sessionId }) => {

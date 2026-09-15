@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { downloadBufferFromR2, uploadBufferToR2 } from './r2Service.js';
 import { createEssayGradingService, toStudentEssaySubmission } from './essayGradingService.js';
+import { reportEssayQueueError } from './essayQueueDiagnostics.js';
 import { detectFileType } from './submissionFileReader.js';
 import { groupSubmissionHistory, safeSubmissionBundle } from './submissionFiles.js';
 
@@ -105,8 +106,11 @@ export const createFileSubmissionService = (db, {
   uploadsDir = path.join(process.cwd(), 'uploads/submissions'),
   r2Upload = uploadBufferToR2,
   r2Download = downloadBufferFromR2,
+  ensureQueued,
+  reportQueueError = reportEssayQueueError,
 } = {}) => {
   const essayGrading = createEssayGradingService(db);
+  const ensureEssayQueued = ensureQueued || essayGrading.ensureQueued;
   const throwNotFound = (msg = 'Không tìm thấy thông tin bài tập') => {
     const err = new Error(msg);
     err.code = 'NOT_FOUND';
@@ -413,10 +417,15 @@ export const createFileSubmissionService = (db, {
           .select()
           .maybeSingle();
         if (prepareError) throw new Error(prepareError.message);
-        await essayGrading.enqueue({ submission: prepared || createdSubmission, assignment, studentId });
-        gradingQueued = true;
-      } catch {
-        // The durable submission remains successful; a teacher can enqueue it again.
+        const queueResult = await ensureEssayQueued({ submission: prepared || createdSubmission, assignment, studentId });
+        gradingQueued = Boolean(queueResult?.job);
+      } catch (error) {
+        reportQueueError({
+          operation: 'submit_single_file',
+          submissionId: createdSubmission.id,
+          assignmentId: assignment.id,
+          error,
+        });
       }
     }
 
