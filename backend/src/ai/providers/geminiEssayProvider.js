@@ -5,8 +5,11 @@ const DEFAULT_RETRY_AFTER_MS = 60000;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const parseRetryAfterMs = (response, body) => {
-  const headerSeconds = Number(response.headers?.get?.('retry-after'));
-  if (Number.isFinite(headerSeconds) && headerSeconds >= 0) return headerSeconds * 1000;
+  const retryAfterHeader = response.headers?.get?.('retry-after');
+  if (retryAfterHeader !== null && retryAfterHeader !== undefined && String(retryAfterHeader).trim() !== '') {
+    const headerSeconds = Number(retryAfterHeader);
+    if (Number.isFinite(headerSeconds) && headerSeconds >= 0) return headerSeconds * 1000;
+  }
   const match = String(body?.error?.message || '').match(/retry in\s+([0-9.]+)s/i);
   if (match) return Math.ceil(Number(match[1]) * 1000);
   return DEFAULT_RETRY_AFTER_MS;

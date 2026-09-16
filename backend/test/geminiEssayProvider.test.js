@@ -95,3 +95,24 @@ test('maps 429 to a shared Retry-After cooldown', async () => {
 
   assert.deepEqual(starts, [0, 43000]);
 });
+
+test('uses the Gemini error body cooldown when Retry-After is absent', async () => {
+  const provider = createGeminiEssayProvider({
+    apiKey: 'key',
+    model: 'gemini-test',
+    minRequestIntervalMs: 0,
+    fetchImpl: async () => ({
+      ok: false,
+      status: 429,
+      headers: { get: () => null },
+      json: async () => ({
+        error: { message: 'Quota exceeded. Please retry in 12.5s.' },
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    provider.grade({ system: 's', user: 'u', schema: { type: 'object' } }),
+    (error) => error.code === 'AI_RATE_LIMITED' && error.retryAfterMs === 12500,
+  );
+});
