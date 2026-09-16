@@ -189,9 +189,13 @@ const startEssayGradingWorker = async () => {
   ]);
   const worker = createEssayGradingWorker({
     db: supabase,
-    fileReader: createSubmissionFileReader(),
-    gateway: createEssayGradingGateway({
-      gemini: createGeminiEssayProvider({ apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_ESSAY_MODEL }),
+      fileReader: createSubmissionFileReader(),
+      gateway: createEssayGradingGateway({
+      gemini: createGeminiEssayProvider({
+        apiKey: process.env.GEMINI_API_KEY,
+        model: process.env.GEMINI_ESSAY_MODEL,
+        minRequestIntervalMs: Number(process.env.GEMINI_ESSAY_MIN_REQUEST_INTERVAL_MS) || 4000,
+      }),
       timeoutMs: Number(process.env.AI_ESSAY_GRADING_TIMEOUT_MS) || 90000,
     }),
     workerId: `essay-${process.pid}`,

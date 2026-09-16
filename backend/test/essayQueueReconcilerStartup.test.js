@@ -11,6 +11,8 @@ test('backend starts the queue reconciler behind explicit configuration', async 
   assert.match(app, /!process\.env\.GEMINI_API_KEY/);
   assert.match(app, /createEssayQueueReconciler/);
   assert.match(app, /AI_ESSAY_QUEUE_RECONCILER_POLL_MS/);
+  assert.match(app, /GEMINI_ESSAY_MIN_REQUEST_INTERVAL_MS/);
   assert.match(render, /key:\s*AI_ESSAY_QUEUE_RECONCILER_ENABLED[\s\S]*value:\s*"true"/);
   assert.match(render, /key:\s*AI_ESSAY_QUEUE_RECONCILER_POLL_MS[\s\S]*value:\s*"30000"/);
+  assert.match(render, /key:\s*GEMINI_ESSAY_MIN_REQUEST_INTERVAL_MS[\s\S]*value:\s*"4000"/);
 });
