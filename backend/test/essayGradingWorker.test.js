@@ -27,7 +27,113 @@ test('builds an awaiting-review report without writing a model total', async () 
 
 test('maps only safe worker error codes', () => {
   assert.equal(safeEssayErrorCode({ code: 'AI_TIMEOUT' }), 'AI_TIMEOUT');
+  assert.equal(safeEssayErrorCode({ code: 'AI_RATE_LIMITED' }), 'AI_RATE_LIMITED');
   assert.equal(safeEssayErrorCode(new Error('secret detail')), 'AI_ESSAY_FAILED');
+});
+
+test('rate limiting requeues a job without consuming its retry budget', async () => {
+  const nowValue = 1_700_000_000_000;
+  const jobPatches = [];
+  const events = [];
+  const db = {
+    rpc: async () => ({
+      data: {
+        id: 'j1',
+        submission_id: 's1',
+        assignment_id: 'a1',
+        rubric_snapshot: [],
+        model_answer_snapshot: 'Đáp án',
+        attempt_count: 3,
+      },
+      error: null,
+    }),
+    from(table) {
+      if (table === 'submissions' || table === 'assignments') {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          single: async () => ({
+            data: table === 'submissions'
+              ? { id: 's1', object_key: 'answers/s1.txt', mime_type: 'text/plain' }
+              : { id: 'a1', essay_content: 'Đề bài', max_score: 10 },
+            error: null,
+          }),
+        };
+        return builder;
+      }
+      if (table === 'essay_grading_jobs') {
+        let patch;
+        const builder = {
+          update: (value) => { patch = value; return builder; },
+          eq: () => builder,
+          select: () => builder,
+          maybeSingle: async () => {
+            jobPatches.push(patch);
+            return { data: { id: 'j1' }, error: null };
+          },
+        };
+        return builder;
+      }
+      if (table === 'essay_grading_reports') {
+        return { upsert: async () => { throw new Error('report must not be written'); } };
+      }
+      if (table === 'essay_grading_events') {
+        return { insert: async (event) => { events.push(event); return { error: null }; } };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    },
+  };
+  const rateLimited = new Error('quota');
+  rateLimited.code = 'AI_RATE_LIMITED';
+  rateLimited.retryAfterMs = 43_000;
+  const worker = createEssayGradingWorker({
+    db,
+    workerId: 'worker-1',
+    now: () => nowValue,
+    fileReader: { read: async () => ({ extractedText: 'Bài', extractionMethod: 'text' }) },
+    gateway: { generate: async () => { throw rateLimited; } },
+  });
+
+  const result = await worker.runOnce();
+  const finalPatch = jobPatches.at(-1);
+
+  assert.equal(finalPatch.status, 'queued');
+  assert.equal(finalPatch.error_code, 'AI_RATE_LIMITED');
+  assert.equal(finalPatch.attempt_count, 2);
+  assert.equal(finalPatch.next_attempt_at, new Date(nowValue + 43_000).toISOString());
+  assert.equal(result.retrying, true);
+  assert.deepEqual(events, [{ job_id: 'j1', event_type: 'retry_scheduled', metadata: { error_code: 'AI_RATE_LIMITED' } }]);
+});
+
+test('worker scheduler waits for the current tick before scheduling another', async () => {
+  const timers = [];
+  const cleared = [];
+  let resolveClaim;
+  const claim = new Promise((resolve) => { resolveClaim = resolve; });
+  const worker = createEssayGradingWorker({
+    db: { rpc: async () => claim },
+    fileReader: {},
+    gateway: {},
+  });
+  const setTimer = (callback, ms) => {
+    const timer = { callback, ms, unref() {} };
+    timers.push(timer);
+    return timer;
+  };
+  const clearTimer = (timer) => { cleared.push(timer); };
+
+  const stop = worker.start({ intervalMs: 5000, setTimer, clearTimer });
+  assert.equal(timers.length, 1);
+  const firstTick = timers.shift();
+  const pending = firstTick.callback();
+  assert.equal(timers.length, 0);
+
+  resolveClaim({ data: null, error: null });
+  await pending;
+  assert.equal(timers.length, 1);
+
+  stop();
+  assert.deepEqual(cleared, [timers[0]]);
 });
 
 test('stops before AI processing when the claimed lease is no longer owned', async () => {

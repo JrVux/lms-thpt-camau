@@ -1,4 +1,4 @@
-const SAFE_CODES = new Set(['AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'AI_CONFIGURATION_ERROR', 'AI_ESSAY_INVALID', 'FILE_NOT_AVAILABLE', 'FILE_INVALID', 'FILE_TOO_LARGE']);
+const SAFE_CODES = new Set(['AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'AI_RATE_LIMITED', 'AI_CONFIGURATION_ERROR', 'AI_ESSAY_INVALID', 'FILE_NOT_AVAILABLE', 'FILE_INVALID', 'FILE_TOO_LARGE']);
 const RETRYABLE = new Set(['AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'FILE_NOT_AVAILABLE']);
 const backoffMs = (attempt) => Math.min(60_000 * (2 ** Math.max(0, attempt - 1)), 900_000);
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
@@ -149,14 +149,44 @@ export const createEssayGradingWorker = ({ db, fileReader, gateway, workerId = '
     } catch (error) {
       const attempt = Number(job.attempt_count || 1);
       const code = safeEssayErrorCode(error);
-      const retry = RETRYABLE.has(code) && attempt < maxAttempts;
-      if (!await updateJob(job.id, { status: retry ? 'queued' : 'failed', error_code: code, next_attempt_at: new Date(now() + (retry ? backoffMs(attempt) : 0)).toISOString(), updated_at: new Date(now()).toISOString(), lease_owner: null, lease_expires_at: null })) {
+      const rateLimited = code === 'AI_RATE_LIMITED';
+      const retry = rateLimited || (RETRYABLE.has(code) && attempt < maxAttempts);
+      const delay = rateLimited
+        ? Math.max(1000, Number(error.retryAfterMs) || 60000)
+        : backoffMs(attempt);
+      const patch = {
+        status: retry ? 'queued' : 'failed',
+        error_code: code,
+        next_attempt_at: new Date(now() + (retry ? delay : 0)).toISOString(),
+        updated_at: new Date(now()).toISOString(),
+        lease_owner: null,
+        lease_expires_at: null,
+      };
+      if (rateLimited) patch.attempt_count = Math.max(0, attempt - 1);
+      if (!await updateJob(job.id, patch)) {
         return { claimed: true, jobId: job.id, status: 'lease_lost' };
       }
       await db.from('essay_grading_events').insert({ job_id: job.id, event_type: retry ? 'retry_scheduled' : 'analysis_failed', metadata: { error_code: code } });
       return { claimed: true, jobId: job.id, status: retry ? 'queued' : 'failed', retrying: retry };
     }
   };
-  const start = ({ intervalMs = 5000 } = {}) => { const timer = setInterval(() => { runOnce().catch(() => {}); }, intervalMs); timer.unref?.(); return () => clearInterval(timer); };
+  const start = ({ intervalMs = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) => {
+    let stopped = false;
+    let timer = null;
+    const schedule = () => {
+      if (stopped) return;
+      timer = setTimer(tick, intervalMs);
+      timer?.unref?.();
+    };
+    const tick = async () => {
+      try { await runOnce(); } catch { /* isolate one worker tick */ }
+      finally { schedule(); }
+    };
+    schedule();
+    return () => {
+      stopped = true;
+      if (timer !== null) clearTimer(timer);
+    };
+  };
   return { runOnce, start };
 };
