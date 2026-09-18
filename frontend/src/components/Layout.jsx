@@ -21,23 +21,9 @@ const teacherMenu = [
   },
   {
     label: 'Kho bài tập',
-    subtitle: 'Tất cả bài tập',
+    subtitle: 'Tất cả bài tập tự động chấm',
     path: '/assignments',
     icon: Library,
-    section: 'Quản lý',
-  },
-  {
-    label: 'Bài tập Thực hành',
-    subtitle: 'Bài nộp file sản phẩm',
-    path: '/assignments?type=practice_file',
-    icon: FileCheck,
-    section: 'Quản lý',
-  },
-  {
-    label: 'Bài tập Tự luận',
-    subtitle: 'Bài tự luận nộp file',
-    path: '/assignments?type=essay',
-    icon: FileText,
     section: 'Quản lý',
   },
 ];
@@ -55,20 +41,6 @@ const studentMenu = [
     subtitle: 'Tất cả bài tập được giao',
     path: '/assignments',
     icon: FileCode2,
-    section: 'Học tập',
-  },
-  {
-    label: 'Bài tập Thực hành',
-    subtitle: 'Bài thực hành nộp file',
-    path: '/assignments?type=practice_file',
-    icon: FileCheck,
-    section: 'Học tập',
-  },
-  {
-    label: 'Bài tập Tự luận',
-    subtitle: 'Bài tự luận nộp file',
-    path: '/assignments?type=essay',
-    icon: FileText,
     section: 'Học tập',
   },
 ];

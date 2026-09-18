@@ -30,10 +30,6 @@ const TABS = [
 ];
 
 const editorPath = (delivery) => {
-  const submissionType = delivery.assignments?.submission_type;
-  if (['practice_file', 'essay'].includes(submissionType)) {
-    return `/deliveries/${delivery.id}/file-submission`;
-  }
   const type = delivery.assignments?.type;
   if (type === 'sql') return `/deliveries/${delivery.id}/sql-practice`;
   if (type === 'html') return `/deliveries/${delivery.id}/html-practice`;
@@ -69,9 +65,7 @@ const StudentGradebookSummary = ({ deliveries }) => {
         submittedCount += 1;
       }
 
-      let subTypeLabel = 'Lập trình';
-      if (assignment.submission_type === 'practice_file') subTypeLabel = 'Thực hành (File)';
-      if (assignment.submission_type === 'essay') subTypeLabel = 'Tự luận (File)';
+      const subTypeLabel = 'Tự động chấm';
 
       return {
         id: d.id,
@@ -337,14 +331,7 @@ const MyAssignments = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredDeliveries = useMemo(() => {
-    return deliveries.filter((d) => {
-      const st = d.assignments?.submission_type;
-      if (typeFilter === 'practice_file') return st === 'practice_file';
-      if (typeFilter === 'essay') return st === 'essay';
-      return !st || st === 'autograde';
-    });
-  }, [deliveries, typeFilter]);
+  const filteredDeliveries = deliveries;
 
   const counts = useMemo(() => Object.fromEntries(TABS.map((tab) => [
     tab.key,
@@ -355,11 +342,7 @@ const MyAssignments = () => {
 
   const visible = filteredDeliveries.filter((delivery) => delivery.assignment_status === activeTab);
 
-  const headerTitle = typeFilter === 'practice_file'
-    ? 'Bài tập Thực hành'
-    : typeFilter === 'essay'
-    ? 'Bài tập Tự luận'
-    : 'Bài tập của tôi';
+  const headerTitle = 'Bài tập của tôi';
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -411,13 +394,7 @@ const MyAssignments = () => {
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="font-semibold tracking-tight text-brand-heading">{assignment.title}</h2>
                   <div className="flex items-center gap-1.5">
-                    {['practice_file', 'essay'].includes(assignment.submission_type) ? (
-                      <Badge color={assignment.submission_type === 'essay' ? 'purple' : 'blue'}>
-                        {assignment.submission_type === 'essay' ? 'Tự luận' : 'Thực hành'}
-                      </Badge>
-                    ) : (
-                      <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
-                    )}
+                    <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
                   </div>
                 </div>
                 <p className="mt-2 text-sm text-brand-muted">

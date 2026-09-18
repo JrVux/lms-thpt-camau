@@ -41,8 +41,8 @@ app.use(cors({
   credentials: true,
 }));
 
-// Parse JSON body (tăng limit cho upload file PDF/DOCX)
-app.use(express.json({ limit: '50mb' }));
+// Parse JSON body
+app.use(express.json({ limit: '5mb' }));
 
 // General rate limit (5000 req/15 ph = ~5.5 req/s, đủ cho 250+ HS)
 app.use('/api/', rateLimit({
@@ -173,7 +173,7 @@ const startStudentAnalysisWorker = async () => {
 startStudentAnalysisWorker().catch((error) => logger.error({ message: 'Student AI analysis worker failed to start', error: error.message }));
 
 const startEssayGradingWorker = async () => {
-  if (process.env.AI_ESSAY_GRADING_WORKER_ENABLED === 'false' || !process.env.GEMINI_API_KEY) return;
+  if (process.env.AI_ESSAY_GRADING_WORKER_ENABLED !== 'true' || !process.env.GEMINI_API_KEY) return;
   const [
     { supabase },
     { createSubmissionFileReader },
@@ -222,7 +222,7 @@ const startEssayQueueReconciler = async () => {
 startEssayQueueReconciler().catch((error) => logger.error({ message: 'Essay grading queue reconciler failed to start', error: error.message }));
 
 const startSubmissionUploadCleanupWorker = async () => {
-  if (process.env.SUBMISSION_UPLOAD_CLEANUP_ENABLED === 'false') return;
+  if (process.env.SUBMISSION_UPLOAD_CLEANUP_ENABLED !== 'true') return;
   const [{ supabase }, { createSubmissionUploadCleanupWorker }] = await Promise.all([
     import('./services/supabaseClient.js'),
     import('./services/submissionUploadCleanupWorker.js'),

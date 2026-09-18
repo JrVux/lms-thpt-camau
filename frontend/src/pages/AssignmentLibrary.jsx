@@ -89,35 +89,13 @@ const AssignmentLibrary = () => {
     }
   };
 
-  const visibleAssignments = assignments.filter((a) => {
-    if (typeFilter === 'practice_file') return a.submission_type === 'practice_file';
-    if (typeFilter === 'essay') return a.submission_type === 'essay';
-    return !a.submission_type || a.submission_type === 'autograde';
-  });
+  const visibleAssignments = assignments;
 
-  const getPageHeader = () => {
-    if (typeFilter === 'practice_file') {
-      return {
-        title: 'Bài tập Thực hành',
-        subtitle: 'Các bài tập nộp file sản phẩm thực hành được giao và quản lý cho từng lớp.',
-        btnLabel: 'Tạo bài thực hành',
-      };
-    }
-    if (typeFilter === 'essay') {
-      return {
-        title: 'Bài tập Tự luận',
-        subtitle: 'Các bài tập tự luận nộp file làm bài được giao và quản lý cho từng lớp.',
-        btnLabel: 'Tạo bài tự luận',
-      };
-    }
-    return {
-      title: 'Kho bài tập (Tự động chấm)',
-      subtitle: 'Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.',
-      btnLabel: 'Tạo bài tập',
-    };
+  const headerInfo = {
+    title: 'Kho bài tập (Tự động chấm)',
+    subtitle: 'Tạo một lần, sau đó giao và tùy chỉnh độc lập cho từng lớp.',
+    btnLabel: 'Tạo bài tập',
   };
-
-  const headerInfo = getPageHeader();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -128,7 +106,7 @@ const AssignmentLibrary = () => {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to={`/assignments/new?submission_type=${typeFilter === 'all' ? 'autograde' : typeFilter}&category=${activeCategory}${activeTopic !== 'all' ? `&topicId=${activeTopic}` : ''}`}
+            to={`/assignments/new?category=${activeCategory}${activeTopic !== 'all' ? `&topicId=${activeTopic}` : ''}`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
           >
             <Plus className="h-4 w-4" />
@@ -208,13 +186,7 @@ const AssignmentLibrary = () => {
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-semibold tracking-tight text-brand-heading">{assignment.title}</h2>
                 <div className="flex items-center gap-1">
-                  {['practice_file', 'essay'].includes(assignment.submission_type) ? (
-                    <Badge color={assignment.submission_type === 'essay' ? 'purple' : 'blue'}>
-                      {assignment.submission_type === 'essay' ? 'Tự luận' : 'Thực hành'}
-                    </Badge>
-                  ) : (
-                    <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
-                  )}
+                  <Badge color={subjectColor(assignment.type)} className="uppercase">{assignment.type}</Badge>
                 </div>
               </div>
               <p className="mt-2 line-clamp-2 min-h-10 text-sm text-brand-muted">{assignment.description || 'Không có mô tả'}</p>
@@ -238,15 +210,6 @@ const AssignmentLibrary = () => {
                 </div>
               </dl>
               <div className="mt-4 flex flex-wrap gap-2 text-sm pt-1">
-                {['practice_file', 'essay'].includes(assignment.submission_type) && (
-                  <Link
-                    to={`/assignments/${assignment.id}/file-submissions`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-purple-500"
-                  >
-                    <Folder className="h-3.5 w-3.5" />
-                    Chấm bài / Xem bài nộp ({assignment.delivery_count ?? 0})
-                  </Link>
-                )}
                 <Link className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline" to={`/assignments/${assignment.id}/edit`}>
                   <Pencil className="h-3.5 w-3.5" />Chỉnh sửa
                 </Link>

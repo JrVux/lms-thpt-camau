@@ -41,11 +41,11 @@ services:
       - key: AI_ANALYSIS_WORKER_ENABLED
         value: "true"
       - key: AI_ESSAY_GRADING_WORKER_ENABLED
-        value: "true"
+        value: "false"
       - key: GEMINI_ESSAY_MIN_REQUEST_INTERVAL_MS
         value: "4000"
       - key: AI_ESSAY_QUEUE_RECONCILER_ENABLED
-        value: "true"
+        value: "false"
       - key: AI_ESSAY_QUEUE_RECONCILER_POLL_MS
         value: "30000"
       - key: GEMINI_ESSAY_MODEL

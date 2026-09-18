@@ -8,3 +8,6 @@ frontend/dist/
 *.log
 .DS_Store
 .worktrees/
+
+.vercel
+.env*

@@ -1,4 +1,6 @@
--- Fix PL/pgSQL return query structure match in create_file_submission
+-- Drop old function signature if needed and recreate returning SETOF public.submissions
+DROP FUNCTION IF EXISTS create_file_submission(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, BOOLEAN);
+
 CREATE OR REPLACE FUNCTION create_file_submission(
   p_delivery_id UUID,
   p_user_id UUID,
@@ -8,30 +10,13 @@ CREATE OR REPLACE FUNCTION create_file_submission(
   p_file_size BIGINT,
   p_is_late BOOLEAN
 )
-RETURNS TABLE (
-  id UUID,
-  delivery_id UUID,
-  user_id UUID,
-  object_key TEXT,
-  file_name TEXT,
-  mime_type TEXT,
-  file_size BIGINT,
-  submitted_at TIMESTAMPTZ,
-  is_late BOOLEAN,
-  is_latest BOOLEAN,
-  score NUMERIC,
-  feedback TEXT,
-  graded_at TIMESTAMPTZ,
-  graded_by UUID
-) AS $$
+RETURNS SETOF public.submissions AS $$
 BEGIN
   -- Lock row for concurrency safety
   PERFORM 1 FROM public.assignment_deliveries ad WHERE ad.id = p_delivery_id FOR SHARE;
 
   RETURN QUERY
-  SELECT s.id, s.delivery_id, s.user_id, s.object_key, s.file_name, s.mime_type,
-         s.file_size, s.submitted_at, s.is_late, s.is_latest, s.score, s.feedback,
-         s.graded_at, s.graded_by
+  SELECT s.*
   FROM public.submissions s
   WHERE s.object_key = p_object_key;
 
@@ -45,8 +30,6 @@ BEGIN
   ) VALUES (
     p_delivery_id, p_user_id, p_object_key, p_file_name, p_mime_type, p_file_size, p_is_late, TRUE, 'submitted'
   )
-  RETURNING submissions.id, submissions.delivery_id, submissions.user_id, submissions.object_key, submissions.file_name, submissions.mime_type,
-            submissions.file_size, submissions.submitted_at, submissions.is_late, submissions.is_latest, submissions.score, submissions.feedback,
-            submissions.graded_at, submissions.graded_by;
+  RETURNING *;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
